@@ -1,6 +1,6 @@
 # Secure Remote Password (SRP 6 / 6a)
 
-![crates.io](https://img.shields.io/crates/v/srp6.svg)
+[![crates.io](https://img.shields.io/crates/v/srp6.svg)](https://crates.io/crates/srp6)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/sassman/srp6-rs/branch/main/graph/badge.svg)](https://codecov.io/gh/sassman/srp6-rs)
 
