@@ -2,16 +2,22 @@
 default prime modulus and generator numbers taken from [RFC5054 Appendix A],
 so they can be treated as vetted and safe.
 
-**NOTE:** if you need to roll your own modulus, you can generate one e.g. this:
+## Usage:
+```rust
+use srp6::{Srp6_4096, HostAPI};
 
+let srp = Srp6_4096::default();
+let (_salt_s, _verifier_v) = srp.generate_new_user_secrets("Bob", "secret-password");
+```
+
+**NOTE:** if you need to roll your own modulus, you can generate one e.g. like this:
 ```sh
 openssl genrsa 1024 | openssl rsa -modulus
 ```
 
-then you can alias a type for a convienice creation like this:
+then you can alias a type for a convienice e.g.:
 ```rust
-use srp6::{Srp6, Generator};
-use std::convert::TryInto;
+use srp6::{Srp6, Generator, TryInto};
 
 pub type MyCustomSrp6 = Srp6<2, 2>;
 pub fn my_custom_srp6_new() -> MyCustomSrp6 {
@@ -33,7 +39,7 @@ use crate::primitives::Generator;
 use hex_literal::hex;
 use std::convert::TryInto;
 
-/// length of [`PrimeModulus`] `N` and [`Salt`] `s` is 256 bit / 32 byte.
+/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 256 bit / 32 byte.
 pub type Srp6_256 = Srp6<32, 32>;
 impl Default for Srp6_256 {
     fn default() -> Self {
@@ -47,7 +53,7 @@ impl Default for Srp6_256 {
     }
 }
 
-/// length of [`PrimeModulus`] `N` and [`Salt`] `s` is 512 bit / 64 byte.
+/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 512 bit / 64 byte.
 pub type Srp6_512 = Srp6<64, 64>;
 impl Default for Srp6_512 {
     fn default() -> Self {
@@ -60,6 +66,7 @@ impl Default for Srp6_512 {
     }
 }
 
+/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 1024 bit / 128 byte.
 /// taken from the 1024-bit group at [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
 pub type Srp6_1024 = Srp6<128, 128>;
 impl Default for Srp6_1024 {
@@ -71,7 +78,7 @@ impl Default for Srp6_1024 {
     }
 }
 
-/// length of [`crate::PrimeModulus`] `N` and [`crate::Salt`] `s` is 2048 bit / 256 byte.
+/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 2048 bit / 256 byte.
 /// taken from the 2048-bit group at [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
 pub type Srp6_2048 = Srp6<256, 256>;
 impl Default for Srp6_2048 {
@@ -85,7 +92,7 @@ impl Default for Srp6_2048 {
     }
 }
 
-/// length of [`PrimeModulus`] `N` and [`Salt`] `s` is 4096 bit / 512 byte.
+/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 4096 bit / 512 byte.
 /// taken from the 4096-bit group at [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
 pub type Srp6_4096 = Srp6<512, 512>;
 impl Default for Srp6_4096 {

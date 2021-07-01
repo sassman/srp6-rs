@@ -3,11 +3,11 @@ This module defines a list of all primitive types and functions
 needed to express the meaning of certain variables better.
 
 For instance in [RFC2945] the big prime number that acts
-as the modulus in every mathematical power operation is called [`N`].
+as the modulus in every mathematical power operation is called `N`.
 
-In order to increase readability the type of [`N`] is
+In order to increase readability the type of `N` is
 an alias to [`BigNumber`] that aims to express the meaning,
-so [`PrimeModulus`] is same as [`N`] which is a [`BigNumber`].
+so [`PrimeModulus`] is same as `N` which is a [`BigNumber`].
 
 This scheme is applied for all variables used in the calculus.
 
@@ -16,6 +16,8 @@ This scheme is applied for all variables used in the calculus.
 use crate::big_number::{BigNumber, Zero};
 use crate::hash::{hash, Digest, Hash, HashFunc, HASH_LENGTH};
 use crate::{Result, Srp6Error};
+
+use log::debug;
 
 const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
 
@@ -110,7 +112,7 @@ pub(crate) fn calculate_session_key_S_for_host<const KEY_LENGTH: usize>(
     let base = &(A * &v.modpow(u, N));
     let S: BigNumber = base.modpow(b, N);
 
-    dbg!("S = {:?}", &S);
+    debug!("S = {:?}", &S);
 
     Ok(S)
 }
@@ -143,7 +145,7 @@ pub(crate) fn calculate_session_key_S_for_client<const KEY_LENGTH: usize>(
     let g_mod_x = &g.modpow(x, N);
     let base = B - &(k * g_mod_x);
     let S = base.modpow(&exp, N);
-    dbg!("S = {:?}", &S);
+    debug!("S = {:?}", &S);
 
     Ok(S)
 }
@@ -183,7 +185,7 @@ pub(crate) fn calculate_session_key_hash_interleave_K<const KEY_LENGTH: usize>(
     }
 
     let K = BigNumber::from_bytes_le(&vK);
-    dbg!("K = {:?}", &K);
+    debug!("K = {:?}", &K);
 
     K
 }
@@ -200,7 +202,7 @@ pub(crate) fn calculate_proof_M<const KEY_LENGTH: usize, const SALT_LENGTH: usiz
 ) -> Proof {
     let xor_hash: Hash = calculate_hash_N_xor_g::<KEY_LENGTH>(N, g);
     let username_hash = HashFunc::new().chain(I.as_bytes()).finalize();
-    dbg!("H(I) = {:?}", &username_hash);
+    debug!("H(I) = {:?}", &username_hash);
 
     let M: Proof = HashFunc::new()
         .chain(xor_hash)
@@ -211,7 +213,7 @@ pub(crate) fn calculate_proof_M<const KEY_LENGTH: usize, const SALT_LENGTH: usiz
         .chain(K.to_array_pad_zero::<STRONG_SESSION_KEY_LENGTH>())
         .into();
 
-    dbg!("M = {:?}", &M);
+    debug!("M = {:?}", &M);
 
     M
 }
@@ -229,7 +231,7 @@ pub(crate) fn calculate_strong_proof_M2<const KEY_LENGTH: usize>(
         .chain(M.to_array_pad_zero::<HASH_LENGTH>())
         .chain(K.to_array_pad_zero::<STRONG_SESSION_KEY_LENGTH>())
         .into();
-    dbg!("M2 = {:?}", &M2);
+    debug!("M2 = {:?}", &M2);
 
     M2
 }
@@ -252,7 +254,7 @@ fn calculate_hash_N_xor_g<const KEY_LENGTH: usize>(N: &PrimeModulus, g: &Generat
     }
 
     let H_n_g: Hash = h.into();
-    dbg!("H(N) xor H(g) = {:X?}", &H_n_g);
+    debug!("H(N) xor H(g) = {:X?}", &H_n_g);
 
     H_n_g
 }
@@ -278,7 +280,7 @@ pub(crate) fn calculate_password_verifier_v(
 #[allow(non_snake_case)]
 pub(crate) fn calculate_u<const KEY_LENGTH: usize>(A: &PublicKey, B: &PublicKey) -> BigNumber {
     let u = hash::<KEY_LENGTH>(A, B);
-    dbg!("u = {:?}", &u);
+    debug!("u = {:?}", &u);
 
     u
 }
@@ -288,7 +290,7 @@ pub(crate) fn calculate_u<const KEY_LENGTH: usize>(A: &PublicKey, B: &PublicKey)
 #[allow(non_snake_case)]
 pub(crate) fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> PublicKey {
     let A = g.modpow(a, N);
-    dbg!("A = {:?}", &A);
+    debug!("A = {:?}", &A);
 
     A
 }
@@ -305,7 +307,7 @@ pub(crate) fn calculate_pubkey_B(
 ) -> PublicKey {
     let g_mod_N = g.modpow(b, N);
     let B = &((k * v) + g_mod_N) % N;
-    dbg!("B = {:?}", &B);
+    debug!("B = {:?}", &B);
 
     B
 }
@@ -330,7 +332,7 @@ pub(crate) fn calculate_private_key_x(
         .chain(s.to_vec().as_slice())
         .chain(ph)
         .into();
-    dbg!("x = {:?}", &x);
+    debug!("x = {:?}", &x);
 
     x
 }

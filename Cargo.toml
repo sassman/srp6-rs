@@ -3,7 +3,7 @@ name = "srp6"
 version = "1.0.0-alpha.1"
 authors = ["Sven Assmann <sven.assmann.it@gmail.com>"]
 edition = "2018"
-description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP), SRP6a and legacy are as features available."
+description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6a). Version 6 (legacy) is as features available."
 
 [dependencies]
 thiserror = "1.0"
@@ -13,6 +13,7 @@ num-bigint = { version = "0.4", features = ["rand"] }
 num-traits = "0.2"
 hex = "0.4"
 hex-literal = "0.3"
+log = { version = "0.4", features = ["release_max_level_warn"] }
 
 [dev-dependencies]
 
