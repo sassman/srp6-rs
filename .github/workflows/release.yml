@@ -76,7 +76,7 @@ jobs:
           profile: minimal
       - uses: Swatinem/rust-cache@v1
       - name: cargo test
-        run: cargo test --all --locked -- -Z unstable-options
+        run: RUST_LOG=debug cargo test
 
   audit:
     name: security audit
