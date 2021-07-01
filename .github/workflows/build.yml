@@ -79,7 +79,7 @@ jobs:
           profile: minimal
       - uses: Swatinem/rust-cache@v1
       - name: cargo test
-        run: RUST_LOG=debug cargo test
+        run: cargo test
 
   coverage:
     name: coverage report
