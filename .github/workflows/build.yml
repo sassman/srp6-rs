@@ -79,7 +79,7 @@ jobs:
           profile: minimal
       - uses: Swatinem/rust-cache@v1
       - name: cargo test
-        run: cargo test
+        run: cargo test --all-features
 
   coverage:
     name: coverage report
@@ -102,7 +102,7 @@ jobs:
         uses: actions-rs/tarpaulin@v0.1
         with:
           version: '0.15.0'
-          args: '-- --test-threads 1'
+          args: '--all-features -- --test-threads 1'
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2
         with:
