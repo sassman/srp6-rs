@@ -22,4 +22,3 @@ log = { version = "0.4", features = ["release_max_level_warn"] }
 [features]
 legacy = []
 default = []
-

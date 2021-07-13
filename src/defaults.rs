@@ -40,7 +40,9 @@ use hex_literal::hex;
 use std::convert::TryInto;
 
 /// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 256 bit / 32 byte.
+#[cfg(feature = "legacy")]
 pub type Srp6_256 = Srp6<32, 32>;
+#[cfg(feature = "legacy")]
 impl Default for Srp6_256 {
     fn default() -> Self {
         Self::new(
@@ -54,7 +56,9 @@ impl Default for Srp6_256 {
 }
 
 /// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 512 bit / 64 byte.
+#[cfg(feature = "legacy")]
 pub type Srp6_512 = Srp6<64, 64>;
+#[cfg(feature = "legacy")]
 impl Default for Srp6_512 {
     fn default() -> Self {
         Self::new(
@@ -68,7 +72,9 @@ impl Default for Srp6_512 {
 
 /// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 1024 bit / 128 byte.
 /// taken from the 1024-bit group at [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
+#[cfg(feature = "legacy")]
 pub type Srp6_1024 = Srp6<128, 128>;
+#[cfg(feature = "legacy")]
 impl Default for Srp6_1024 {
     fn default() -> Self {
         Self::new(
@@ -130,6 +136,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "legacy")]
     fn should_ensure_key_length_is_as_expected() {
         let srp = Srp6_256::default();
         assert_eq!(srp.N.num_bytes(), 256 / 8);
@@ -139,7 +146,10 @@ mod tests {
 
         let srp = Srp6_1024::default();
         assert_eq!(srp.N.num_bytes() as u32, 1024 / 8);
+    }
 
+    #[test]
+    fn should_ensure_the_non_legacy_key_lengths() {
         let srp = Srp6_2048::default();
         assert_eq!(srp.N.num_bytes() as u32, 2048 / 8);
 
