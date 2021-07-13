@@ -13,6 +13,20 @@ fn main() {
         "## Simulating a Server and {} is our client.",
         user.username
     );
+    println!("host secrets are:");
+    println!(
+        " - public key          [B] = {:?}",
+        &proof_verifier.server_keys.0
+    );
+    println!(
+        " - private key         [b] = {:?}",
+        &proof_verifier.server_keys.1
+    );
+    println!();
+    println!("{}'s secrets are:", user.username);
+    println!(" - verifier          [v] = {:?}", &user.verifier);
+    println!(" - salt              [s] = {:?}", &user.salt);
+    println!();
     println!("{}'s handshake looks like:", user.username);
     println!(" - salt              [s] = {:?}", &handshake.s);
     println!(" - server public key [B] = {:?}", &handshake.B);
