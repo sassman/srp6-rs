@@ -102,6 +102,9 @@ pub struct Srp6<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
 }
 
 impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Srp6<KEY_LENGTH, SALT_LENGTH> {
+    pub const KEY_LEN: usize = KEY_LENGTH;
+    pub const SALT_LEN: usize = SALT_LENGTH;
+
     /// this constructor takes care of calculate the right `k`
     #[allow(non_snake_case)]
     pub fn new(g: Generator, N: PrimeModulus) -> Result<Self> {
@@ -192,7 +195,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Handshake<KEY_LENGTH, SA
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use crate::{Srp6_256, StrongSessionKey};
+    use crate::StrongSessionKey;
     use std::convert::TryInto;
 
     pub struct Srp6_256Mock;
@@ -270,6 +273,8 @@ pub mod tests {
     #[test]
     #[cfg(feature = "legacy")]
     fn should_prepare_a_new_user() {
+        use crate::defaults::Srp6_256;
+
         let (s, v) = Srp6_256::default().generate_new_user_secrets(
             "ADMINISTRATOR",
             "administrator",
@@ -295,7 +300,8 @@ pub mod tests {
 
     #[test]
     fn should_panic_when_key_length_does_not_fit_to_modulus() {
-        let err = Srp6::<10, 10>::new(
+        type Srp = Srp6<10, 10>;
+        let err = Srp::new(
             Generator::from(3),
             PrimeModulus::from_hex_str_be("FE27").unwrap(),
         );
@@ -303,7 +309,7 @@ pub mod tests {
         assert_eq!(
             err.err().unwrap(),
             Srp6Error::KeyLengthMismatch {
-                expected: 10,
+                expected: Srp::KEY_LEN,
                 given: 2
             }
         )
@@ -311,7 +317,10 @@ pub mod tests {
 
     #[test]
     #[allow(non_snake_case)]
+    #[cfg(feature = "legacy")]
     fn should_do_the_full_round_trip_to_proof() {
+        use crate::defaults::Srp6_256;
+
         // hard mocked
         let user = mocked_user_details();
 
@@ -338,6 +347,7 @@ pub mod tests {
             .unwrap();
     }
 
+    #[cfg(feature = "legacy")]
     fn mocked_user_details() -> UserDetails {
         UserDetails {
             username: Mock::I().to_owned(),

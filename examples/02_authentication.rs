@@ -7,9 +7,8 @@ fn main() {
     let user = mocked::lookup_user_details("Bob");
 
     // the server creates a handshake
-    let key_length_bits = 4096;
     let (handshake, proof_verifier) = Srp6_4096::default().start_handshake(&user);
-    assert_eq!(handshake.B.num_bytes(), key_length_bits / 8);
+    assert_eq!(handshake.B.num_bytes(), Srp6_4096::KEY_LEN);
     println!(
         "## Simulating a Server and {} is our client.",
         user.username
@@ -27,7 +26,7 @@ fn main() {
     let (proof, strong_proof_verifier) = handshake
         .calculate_proof(user.username.as_str(), USER_PASSWORD)
         .unwrap();
-    assert_eq!(proof.A.num_bytes(), key_length_bits / 8);
+    assert_eq!(proof.A.num_bytes(), Srp6_4096::KEY_LEN);
     assert_eq!(proof.M1.num_bytes(), 20, "sha1 hash length expected");
     println!();
     println!("## Simulating client {}", user.username);

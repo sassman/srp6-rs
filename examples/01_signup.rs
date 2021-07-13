@@ -5,11 +5,11 @@ fn main() {
     let new_username: UsernameRef = "Bob";
     let user_password: &ClearTextPassword = "secret-password";
 
-    // choose a Srp6_BITS type that is strong like 2048 or 4096
-    let srp = Srp6_256::default();
+    // Reminder: choose always a Srp6_BITS type that is strong like 2048 or 4096
+    let srp = Srp6_2048::default();
     let (salt_s, verifier_v) = srp.generate_new_user_secrets(new_username, user_password);
-    assert_eq!(salt_s.num_bytes(), 256 / 8);
-    assert_eq!(verifier_v.num_bytes(), 256 / 8);
+    assert_eq!(salt_s.num_bytes(), 2048 / 8);
+    assert_eq!(verifier_v.num_bytes(), 2048 / 8);
 
     println!("Simulating a server and signup with user {}", new_username);
     println!("{}'s secrets are:", new_username);
