@@ -10,11 +10,6 @@ let srp = Srp6_4096::default();
 let (_salt_s, _verifier_v) = srp.generate_new_user_secrets("Bob", "secret-password");
 ```
 
-**NOTE:** if you need to roll your own modulus, you can generate one e.g. like this:
-```sh
-openssl genrsa 1024 | openssl rsa -modulus
-```
-
 then you can alias a type for a convienice e.g.:
 ```rust
 use srp6::{Srp6, Generator, TryInto};
