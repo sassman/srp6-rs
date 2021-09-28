@@ -1,9 +1,9 @@
 [package]
 name = "srp6"
-version = "1.0.0-alpha.3"
+version = "1.0.0-alpha.4"
 authors = ["Sven Assmann <sven.assmann.it@gmail.com>"]
 edition = "2018"
-description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6a). Version 6 (legacy) is as features available."
+description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6 and 6a)"
 license = "MIT"
 include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 

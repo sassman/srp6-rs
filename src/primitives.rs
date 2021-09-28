@@ -16,6 +16,7 @@ This scheme is applied for all variables used in the calculus.
 use crate::big_number::{BigNumber, Zero};
 use crate::hash::{hash, Digest, Hash, HashFunc, HASH_LENGTH};
 use crate::{Result, Srp6Error};
+use serde::Serialize;
 
 use log::debug;
 
@@ -76,13 +77,14 @@ pub type UsernameRef<'a> = &'a str;
 pub type ClearTextPassword = str;
 
 /// [`Username`] and [`ClearTextPassword`] used on the client side
+#[derive(Debug, Clone, Serialize)]
 pub struct UserCredentials<'a> {
     pub username: UsernameRef<'a>,
     pub password: &'a ClearTextPassword,
 }
 
 /// User details composes [`Username`], [`Salt`] and [`PasswordVerifier`] in one struct
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct UserDetails {
     pub username: Username,
     pub salt: Salt,

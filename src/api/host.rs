@@ -1,6 +1,7 @@
 use super::user::{HandshakeProof, StrongProofVerifier};
 use crate::primitives::*;
 use crate::{Result, Srp6Error};
+use serde::Serialize;
 
 use log::debug;
 
@@ -21,7 +22,7 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
 
 /// Contains all variables needed for a successful
 /// session key generation provided by the server to the client
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 #[allow(non_snake_case)]
 pub struct Handshake<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     /// the servers public key
@@ -38,7 +39,7 @@ pub struct Handshake<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
 
 /// This is responsible for verifying a [`HandshakeProof`] that is
 /// provided by the client to the server
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 #[allow(non_snake_case)]
 pub struct HandshakeProofVerifier {
     /// the servers pub and private key
@@ -91,6 +92,7 @@ impl<'a> HandshakeProofVerifier {
 
 /// Main interaction point for the server
 #[allow(non_snake_case)]
+#[derive(Debug, Serialize)]
 pub struct Srp6<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     /// A large safe prime (N = 2q+1, where q is prime. All arithmetic is done modulo N.
     /// `KEY_LENGTH` needs to match the bytes of [`PrimeModulus`] `N`  
