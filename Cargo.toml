@@ -1,6 +1,6 @@
 [package]
 name = "srp6"
-version = "1.0.0-alpha.2"
+version = "1.0.0-alpha.3"
 authors = ["Sven Assmann <sven.assmann.it@gmail.com>"]
 edition = "2018"
 description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6a). Version 6 (legacy) is as features available."
@@ -16,6 +16,7 @@ num-traits = "0.2"
 hex = "0.4"
 hex-literal = "0.3"
 log = { version = "0.4", features = ["release_max_level_warn"] }
+serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 

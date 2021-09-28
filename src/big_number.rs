@@ -1,6 +1,7 @@
 use num_bigint::{BigInt, RandBigInt, Sign};
 use num_traits::Signed;
 use rand::thread_rng;
+use serde::{Serialize, Serializer};
 use sha1::{Digest, Sha1};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
@@ -9,6 +10,15 @@ use thiserror::Error;
 /// also exporting the trait here
 pub use num_traits::Zero;
 pub use std::ops::{Add, Mul, Rem, Sub};
+
+impl Serialize for BigNumber {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_bytes(self.to_vec().as_slice())
+    }
+}
 
 /// [`BigNumber`] helps to work with big numbers as in openssl used.
 #[derive(PartialEq, Clone)]

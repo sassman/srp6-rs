@@ -415,7 +415,7 @@ mod tests {
     #[test]
     fn should_calculate_users_private_key_x_and_password_verifier() {
         let params = Srp6_256::default();
-        let x = &calculate_private_key_x(&Mock::I(), &Mock::p(), &Mock::s());
+        let x = &calculate_private_key_x(Mock::I(), Mock::p(), &Mock::s());
         // sometimes it is also 20 bytes long..
         // assert_eq!(x.num_bytes(), 19);
         let v = calculate_password_verifier_v(&params.N, &params.g, x);
