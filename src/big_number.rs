@@ -177,6 +177,24 @@ impl TryFrom<&str> for BigNumber {
         Self::from_hex_str_be(value)
     }
 }
+
+impl TryFrom<String> for BigNumber {
+    type Error = BigNumberError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_hex_str_be(value.as_str())
+    }
+}
+
+#[test]
+fn should_try_from_string() {
+    use std::convert::TryInto;
+
+    let s = "ab11cd".to_string();
+    let x: BigNumber = s.try_into().unwrap();
+    assert_eq!(x.to_vec(), &[0xcd, 0x11, 0xab]);
+}
+
 #[test]
 fn should_from_bytes() {
     let x = BigNumber::from_bytes_be(&[0xab, 0x11, 0xcd]);
