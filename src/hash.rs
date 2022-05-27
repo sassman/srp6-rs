@@ -1,5 +1,5 @@
-pub use sha1::Digest;
 pub use sha1::digest::Update;
+pub use sha1::Digest;
 
 use crate::big_number::BigNumber;
 

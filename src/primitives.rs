@@ -16,9 +16,9 @@ This scheme is applied for all variables used in the calculus.
 use log::debug;
 use serde::Serialize;
 
-use crate::{Result, Srp6Error};
 use crate::big_number::{BigNumber, Zero};
-use crate::hash::{Digest, Update, hash, Hash, HASH_LENGTH, HashFunc};
+use crate::hash::{hash, Digest, Hash, HashFunc, Update, HASH_LENGTH};
+use crate::{Result, Srp6Error};
 
 const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
 
