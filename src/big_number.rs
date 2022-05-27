@@ -122,7 +122,7 @@ fn test_mod_exp() {
 
 impl Debug for BigNumber {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BigNumber(\"{}\")", self.to_string())
+        write!(f, "BigNumber(\"{}\")", self)
     }
 }
 

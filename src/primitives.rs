@@ -13,12 +13,12 @@ This scheme is applied for all variables used in the calculus.
 
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 */
-use crate::big_number::{BigNumber, Zero};
-use crate::hash::{hash, Digest, Hash, HashFunc, HASH_LENGTH};
-use crate::{Result, Srp6Error};
+use log::debug;
 use serde::Serialize;
 
-use log::debug;
+use crate::big_number::{BigNumber, Zero};
+use crate::hash::{hash, Digest, Hash, HashFunc, Update, HASH_LENGTH};
+use crate::{Result, Srp6Error};
 
 const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
 
@@ -399,11 +399,12 @@ pub(crate) fn generate_salt<const SALT_LENGTH: usize>() -> Salt {
 #[cfg(test)]
 #[cfg(feature = "legacy")]
 mod tests {
-    use super::*;
+    use std::convert::TryInto;
+
     use crate::api::host::tests::Mock;
     use crate::defaults::Srp6_256;
 
-    use std::convert::TryInto;
+    use super::*;
 
     const KEY_LENGTH: usize = 32;
     const SALT_LENGTH: usize = 32;
