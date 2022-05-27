@@ -1,5 +1,7 @@
-use crate::big_number::BigNumber;
 pub use sha1::Digest;
+pub use sha1::digest::Update;
+
+use crate::big_number::BigNumber;
 
 pub const HASH_LENGTH: usize = 20;
 pub type Hash = [u8; HASH_LENGTH];
@@ -17,8 +19,9 @@ pub fn hash<const KEY_BYTES: usize>(a: &BigNumber, b: &BigNumber) -> BigNumber {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::convert::TryInto;
+
+    use super::*;
 
     #[test]
     #[allow(non_snake_case)]
