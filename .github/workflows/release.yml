@@ -7,9 +7,9 @@ name: Release
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]-alpha.[0-9]+'
-      - 'v[0-9]+.[0-9]+.[0-9]-beta.[0-9]+'
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]-alpha.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]-beta.[0-9]+"
     paths-ignore:
       - "**/docs/**"
       - "**.md"
@@ -21,10 +21,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [ 'ubuntu-latest']
+        version: ["ubuntu-latest"]
     runs-on: ${{ matrix.version }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
@@ -41,13 +41,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [ 'ubuntu-latest']
+        version: ["ubuntu-latest"]
         cargo-cmd:
           - fmt --all -- --check
           - clippy --all-targets --all-features -- -D warnings
     runs-on: ${{ matrix.version }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
@@ -64,12 +64,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [ 'macos-latest', 'ubuntu-latest', 'windows-latest']
-        rust: [ nightly, stable ]
+        version: ["macos-latest", "ubuntu-latest", "windows-latest"]
+        rust: [nightly, stable]
     runs-on: ${{ matrix.version }}
     continue-on-error: ${{ matrix.rust == 'nightly' }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
@@ -85,7 +85,7 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
@@ -104,7 +104,7 @@ jobs:
     needs: [audit, lint, tests]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
@@ -121,7 +121,7 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:

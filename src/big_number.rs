@@ -1,7 +1,7 @@
 use num_bigint::{BigInt, RandBigInt, Sign};
 use num_traits::Signed;
 use rand::thread_rng;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha1::{Digest, Sha1};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
@@ -17,6 +17,16 @@ impl Serialize for BigNumber {
         S: Serializer,
     {
         serializer.serialize_bytes(self.to_vec().as_slice())
+    }
+}
+
+impl<'de> Deserialize<'de> for BigNumber {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<BigNumber, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = Vec::<u8>::deserialize(deserializer)?;
+        Ok(Self::from_vec(&bytes))
     }
 }
 
@@ -87,6 +97,11 @@ impl BigNumber {
     pub fn to_vec(&self) -> Vec<u8> {
         let (_, x) = self.0.to_bytes_le();
         x
+    }
+
+    /// the counter part of `::to_vec()`
+    pub fn from_vec(le_data: &[u8]) -> Self {
+        Self::from_bytes_le(le_data)
     }
 
     pub fn to_array<const N: usize>(&self) -> [u8; N] {
@@ -284,7 +299,7 @@ impl Add for BigNumber {
         self.0.add(rhs.0).into()
     }
 }
-impl<'a, 'b> Add<&'b BigNumber> for &'a BigNumber {
+impl<'b> Add<&'b BigNumber> for &BigNumber {
     type Output = BigNumber;
 
     fn add(self, rhs: &'b BigNumber) -> Self::Output {
@@ -305,7 +320,7 @@ fn should_subtract() {
     assert_eq!(a - b, BigNumber::from(5));
 }
 
-impl<'a, 'b> Sub<&'b BigNumber> for &'a BigNumber {
+impl<'b> Sub<&'b BigNumber> for &BigNumber {
     type Output = BigNumber;
 
     fn sub(self, rhs: &'b BigNumber) -> Self::Output {

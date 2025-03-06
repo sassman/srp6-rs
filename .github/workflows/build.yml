@@ -6,12 +6,12 @@
 name: Build
 on:
   push:
-    branches: [ '*' ]
+    branches: ["*"]
     paths-ignore:
       - "**/docs/**"
       - "**.md"
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
       - "**/docs/**"
       - "**.md"
@@ -22,10 +22,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [ 'ubuntu-latest']
+        version: ["ubuntu-latest"]
     runs-on: ${{ matrix.version }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
@@ -42,13 +42,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [ 'ubuntu-latest']
+        version: ["ubuntu-latest"]
         cargo-cmd:
           - fmt --all -- --check
           - clippy --all-targets --all-features -- -D warnings
     runs-on: ${{ matrix.version }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
@@ -65,12 +65,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [ 'macos-latest', 'ubuntu-latest', 'windows-latest']
-        rust: [ nightly, stable ]
+        version: ["macos-latest", "ubuntu-latest", "windows-latest"]
+        rust: [nightly, stable]
     runs-on: ${{ matrix.version }}
     continue-on-error: ${{ matrix.rust == 'nightly' }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
@@ -87,10 +87,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version: [ 'ubuntu-latest']
+        version: ["ubuntu-latest"]
     runs-on: ${{ matrix.version }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
@@ -101,8 +101,8 @@ jobs:
       - name: cargo tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
-          version: '0.15.0'
-          args: '--all-features -- --test-threads 1'
+          version: "0.15.0"
+          args: "--all-features -- --test-threads 1"
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2
         with:
@@ -118,7 +118,7 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: setup | rust
         uses: actions-rs/toolchain@v1
         with:
