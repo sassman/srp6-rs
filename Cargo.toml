@@ -19,8 +19,10 @@ log = { version = "0.4", features = ["release_max_level_warn"] }
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
+openssl = { version = "0.10", features = ["vendored"] }
+serde_json = "1.0"
 
 [features]
 legacy = []
 default = []
-openssl_compatibility_tests = []
+test-for-openssl-compatibility = []

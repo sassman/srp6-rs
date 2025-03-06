@@ -133,7 +133,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         #[cfg(test)] s: Option<Salt>,
     ) -> (Salt, PasswordVerifier) {
         #[cfg(test)]
-        let s = s.unwrap_or_else(|| generate_salt::<SALT_LENGTH>());
+        let s = s.unwrap_or(generate_salt::<SALT_LENGTH>());
         #[cfg(not(test))]
         let s = generate_salt::<SALT_LENGTH>();
         let x = calculate_private_key_x(I, p, &s);
