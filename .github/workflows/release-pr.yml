@@ -1,5 +1,4 @@
 ## See https://release-plz.ieni.dev/docs/github/quickstart
-
 name: Release PR
 
 permissions:
