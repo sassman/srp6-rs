@@ -14,105 +14,20 @@ on:
       - "**/docs/**"
       - "**.md"
 
-# NOTE: needs to stay in sync with ./build.yml
 jobs:
-  check:
-    name: check
-    strategy:
-      fail-fast: false
-      matrix:
-        version: ["ubuntu-latest"]
-    runs-on: ${{ matrix.version }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
-          components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v1
-      - run: cargo check
-
-  lint:
-    name: lint
-    needs: check
-    strategy:
-      fail-fast: false
-      matrix:
-        version: ["ubuntu-latest"]
-        cargo-cmd:
-          - fmt --all -- --check
-          - clippy --all-targets --all-features -- -D warnings
-    runs-on: ${{ matrix.version }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
-          components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v1
-      - run: cargo ${{ matrix['cargo-cmd'] }}
-
-  tests:
-    name: test
-    needs: check
-    strategy:
-      fail-fast: false
-      matrix:
-        version: ["macos-latest", "ubuntu-latest", "windows-latest"]
-        rust: [nightly, stable]
-    runs-on: ${{ matrix.version }}
-    continue-on-error: ${{ matrix.rust == 'nightly' }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          profile: minimal
-      - uses: Swatinem/rust-cache@v1
-      - name: cargo test
-        run: cargo test --all-features
-
-  audit:
-    name: security audit
-    needs: check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
-      - uses: Swatinem/rust-cache@v1
-      - name: audit
-        uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-  # END of build.yml
+  build:
+    uses: sassman/.github/rust/workflows/build.yml@main
 
   publish:
     name: post / cargo publish
-    needs: [audit, lint, tests]
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
-      - uses: Swatinem/rust-cache@v1
-      - env:
+        uses: sassman/.github/rust/actions/rust-toolchain@main
+      - name: publish
+        env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish
 
@@ -122,13 +37,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
-      - uses: Swatinem/rust-cache@v1
       - name: Get version from tag
         id: tag_name
         run: echo ::set-output name=current_version::${GITHUB_REF#refs/tags/v}
