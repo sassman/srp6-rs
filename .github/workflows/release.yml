@@ -16,7 +16,7 @@ on:
 
 jobs:
   build:
-    uses: sassman/.github/rust/workflows/build.yml@main
+    uses: sassman/.github/.github/workflows/build.yml@main
 
   publish:
     name: post / cargo publish
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: setup | rust
-        uses: sassman/.github/rust/actions/rust-toolchain@main
+        uses: sassman/.github/.github/actions/rust-toolchain@main
       - name: publish
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
