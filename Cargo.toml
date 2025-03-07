@@ -8,7 +8,7 @@ license = "MIT"
 include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
-thiserror = "1.0"
+thiserror = "2.0"
 sha-1 = "0.10"
 rand = "0.8"
 num-bigint = { version = "0.4", features = ["rand"] }
