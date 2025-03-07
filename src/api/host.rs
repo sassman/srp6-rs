@@ -1,7 +1,7 @@
 use super::user::{HandshakeProof, StrongProofVerifier};
 use crate::primitives::*;
 use crate::{Result, Srp6Error};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use log::debug;
 
@@ -22,7 +22,7 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
 
 /// Contains all variables needed for a successful
 /// session key generation provided by the server to the client
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 pub struct Handshake<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     /// the servers public key
@@ -39,7 +39,7 @@ pub struct Handshake<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
 
 /// This is responsible for verifying a [`HandshakeProof`] that is
 /// provided by the client to the server
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 #[allow(non_snake_case)]
 pub struct HandshakeProofVerifier {
     /// the servers pub and private key
@@ -52,7 +52,7 @@ pub struct HandshakeProofVerifier {
     pub N: PrimeModulus,
 }
 
-impl<'a> HandshakeProofVerifier {
+impl HandshakeProofVerifier {
     /// verifies a proof provided by the client
     #[allow(non_snake_case)]
     pub fn verify_proof<const KEY_LENGTH: usize, const SALT_LENGTH: usize>(
@@ -95,7 +95,7 @@ impl<'a> HandshakeProofVerifier {
 #[derive(Debug, Serialize)]
 pub struct Srp6<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     /// A large safe prime (N = 2q+1, where q is prime. All arithmetic is done modulo N.
-    /// `KEY_LENGTH` needs to match the bytes of [`PrimeModulus`] `N`  
+    /// `KEY_LENGTH` needs to match the bytes of [`PrimeModulus`] `N`
     pub N: PrimeModulus,
     /// A generator modulo N
     pub g: Generator,
@@ -132,9 +132,10 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         p: &ClearTextPassword,
         #[cfg(test)] s: Option<Salt>,
     ) -> (Salt, PasswordVerifier) {
+        #[cfg(test)]
+        let s = s.unwrap_or(generate_salt::<SALT_LENGTH>());
         #[cfg(not(test))]
-        let s = None;
-        let s = s.unwrap_or_else(generate_salt::<SALT_LENGTH>);
+        let s = generate_salt::<SALT_LENGTH>();
         let x = calculate_private_key_x(I, p, &s);
         let v = calculate_password_verifier_v(&self.N, &self.g, &x);
 

@@ -1,7 +1,7 @@
 use num_bigint::{BigInt, RandBigInt, Sign};
 use num_traits::Signed;
 use rand::thread_rng;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha1::{Digest, Sha1};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
@@ -17,6 +17,16 @@ impl Serialize for BigNumber {
         S: Serializer,
     {
         serializer.serialize_bytes(self.to_vec().as_slice())
+    }
+}
+
+impl<'de> Deserialize<'de> for BigNumber {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<BigNumber, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = Vec::<u8>::deserialize(deserializer)?;
+        Ok(Self::from_vec(&bytes))
     }
 }
 
@@ -87,6 +97,11 @@ impl BigNumber {
     pub fn to_vec(&self) -> Vec<u8> {
         let (_, x) = self.0.to_bytes_le();
         x
+    }
+
+    /// the counter part of `::to_vec()`
+    pub fn from_vec(le_data: &[u8]) -> Self {
+        Self::from_bytes_le(le_data)
     }
 
     pub fn to_array<const N: usize>(&self) -> [u8; N] {
@@ -284,7 +299,7 @@ impl Add for BigNumber {
         self.0.add(rhs.0).into()
     }
 }
-impl<'a, 'b> Add<&'b BigNumber> for &'a BigNumber {
+impl<'b> Add<&'b BigNumber> for &BigNumber {
     type Output = BigNumber;
 
     fn add(self, rhs: &'b BigNumber) -> Self::Output {
@@ -305,7 +320,7 @@ fn should_subtract() {
     assert_eq!(a - b, BigNumber::from(5));
 }
 
-impl<'a, 'b> Sub<&'b BigNumber> for &'a BigNumber {
+impl<'b> Sub<&'b BigNumber> for &BigNumber {
     type Output = BigNumber;
 
     fn sub(self, rhs: &'b BigNumber) -> Self::Output {
@@ -349,6 +364,16 @@ fn test_into_string_and_display() {
     );
 }
 
+#[test]
+fn test_serde_behaviour() {
+    let v = "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18";
+    let b = BigNumber::from_hex_str_be(v).unwrap();
+
+    let b_str = serde_json::to_string(&b).unwrap();
+    let b2 = serde_json::from_str::<BigNumber>(&b_str).unwrap();
+    assert_eq!(b, b2);
+}
+
 impl Zero for BigNumber {
     fn zero() -> Self {
         BigInt::zero().into()
@@ -359,22 +384,15 @@ impl Zero for BigNumber {
     }
 }
 
-#[cfg(feature = "openssl_compatibility_tests")]
-mod openssl_compatibility_tests {
-    use super::*;
-    use num_bigint::BigInt;
-    use openssl::bn::{BigNum, BigNumContext, BigNumRef};
-    use std::ops::Rem;
-
+#[cfg(all(test, feature = "test-for-openssl-compatibility"))]
+mod tests {
     #[test]
-    fn should_show_big_int_vs_openssl() -> crate::Result<()> {
+    fn should_show_big_int_vs_openssl() {
         let v = "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18";
-        let a = BigInt::parse_bytes(v.as_bytes(), 16).unwrap();
-        let b = BigNum::from_hex_str(v)?;
+        let a = num_bigint::BigInt::parse_bytes(v.as_bytes(), 16).unwrap();
+        let b = openssl::bn::BigNum::from_hex_str(v).unwrap();
 
         assert_eq!(b.to_vec(), a.to_bytes_be().1);
-
-        Ok(())
     }
 
     #[test]
@@ -382,23 +400,26 @@ mod openssl_compatibility_tests {
     /// > BN_mod_exp() computes a to the p-th power modulo m (r=a^p % m).
     /// > This function uses less time and space than BN_exp().
     /// > Do not call this function when m is even and any of the parameters have the BN_FLG_CONSTTIME flag set.
-    fn should_mod_exp() -> crate::Result<()> {
+    fn should_mod_exp() {
         // OpenSSL
         let (a, p, m) = (
-            BigNum::from_hex_str("6")?,
-            BigNum::from_hex_str("3")?,
-            BigNum::from_hex_str("7")?,
+            openssl::bn::BigNum::from_hex_str("6").unwrap(),
+            openssl::bn::BigNum::from_hex_str("3").unwrap(),
+            openssl::bn::BigNum::from_hex_str("7").unwrap(),
         );
-        let mut r = BigNum::new()?;
-        let mut ctx = BigNumContext::new()?;
-        r.mod_exp(&a, &p, &m, &mut ctx)?;
+        let mut r = openssl::bn::BigNum::new().unwrap();
+        let mut ctx = openssl::bn::BigNumContext::new().unwrap();
+        r.mod_exp(&a, &p, &m, &mut ctx).unwrap();
 
-        assert_eq!(r, BigNum::from(6)?);
+        let expected = openssl::bn::BigNum::from_hex_str("6").unwrap();
+        assert_eq!(r, expected);
 
         // BigInt
-        let (a, p, m) = (BigInt::from(6), BigInt::from(3), BigInt::from(7));
-        assert_eq!(a.modpow(&p, &m), BigInt::from(6));
-
-        Ok(())
+        let (a, p, m) = (
+            num_bigint::BigInt::from(6),
+            num_bigint::BigInt::from(3),
+            num_bigint::BigInt::from(7),
+        );
+        assert_eq!(a.modpow(&p, &m), num_bigint::BigInt::from(6));
     }
 }

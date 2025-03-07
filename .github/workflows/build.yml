@@ -1,132 +1,20 @@
-## references:
-# cache: https://github.com/actions/cache/blob/main/examples.md#rust---cargo
-# audit: https://github.com/actions-rs/audit-check
-# "needs": https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idneeds
-
 name: Build
 on:
   push:
-    branches: [ '*' ]
+    branches: ["*"]
     paths-ignore:
       - "**/docs/**"
       - "**.md"
   pull_request:
-    branches: [ main ]
-    paths-ignore:
-      - "**/docs/**"
-      - "**.md"
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  check:
-    name: check
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [ 'ubuntu-latest']
-    runs-on: ${{ matrix.version }}
-    steps:
-      - uses: actions/checkout@v2
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
-          components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v1
-      - run: cargo check
-
-  lint:
-    name: lint
-    needs: check
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [ 'ubuntu-latest']
-        cargo-cmd:
-          - fmt --all -- --check
-          - clippy --all-targets --all-features -- -D warnings
-    runs-on: ${{ matrix.version }}
-    steps:
-      - uses: actions/checkout@v2
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
-          components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v1
-      - run: cargo ${{ matrix['cargo-cmd'] }}
-
-  tests:
-    name: test
-    needs: check
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [ 'macos-latest', 'ubuntu-latest', 'windows-latest']
-        rust: [ nightly, stable ]
-    runs-on: ${{ matrix.version }}
-    continue-on-error: ${{ matrix.rust == 'nightly' }}
-    steps:
-      - uses: actions/checkout@v2
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          default: true
-          profile: minimal
-      - uses: Swatinem/rust-cache@v1
-      - name: cargo test
-        run: cargo test --all-features
+  build:
+    uses: sassman/.github/.github/workflows/build.yml@main
 
   coverage:
-    name: coverage report
-    needs: check
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [ 'ubuntu-latest']
-    runs-on: ${{ matrix.version }}
-    steps:
-      - uses: actions/checkout@v2
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
-      - uses: Swatinem/rust-cache@v1
-      - name: cargo tarpaulin
-        uses: actions-rs/tarpaulin@v0.1
-        with:
-          version: '0.15.0'
-          args: '--all-features -- --test-threads 1'
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v1.0.2
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-      - name: Archive code coverage results
-        uses: actions/upload-artifact@v2
-        with:
-          name: code-coverage-report
-          path: cobertura.xml
-
-  audit:
-    name: security audit
-    needs: check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: setup | rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          default: true
-          profile: minimal
-      - uses: Swatinem/rust-cache@v1
-      - name: audit
-        uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+    name: code coverage
+    uses: sassman/.github/.github/workflows/coverage.yml@main
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

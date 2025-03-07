@@ -14,7 +14,6 @@ This scheme is applied for all variables used in the calculus.
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 */
 use log::debug;
-use serde::Serialize;
 
 use crate::big_number::{BigNumber, Zero};
 use crate::hash::{hash, Digest, Hash, HashFunc, Update, HASH_LENGTH};
@@ -77,14 +76,14 @@ pub type UsernameRef<'a> = &'a str;
 pub type ClearTextPassword = str;
 
 /// [`Username`] and [`ClearTextPassword`] used on the client side
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct UserCredentials<'a> {
     pub username: UsernameRef<'a>,
     pub password: &'a ClearTextPassword,
 }
 
 /// User details composes [`Username`], [`Salt`] and [`PasswordVerifier`] in one struct
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct UserDetails {
     pub username: Username,
     pub salt: Salt,
@@ -96,7 +95,7 @@ pub struct UserDetails {
 /// u: is the hash of user and server pub keys
 ///
 /// u = H(A, B)
-/// S = (Av^u) ^ b  
+/// S = (Av^u) ^ b
 #[allow(non_snake_case)]
 pub(crate) fn calculate_session_key_S_for_host<const KEY_LENGTH: usize>(
     N: &PrimeModulus,
