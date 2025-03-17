@@ -1,6 +1,6 @@
-use srp6::*;
+use srp6::prelude::*;
 
-const USER_PASSWORD: &ClearTextPassword = "secret-password";
+const USER_PASSWORD: ClearTextPasswordRef<'static> = "secret-password";
 
 fn main() {
     // the server looks up the user details by a received username

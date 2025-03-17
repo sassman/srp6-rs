@@ -1,9 +1,9 @@
-use srp6::*;
+use srp6::prelude::*;
 
 fn main() {
     // this is what a user would enter in a form / terminal
     let new_username: UsernameRef = "Bob";
-    let user_password: &ClearTextPassword = "secret-password";
+    let user_password: ClearTextPasswordRef = "secret-password";
 
     // Reminder: choose always a Srp6_BITS type that is strong like 2048 or 4096
     let srp = Srp6_2048::default();

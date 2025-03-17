@@ -10,16 +10,16 @@ Client side interaction is marked explicit when needed.
 ### 1. A new user, welcome Bob
 
 ```rust
-use srp6::*;
+use srp6::prelude::*;
 
 // this is happening on the client,
 // the password is never send to the server at any time
-let new_username: UsernameRef = "Bob";
-let user_password: &ClearTextPassword = "secret-password";
+let new_username = Username::from("Bob");
+let user_password = ClearTextPassword::from("secret-password");
 
 let (salt_s, verifier_v) = Srp6_2048::default().generate_new_user_secrets(
-    new_username,
-    user_password
+    &new_username,
+    &user_password
 );
 
 assert_eq!(salt_s.num_bytes(), Srp6_2048::KEY_LEN);
@@ -83,7 +83,7 @@ use srp6::*;
 
 // this is entered by the user
 let username = "Bob";
-let bobs_password: &ClearTextPassword = "secret-password";
+let bobs_password = "secret-password";
 
 // this comes from the server
 let handshake = mocked::handshake_from_the_server(username);
@@ -245,13 +245,24 @@ use thiserror::Error;
 // public exports
 pub mod defaults;
 pub mod protocol_details;
+pub mod rfc_lingo;
 
 // internally available
-pub(crate) mod primitives;
+pub mod hash;
+mod primitives;
 
 mod api;
+mod appendix_a;
 mod big_number;
-mod hash;
+
+pub mod prelude {
+    pub use crate::api::host::*;
+    pub use crate::api::user::*;
+    pub use crate::big_number::BigNumber;
+    pub use crate::defaults::*;
+    pub use crate::primitives::*;
+    pub use std::convert::TryInto;
+}
 
 pub use api::host::*;
 pub use api::user::*;
@@ -262,6 +273,13 @@ pub use primitives::{
     UserDetails, Username, UsernameRef,
 };
 pub use std::convert::TryInto;
+
+// TODO: this should be feature gated
+#[cfg(feature = "test_rfc_5054")]
+pub mod prelude {
+    pub use crate::big_number::BigNumber;
+    pub use crate::primitives::calculate_u;
+}
 
 /// encapsulates a [`Srp6Error`]
 pub type Result<T> = std::result::Result<T, Srp6Error>;

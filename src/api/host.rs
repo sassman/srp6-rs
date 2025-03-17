@@ -3,8 +3,6 @@ use crate::primitives::*;
 use crate::{Result, Srp6Error};
 use serde::{Deserialize, Serialize};
 
-use log::debug;
-
 /// this trait provides a higher level api
 pub trait HostAPI<const KL: usize, const SL: usize> {
     /// for new users, or if they recover their password
@@ -12,7 +10,7 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
     fn generate_new_user_secrets(
         &self,
         I: UsernameRef,
-        p: &ClearTextPassword,
+        p: ClearTextPasswordRef,
         #[cfg(test)] s: Option<Salt>,
     ) -> (Salt, PasswordVerifier);
 
@@ -55,9 +53,9 @@ pub struct HandshakeProofVerifier {
 impl HandshakeProofVerifier {
     /// verifies a proof provided by the client
     #[allow(non_snake_case)]
-    pub fn verify_proof<const KEY_LENGTH: usize, const SALT_LENGTH: usize>(
+    pub fn verify_proof<const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
         &self,
-        proof: &HandshakeProof<KEY_LENGTH, SALT_LENGTH>,
+        proof: &HandshakeProof<N_BYTE_LEN, SALT_LENGTH>,
     ) -> Result<(StrongProof, StrongSessionKey)> {
         let (B, b) = &self.server_keys;
         let N = &self.N;
@@ -68,23 +66,14 @@ impl HandshakeProofVerifier {
         let A = &proof.A;
         let M1 = &proof.M1;
 
-        debug!("N = {:?}", &N);
-        debug!("I = {:?}", &I);
-        debug!("A = {:?}", &A);
-        debug!("B = {:?}", &B);
-        debug!("b = {:?}", &b);
-        debug!("v = {:?}", &v);
-        debug!("s = {:?}", &s);
-        debug!("M1 = {:?}", &M1);
-
-        let S = &calculate_session_key_S_for_host::<KEY_LENGTH>(N, A, B, b, v)?;
-        let K = calculate_session_key_hash_interleave_K::<KEY_LENGTH>(S);
-        let M = &calculate_proof_M::<KEY_LENGTH, SALT_LENGTH>(N, g, I, s, A, B, &K);
+        let S = &calculate_session_key_S_for_host::<N_BYTE_LEN>(N, A, B, b, v)?;
+        let K = calculate_session_key_hash_interleave_K::<N_BYTE_LEN>(S);
+        let M = &calculate_proof_M::<N_BYTE_LEN, SALT_LENGTH>(N, g, I, s, A, B, &K);
 
         if M != M1 {
             return Err(Srp6Error::InvalidProof(M.clone()));
         }
-        let M2 = calculate_strong_proof_M2::<KEY_LENGTH>(A, M, &K);
+        let M2 = calculate_strong_proof_M2::<N_BYTE_LEN>(A, M, &K);
 
         Ok((M2, K))
     }
@@ -129,7 +118,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
     fn generate_new_user_secrets(
         &self,
         I: UsernameRef,
-        p: &ClearTextPassword,
+        p: ClearTextPasswordRef,
         #[cfg(test)] s: Option<Salt>,
     ) -> (Salt, PasswordVerifier) {
         #[cfg(test)]
@@ -152,7 +141,6 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
     ) -> (Handshake<KEY_LENGTH, SALT_LENGTH>, HandshakeProofVerifier) {
         let (s, v) = (&user.salt, &user.verifier);
         let b = generate_private_key::<KEY_LENGTH>();
-        debug!("b = {:?}", &b);
 
         let B = calculate_pubkey_B(&self.N, &self.k, &self.g, v, &b);
 
@@ -183,7 +171,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> Handshake<KEY_LENGTH, SA
     pub fn calculate_proof(
         &self,
         username: UsernameRef,
-        password: &ClearTextPassword,
+        password: ClearTextPasswordRef,
     ) -> Result<(
         HandshakeProof<KEY_LENGTH, SALT_LENGTH>,
         StrongProofVerifier<KEY_LENGTH>,
@@ -208,7 +196,7 @@ pub mod tests {
             "ADMINISTRATOR"
         }
 
-        pub fn p() -> &'static ClearTextPassword {
+        pub fn p() -> ClearTextPasswordRef<'static> {
             "ADMINISTRATOR"
         }
 
@@ -333,7 +321,7 @@ pub mod tests {
 
         // when
         // a client provides proof
-        let user_password: &ClearTextPassword = Mock::p();
+        let user_password: ClearTextPassword = Mock::p();
         let (proof, strong_proof_verifier) = handshake
             .calculate_proof(user.username.as_str(), user_password)
             .unwrap();

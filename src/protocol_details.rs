@@ -68,4 +68,5 @@ H(A | M | K)
 - [design](http://srp.stanford.edu/design.html)
 - [rfc](https://datatracker.ietf.org/doc/html/rfc2945)
 - [vetted N](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
+- [test vectors](https://datatracker.ietf.org/doc/html/rfc5054#appendix-B)
 */

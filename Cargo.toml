@@ -9,20 +9,29 @@ include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
 thiserror = "2.0"
-sha-1 = "0.10"
 rand = "0.8"
-num-bigint = { version = "0.4", features = ["rand"] }
+num-bigint = { version = "0.4", features = [
+    "rand",
+    "serde",
+], default-features = false }
 num-traits = "0.2"
-hex = "0.4"
 hex-literal = "1.0"
-log = { version = "0.4", features = ["release_max_level_warn"] }
 serde = { version = "1.0", features = ["derive"] }
+sha1 = { version = "^0.10", optional = true }
+sha2 = { version = "^0.10", optional = true }
 
 [dev-dependencies]
-openssl = { version = "0.10", features = ["vendored"] }
+# openssl = { version = "0.10", features = ["vendored"] }
 serde_json = "1.0"
 
 [features]
-legacy = []
-default = []
+# This should be the deault.. but were are not yet sha512
+# default = ["hash-sha512"]
+default = ["hash-sha1"]
+hash-sha512 = ["dep:sha2"]
+hash-sha1 = ["dep:sha1"]
+legacy = ["hash-sha1"]
+# this is a testing only feature, not relevant for the library
 test-for-openssl-compatibility = []
+
+test_rfc_5054 = ["hash-sha1"]
