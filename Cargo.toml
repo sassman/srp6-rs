@@ -33,5 +33,3 @@ hash-sha1 = ["dep:sha1"]
 legacy = ["hash-sha1"]
 # this is a testing only feature, not relevant for the library
 test-for-openssl-compatibility = []
-
-test_rfc_5054 = ["hash-sha1"]

@@ -252,7 +252,6 @@ pub mod hash;
 mod primitives;
 
 mod api;
-mod appendix_a;
 mod big_number;
 
 pub mod prelude {
@@ -274,12 +273,10 @@ pub use primitives::{
 };
 pub use std::convert::TryInto;
 
-// TODO: this should be feature gated
-#[cfg(feature = "test_rfc_5054")]
-pub mod prelude {
-    pub use crate::big_number::BigNumber;
-    pub use crate::primitives::calculate_u;
-}
+#[cfg(test)]
+pub mod rfc_5054_appendix_a;
+#[cfg(test)]
+pub mod rfc_5054_appendix_b;
 
 /// encapsulates a [`Srp6Error`]
 pub type Result<T> = std::result::Result<T, Srp6Error>;

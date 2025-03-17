@@ -1,9 +1,7 @@
 use std::convert::TryFrom;
 
-use srp6::prelude::*;
-
-mod rfc_5054_appendix_a;
-use rfc_5054_appendix_a::group_1024_bit;
+use crate::prelude::*;
+use crate::rfc_5054_appendix_a::group_1024_bit;
 
 /// This test is based on the test vectors from [RFC5054 Appendix B](https://datatracker.ietf.org/doc/html/rfc5054#appendix-B)
 #[allow(non_snake_case)]
