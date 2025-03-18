@@ -54,22 +54,11 @@ jobs:
           default: true
           profile: minimal
       - name: cargo test
-        if: matrix.os != 'windows-latest'
         run: |
-          if [ -f "Cargo.lock" ]; then
-            cargo test --all --locked
-          else
-            cargo test --all
-          fi
-      - name: cargo test
-        if: matrix.os == 'windows-latest'
-        run: |
-          # Windows PowerShell is a disaster
-          if (Test-Path "Cargo.lock") {
-            cargo test --all --locked
-          } else {
-            cargo test --all
-          }
+          cargo test --features doc-test-mocks
+          cargo test --lib
+          cargo test --features dangerous --no-default-features --lib
+          cargo test --features wow --no-default-features --lib
 
   audit:
     name: security audit

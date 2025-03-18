@@ -161,7 +161,7 @@ pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "hash-sha1"))]
 pub mod rfc_5054_appendix_b;
 
-#[cfg(any(test, feature = "doc_test_mocks"))]
+#[cfg(any(test, feature = "doc-test-mocks"))]
 pub mod doc_test_mocks;
 
 mod api;

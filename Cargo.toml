@@ -25,13 +25,15 @@ sha2 = { version = "^0.10", optional = true }
 serde_json = "1.0"
 
 [features]
-# This should be the deault.. but were are not yet sha512
 default = ["hash-sha512"]
-# default = ["hash-sha1"]
+
 hash-sha512 = ["dep:sha2"]
 hash-sha1 = ["dep:sha1"]
+
 dangerous = ["hash-sha1"]
-wow = ["hash-sha1", "dangerous"]
-doc_test_mocks = []
+wow = ["dangerous"]
+
+doc-test-mocks = ["hash-sha512"]
+
 # this is a testing only feature, not relevant for the library
 test-for-openssl-compatibility = []
