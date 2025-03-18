@@ -7,15 +7,6 @@ pub type HashFunc = sha1::Sha1;
 
 /// sha1 hash function
 /// Caution: sha1 is cryptographically broken and should not be used for secure applications
-pub fn hash(a: &BigNumber, b: &BigNumber) -> BigNumber {
-    HashFunc::new()
-        .chain(a.to_array_pad_zero::<128>())
-        .chain(b.to_array_pad_zero::<128>())
-        .into()
-}
-
-/// sha1 hash function
-/// Caution: sha1 is cryptographically broken and should not be used for secure applications
 pub fn hash_w_pad<const PAD: usize>(a: &BigNumber, b: &BigNumber) -> BigNumber {
     BigNumber::from_bytes_be(
         HashFunc::new()
@@ -28,13 +19,11 @@ pub fn hash_w_pad<const PAD: usize>(a: &BigNumber, b: &BigNumber) -> BigNumber {
 
 #[cfg(test)]
 mod tests {
+    use hex_literal::hex;
     use std::convert::TryFrom;
 
-    use hex_literal::hex;
-
-    use crate::PublicKey;
-
     use super::*;
+    use crate::PublicKey;
 
     #[test]
     #[allow(non_snake_case)]

@@ -5,38 +5,58 @@ use crate::big_number::BigNumber;
 pub const HASH_LENGTH: usize = 512 / 8;
 pub type HashFunc = sha2::Sha512;
 
-///
-/// not yet verified
-///
-pub fn hash(a: &BigNumber, b: &BigNumber) -> BigNumber {
-    HashFunc::new()
-        .chain(a.to_array_pad_zero::<HASH_LENGTH>())
-        .chain(b.to_array_pad_zero::<HASH_LENGTH>())
-        .into()
+/// sha512 hash function
+/// Caution: sha1 is cryptographically broken and should not be used for secure applications
+pub fn hash_w_pad<const PAD: usize>(a: &BigNumber, b: &BigNumber) -> BigNumber {
+    BigNumber::from_bytes_be(
+        HashFunc::new()
+            .chain(a.to_array_pad_zero::<PAD>())
+            .chain(b.to_array_pad_zero::<PAD>())
+            .finalize()
+            .as_slice(),
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
+    use hex_literal::hex;
+    use std::convert::TryFrom;
 
     use super::*;
+    use crate::PublicKey;
 
     #[test]
     #[allow(non_snake_case)]
     /// u = H(A, B)
-    fn should_hash_2_big_numbers_with_sha256() {
-        let A: BigNumber = "7BADE689AA63658C8DA684A78660BF1C62114269930D4141B9B30F75EDE466BB"
-            .try_into()
-            .unwrap();
-        let B: BigNumber = "2CEC5E45B34CB20CABC099088CCF3D6B315F12DCBE070CC2F563D5447884D917"
-            .try_into()
-            .unwrap();
+    fn should_hash_2_big_numbers_with_sha512() {
+        let A = PublicKey::try_from(
+            "61D5E490 F6F1B795 47B0704C 436F523D D0E560F0 C64115BB 72557EC4
+             4352E890 3211C046 92272D8B 2D1A5358 A2CF1B6E 0BFCF99F 921530EC
+             8E393561 79EAE45E 42BA92AE ACED8251 71E1E8B9 AF6D9C03 E1327F44
+             BE087EF0 6530E69F 66615261 EEF54073 CA11CF58 58F0EDFD FE15EFEA
+             B349EF5D 76988A36 72FAC47B 0769447B",
+        )
+        .unwrap();
 
-        let u = hash(&A, &B);
-        let exp_hash: BigNumber =
-            "B719062D3FAD531EF9BC1949629C349F405E201F0D285C6AA7D0AAE0FD709C00D0AE145A92BD18E376559844E914FB60F59AF2F1AC2BE894108B4FD8A9DFF5F9"
-                .try_into()
-                .unwrap();
-        assert_eq!(&u, &exp_hash);
+        let B = PublicKey::try_from(
+            "BD0C6151 2C692C0C B6D041FA 01BB152D 4916A1E7 7AF46AE1 05393011
+             BAF38964 DC46A067 0DD125B9 5A981652 236F99D9 B681CBF8 7837EC99
+             6C6DA044 53728610 D0C6DDB5 8B318885 D7D82C7F 8DEB75CE 7BD4FBAA
+             37089E6F 9C6059F3 88838E7A 00030B33 1EB76840 910440B1 B27AAEAE
+             EB4012B7 D7665238 A8E3FB00 4B117B58",
+        )
+        .unwrap();
+
+        // 128 bytes from the 1024 bit N section of appendix A
+        let u = hash_w_pad::<128>(&A, &B);
+        let exp_hash = hex!(
+            "3112C8B58EB9326827D201366C00B174AE045313816D62CB110C8178462E20453F47408F5BDA1B1BB23CDE16BD74C8AF07279E0972149FAB3266F6AA713D155C");
+
+        assert_eq!(
+            u.to_vec(),
+            exp_hash,
+            "u was not calculated correctly: {}",
+            u.to_string()
+        );
     }
 }

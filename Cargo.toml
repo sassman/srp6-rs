@@ -26,8 +26,8 @@ serde_json = "1.0"
 
 [features]
 # This should be the deault.. but were are not yet sha512
-# default = ["hash-sha512"]
-default = ["hash-sha1"]
+default = ["hash-sha512"]
+# default = ["hash-sha1"]
 hash-sha512 = ["dep:sha2"]
 hash-sha1 = ["dep:sha1"]
 legacy = ["hash-sha1"]

@@ -7,12 +7,11 @@ compile_error!("either feature `hash-sha1` or `hash-sha512` must be used");
 #[cfg(feature = "hash-sha1")]
 mod sha1;
 #[cfg(feature = "hash-sha1")]
-pub use super::hash::sha1::*;
+pub use sha1::*;
 
-// #[cfg(feature = "hash-sha512")]
-// mod sha512;
-// #[cfg(feature = "hash-sha512")]
-// pub use super::hash::sha512::*;
+#[cfg(feature = "hash-sha512")]
+mod sha512;
+#[cfg(feature = "hash-sha512")]
+pub use sha512::*;
 
-#[cfg(any(feature = "hash-sha1", feature = "hash-sha512"))]
 pub type Hash = [u8; HASH_LENGTH];

@@ -5,6 +5,7 @@ use crate::rfc_5054_appendix_a::group_1024_bit;
 
 /// This test is based on the test vectors from [RFC5054 Appendix B](https://datatracker.ietf.org/doc/html/rfc5054#appendix-B)
 #[allow(non_snake_case)]
+#[cfg(feature = "hash-sha1")]
 #[test]
 fn test_appendix_b_srp_test_vectors() {
     /// this is all based on sha1, that is why the length is 32
