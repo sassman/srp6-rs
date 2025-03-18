@@ -116,4 +116,13 @@ fn test_appendix_b_srp_test_vectors() {
         session_key_client, premaster_secret,
         "Session key client is not correct"
     );
+
+    let (proof, strong_proof_verifier) = calculate_proof_M_for_client::<N_BYTE_LEN, SALT_LENGTH>(
+        &Handshake::<N_BYTE_LEN, SALT_LENGTH> { B, g, N, k, s },
+        &UserCredentials {
+            username: &I,
+            password: &P,
+        },
+    )
+    .unwrap();
 }

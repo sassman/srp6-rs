@@ -2,11 +2,11 @@ use srp6::prelude::*;
 
 fn main() {
     // this is what a user would enter in a form / terminal
-    let new_username: UsernameRef = "Bob";
-    let user_password: ClearTextPasswordRef = "secret-password";
+    let new_username: UsernameRef = "alice";
+    let user_password: ClearTextPasswordRef = "password123";
 
     // Reminder: choose always a Srp6_BITS type that is strong like 2048 or 4096
-    let srp = Srp6_2048::default();
+    let srp = Srp6_4096::default();
     let (salt_s, verifier_v) = srp.generate_new_user_secrets(new_username, user_password);
 
     println!("Simulating a server and signup with user {}", new_username);

@@ -5,13 +5,23 @@ use serde::{Deserialize, Serialize};
 
 /// this trait provides a higher level api
 pub trait HostAPI<const KL: usize, const SL: usize> {
-    /// for new users, or if they recover their password
+    /// For new users, or if they recover their password
     #[allow(non_snake_case)]
     fn generate_new_user_secrets(
         &self,
         I: UsernameRef,
         p: ClearTextPasswordRef,
-        #[cfg(test)] s: Salt,
+    ) -> (Salt, PasswordVerifier);
+
+    /// For new users, or if they recover their password
+    /// For tests only
+    #[cfg(test)]
+    #[allow(non_snake_case)]
+    fn generate_new_user_secrets_w_salt(
+        &self,
+        I: UsernameRef,
+        p: ClearTextPasswordRef,
+        s: Salt,
     ) -> (Salt, PasswordVerifier);
 
     /// starts the handshake with the client
@@ -119,10 +129,24 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         &self,
         I: UsernameRef,
         p: ClearTextPasswordRef,
-        #[cfg(test)] s: Salt,
     ) -> (Salt, PasswordVerifier) {
-        #[cfg(not(test))]
         let s = generate_salt::<SALT_LENGTH>();
+        let x = calculate_private_key_x(I, p, &s);
+        let v = calculate_password_verifier_v(&self.N, &self.g, &x);
+
+        (s, v)
+    }
+
+    /// for test purposes only, we allow to inject the salt.
+    /// In production salt is always random.
+    #[cfg(test)]
+    #[allow(non_snake_case)]
+    fn generate_new_user_secrets_w_salt(
+        &self,
+        I: UsernameRef,
+        p: ClearTextPasswordRef,
+        s: Salt,
+    ) -> (Salt, PasswordVerifier) {
         let x = calculate_private_key_x(I, p, &s);
         let v = calculate_password_verifier_v(&self.N, &self.g, &x);
 
@@ -260,29 +284,29 @@ pub mod tests {
     pub type Mock = Srp6_256Mock;
 
     #[test]
-    #[cfg(feature = "dangerous")]
-    fn should_prepare_a_new_user() {
-        use crate::defaults::Srp6_256;
+    #[cfg(feature = "wow")]
+    fn should_prepare_a_new_user_w_case_insensitive_username() {
+        use crate::dangerous::Srp6_256;
 
-        let (s, v) = Srp6_256::default().generate_new_user_secrets(
+        let (s, v) = Srp6_256::default().generate_new_user_secrets_w_salt(
             "ADMINISTRATOR",
             "administrator",
-            Some(Mock::s()),
+            Mock::s(),
         );
-        assert_eq!(s, Mock::s());
-        assert_eq!(v, Mock::v());
+        assert_eq!(s, Mock::s(), "Salt is not correct: {}", s.to_string());
+        assert_eq!(v, Mock::v(), "Verifier is not correct: {}", v.to_string());
 
-        let (s, v) = Srp6_256::default().generate_new_user_secrets(
+        let (s, v) = Srp6_256::default().generate_new_user_secrets_w_salt(
             "administrator",
             "administrator",
-            Some(Mock::s()),
+            Mock::s(),
         );
         assert_eq!(s, Mock::s());
         assert_eq!(v, Mock::v());
 
         // with a random salt things are always different
         let (s, v) =
-            Srp6_256::default().generate_new_user_secrets("administrator", "administrator", None);
+            Srp6_256::default().generate_new_user_secrets("administrator", "administrator");
         assert_ne!(s, Mock::s());
         assert_ne!(v, Mock::v());
     }
@@ -306,9 +330,9 @@ pub mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[cfg(feature = "dangerous")]
+    #[cfg(feature = "wow")]
     fn should_do_the_full_round_trip_to_proof() {
-        use crate::defaults::Srp6_256;
+        use crate::dangerous::Srp6_256;
 
         // hard mocked
         let user = mocked_user_details();
@@ -319,7 +343,7 @@ pub mod tests {
 
         // when
         // a client provides proof
-        let user_password: ClearTextPassword = Mock::p();
+        let user_password: ClearTextPasswordRef = Mock::p();
         let (proof, strong_proof_verifier) = handshake
             .calculate_proof(user.username.as_str(), user_password)
             .unwrap();

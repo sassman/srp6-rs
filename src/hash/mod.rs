@@ -15,3 +15,4 @@ mod sha512;
 pub use sha512::*;
 
 pub type Hash = [u8; HASH_LENGTH];
+pub use HASH_LENGTH;

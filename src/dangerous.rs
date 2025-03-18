@@ -1,3 +1,5 @@
+use crate::api::host::Srp6;
+use crate::primitives::{Generator, PrimeModulus};
 use crate::rfc_5054_appendix_a::group_1024_bit;
 
 /// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 256 bit / 32 byte.
@@ -7,9 +9,10 @@ impl Default for Srp6_256 {
     fn default() -> Self {
         Self::new(
             Generator::from(7),
-            "894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7"
-                .try_into()
-                .unwrap(),
+            PrimeModulus::from_hex_str_be(
+                "894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7",
+            )
+            .unwrap(),
         )
         .unwrap()
     }
@@ -22,10 +25,13 @@ impl Default for Srp6_512 {
     fn default() -> Self {
         Self::new(
             Generator::from(7),
-            "D58B60A281533E85DA01C6943F8EAF5A14737F8F701788B4611A3A88D5A6A0A0E3EA3DA917EF8D036BA79706DAC9EB261E469D02B44998B88F3B06EACFF96D7B"
-                .try_into()
-                .unwrap()
-        ).unwrap()
+            PrimeModulus::from_hex_str_be(
+                "D58B60A281533E85DA01C6943F8EAF5A14737F8F701788B4611A3A88D5A6A0A0
+                 E3EA3DA917EF8D036BA79706DAC9EB261E469D02B44998B88F3B06EACFF96D7B",
+            )
+            .unwrap(),
+        )
+        .unwrap()
     }
 }
 

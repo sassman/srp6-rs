@@ -183,8 +183,25 @@ impl From<&[u8]> for BigNumber {
 }
 
 impl From<&BigNumber> for String {
+    /// Returns a hex string representation of the big number
+    /// it is formatted in 8 hex chars per block (hexlets)
+    /// and 7 hexlets per line
     fn from(x: &BigNumber) -> Self {
-        x.0.to_str_radix(16).to_uppercase()
+        let hex = x.0.to_str_radix(16).to_uppercase();
+
+        let hexlets: Vec<String> = hex
+            .chars()
+            .collect::<Vec<_>>()
+            .chunks(8)
+            .map(|chunk| chunk.iter().collect::<String>())
+            .collect();
+
+        // Group 7 hexlets per line
+        hexlets
+            .chunks(7)
+            .map(|line| line.join(" "))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
 
@@ -362,15 +379,13 @@ fn test_whitespace_is_ignored() {
 
 #[test]
 fn test_into_string_and_display() {
+    let expected = "3E9D557B 7899AC2A 8DEC8D00 46FB310A 42A233BD 1DF0244B 574AB946\nA22A4A18";
     let x = BigNumber::from_hex_str_be(
         "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18",
     )
     .unwrap();
     let s: String = x.into();
-    assert_eq!(
-        s,
-        "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18"
-    );
+    assert_eq!(s, expected);
     assert_eq!(
         format!(
             "{}",
@@ -379,7 +394,7 @@ fn test_into_string_and_display() {
             )
             .unwrap()
         ),
-        "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18"
+        expected
     );
 }
 

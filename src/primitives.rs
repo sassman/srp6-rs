@@ -39,7 +39,7 @@ pub type PublicKey = BigNumber;
 #[doc(alias("a", "b", "x"))]
 pub type PrivateKey = BigNumber;
 
-/// A pair of [`PublicKey`] and [`PrivateKey`]
+/// A pair of [`PublicKey`] B and [`PrivateKey`] b
 pub type KeyPair = (PublicKey, PrivateKey);
 
 /// Password Verifier is the users secret on the server side
@@ -162,19 +162,20 @@ pub fn calculate_session_key_hash_interleave_K<const N_BYTE_LEN: usize>(
     let S = S.to_array_pad_zero::<N_BYTE_LEN>();
 
     // take the even bytes out of S
-    let mut half = [0_u8; N_BYTE_LEN];
+    let n = S.len() / 2;
+    let mut half = vec![0; n];
     for (i, Si) in S.iter().step_by(2).enumerate() {
         half[i] = *Si;
     }
     // hash the even portion of S
-    let even_half_of_S_hash = HashFunc::new().chain(&half[..N_BYTE_LEN / 2]).finalize();
+    let even_half_of_S_hash = HashFunc::new().chain(&half[..n]).finalize();
 
     // take the odd bytes of S
     for (i, Si) in S.iter().skip(1).step_by(2).enumerate() {
         half[i] = *Si;
     }
     // hash the odd portion of S
-    let odd_half_of_S_hash = HashFunc::new().chain(&half[..N_BYTE_LEN / 2]).finalize();
+    let odd_half_of_S_hash = HashFunc::new().chain(&half[..n]).finalize();
 
     let mut vK = [0_u8; STRONG_SESSION_KEY_LENGTH];
     for (i, h_Si) in even_half_of_S_hash
@@ -331,7 +332,7 @@ pub fn calculate_private_key_x(I: UsernameRef, p: ClearTextPasswordRef, s: &Salt
 
 /// hashes the user and the password (used for client private key `x`)
 #[allow(non_snake_case)]
-#[cfg(not(feature = "dangerous"))]
+#[cfg(not(feature = "wow"))]
 pub fn calculate_p_hash(I: UsernameRef, p: ClearTextPasswordRef) -> Hash {
     HashFunc::new()
         .chain(I.as_bytes())
@@ -344,7 +345,7 @@ pub fn calculate_p_hash(I: UsernameRef, p: ClearTextPasswordRef) -> Hash {
 /// hashes the user and the password (used for client private key `x`)
 /// WoW flavoured (upper cased user and password)
 #[allow(non_snake_case)]
-#[cfg(feature = "dangerous")]
+#[cfg(feature = "wow")]
 pub fn calculate_p_hash(I: UsernameRef, p: ClearTextPasswordRef) -> Hash {
     HashFunc::new()
         .chain(I.to_uppercase().as_bytes())
@@ -356,7 +357,7 @@ pub fn calculate_p_hash(I: UsernameRef, p: ClearTextPasswordRef) -> Hash {
 
 /// `k = H(N | PAD(g))` (k = 3 for dangerous SRP-6)
 #[allow(non_snake_case)]
-#[cfg(not(feature = "dangerous"))]
+#[cfg(not(feature = "wow"))]
 pub fn calculate_k<const KEY_LENGTH: usize>(
     N: &PrimeModulus,
     g: &Generator,
@@ -368,7 +369,7 @@ pub fn calculate_k<const KEY_LENGTH: usize>(
 }
 
 /// `k = H(N | PAD(g))` (k = 3 for dangerous SRP-6)
-#[cfg(feature = "dangerous")]
+#[cfg(feature = "wow")]
 pub fn calculate_k<const KEY_LENGTH: usize>(
     _: &PrimeModulus,
     _: &Generator,
@@ -387,12 +388,10 @@ pub fn generate_salt<const SALT_LENGTH: usize>() -> Salt {
 }
 
 #[cfg(test)]
-#[cfg(feature = "dangerous")]
+#[cfg(feature = "wow")]
 mod tests {
-    use std::convert::TryInto;
-
     use crate::api::host::tests::Mock;
-    use crate::defaults::Srp6_256;
+    use crate::dangerous::Srp6_256;
 
     use super::*;
 
@@ -409,8 +408,7 @@ mod tests {
     fn should_calculate_users_private_key_x_and_password_verifier() {
         let params = Srp6_256::default();
         let x = &calculate_private_key_x(Mock::I(), Mock::p(), &Mock::s());
-        // sometimes it is also 20 bytes long..
-        // assert_eq!(x.num_bytes(), 19);
+        assert_eq!(x.num_bytes(), 20);
         let v = calculate_password_verifier_v(&params.N, &params.g, x);
 
         assert_eq!(&v, &Mock::v());
@@ -427,7 +425,7 @@ mod tests {
     #[test]
     fn should_calculate_session_key_on_host_side() {
         let params = Srp6_256::default();
-        let session_key_s = calculate_session_key_S_for_host(
+        let session_key_s = calculate_session_key_S_for_host::<KEY_LENGTH>(
             &params.N,
             &Mock::A(),
             &Mock::B(),
@@ -444,8 +442,14 @@ mod tests {
     #[allow(non_snake_case)]
     fn should_fail_for_public_key_mod_N_is_zero() {
         let params = Srp6_256::default();
-        calculate_session_key_S_for_host(&params.N, &params.N, &Mock::B(), &Mock::b(), &Mock::v())
-            .unwrap();
+        calculate_session_key_S_for_host::<KEY_LENGTH>(
+            &params.N,
+            &params.N,
+            &Mock::B(),
+            &Mock::b(),
+            &Mock::v(),
+        )
+        .unwrap();
     }
 
     #[test]
@@ -456,21 +460,14 @@ mod tests {
 
     #[test]
     fn should_calculate_the_xor_hash_right() {
-        use hex_literal::hex;
-
         let params = Srp6_256::default();
         let h = calculate_hash_N_xor_g::<KEY_LENGTH>(&params.N, &params.g);
-        const EXPECTED_HASH_LE: Hash =
-            hex!("DD 7B B0 3A 38 AC 73 11 03 98 7C 5A 50 6F CA 96 6C 7B C2 A7");
-        // both are equivalent, here it's the big endian hex string representation
-        let bn: BigNumber = "A7C27B6C96CA6F505A7C98031173AC383AB07BDD"
-            .try_into()
-            .unwrap();
-        // println!("{:?}", bn);
-        assert_eq!(bn.to_vec().as_slice(), &EXPECTED_HASH_LE);
+        let expected = BigNumber::from_hex_str_be(
+            "DD 7B B0 3A 38 AC 73 11 03 98 7C 5A 50 6F CA 96 6C 7B C2 A7",
+        )
+        .unwrap();
 
-        // println!("{:X?}", EXPECTED_HASH_LE);
-        assert_eq!(h, EXPECTED_HASH_LE);
+        assert_eq!(h.as_slice(), expected.to_vec().as_slice());
     }
 
     #[test]

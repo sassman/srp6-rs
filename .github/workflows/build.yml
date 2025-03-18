@@ -2,16 +2,100 @@ name: Build
 on:
   push:
     branches: ["*"]
-    paths-ignore:
-      - "**/docs/**"
-      - "**.md"
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
-  build:
-    uses: sassman/.github/.github/workflows/build.yml@main
+  check:
+    name: check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+      - run: cargo check
+
+  lint:
+    name: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+        cargo-cmd:
+          - fmt --all -- --check
+          - clippy --all-targets -- -D warnings
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+      - run: cargo ${{ matrix['cargo-cmd'] }}
+
+  tests:
+    name: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+        channel: ["nightly", "stable"]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.channel == 'nightly' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+        with:
+          channel: ${{ matrix.channel }}
+          default: true
+          profile: minimal
+      - name: cargo test
+        if: matrix.os != 'windows-latest'
+        run: |
+          if [ -f "Cargo.lock" ]; then
+            cargo test --all --locked
+          else
+            cargo test --all
+          fi
+      - name: cargo test
+        if: matrix.os == 'windows-latest'
+        run: |
+          # Windows PowerShell is a disaster
+          if (Test-Path "Cargo.lock") {
+            cargo test --all --locked
+          } else {
+            cargo test --all
+          }
+
+  audit:
+    name: security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: audit
+        run: cargo deny check advisories bans sources
+        continue-on-error: true
+
+  docs:
+    name: docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+      - name: check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps
 
   coverage:
     name: code coverage
