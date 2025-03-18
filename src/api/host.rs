@@ -11,7 +11,7 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
         &self,
         I: UsernameRef,
         p: ClearTextPasswordRef,
-        #[cfg(test)] s: Option<Salt>,
+        #[cfg(test)] s: Salt,
     ) -> (Salt, PasswordVerifier);
 
     /// starts the handshake with the client
@@ -119,10 +119,8 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
         &self,
         I: UsernameRef,
         p: ClearTextPasswordRef,
-        #[cfg(test)] s: Option<Salt>,
+        #[cfg(test)] s: Salt,
     ) -> (Salt, PasswordVerifier) {
-        #[cfg(test)]
-        let s = s.unwrap_or(generate_salt::<SALT_LENGTH>());
         #[cfg(not(test))]
         let s = generate_salt::<SALT_LENGTH>();
         let x = calculate_private_key_x(I, p, &s);
@@ -262,7 +260,7 @@ pub mod tests {
     pub type Mock = Srp6_256Mock;
 
     #[test]
-    #[cfg(feature = "legacy")]
+    #[cfg(feature = "dangerous")]
     fn should_prepare_a_new_user() {
         use crate::defaults::Srp6_256;
 
@@ -308,7 +306,7 @@ pub mod tests {
 
     #[test]
     #[allow(non_snake_case)]
-    #[cfg(feature = "legacy")]
+    #[cfg(feature = "dangerous")]
     fn should_do_the_full_round_trip_to_proof() {
         use crate::defaults::Srp6_256;
 
@@ -338,7 +336,7 @@ pub mod tests {
             .unwrap();
     }
 
-    #[cfg(feature = "legacy")]
+    #[cfg(feature = "dangerous")]
     fn mocked_user_details() -> UserDetails {
         UserDetails {
             username: Mock::I().to_owned(),

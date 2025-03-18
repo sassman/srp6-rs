@@ -254,6 +254,9 @@ mod primitives;
 mod api;
 mod big_number;
 
+#[cfg(feature = "dangerous")]
+pub mod dangerous;
+
 pub mod prelude {
     pub use crate::api::host::*;
     pub use crate::api::user::*;
@@ -273,9 +276,8 @@ pub use primitives::{
 };
 pub use std::convert::TryInto;
 
-#[cfg(test)]
 pub mod rfc_5054_appendix_a;
-#[cfg(test)]
+#[cfg(all(test, feature = "hash-sha1"))]
 pub mod rfc_5054_appendix_b;
 
 /// encapsulates a [`Srp6Error`]

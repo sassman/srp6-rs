@@ -30,6 +30,6 @@ default = ["hash-sha512"]
 # default = ["hash-sha1"]
 hash-sha512 = ["dep:sha2"]
 hash-sha1 = ["dep:sha1"]
-legacy = ["hash-sha1"]
+dangerous = ["hash-sha1"]
 # this is a testing only feature, not relevant for the library
 test-for-openssl-compatibility = []
