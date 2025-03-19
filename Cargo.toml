@@ -21,7 +21,6 @@ sha1 = { version = "^0.10", optional = true }
 sha2 = { version = "^0.10", optional = true }
 
 [dev-dependencies]
-# openssl = { version = "0.10", features = ["vendored"] }
 serde_json = "1.0"
 
 [features]
@@ -35,6 +34,3 @@ wow = ["dangerous"]
 
 doc-test-mocks = ["hash-sha512"]
 test-rfc-5054-appendix-b = ["hash-sha1"]
-
-# this is a testing only feature, not relevant for the library
-test-for-openssl-compatibility = []
