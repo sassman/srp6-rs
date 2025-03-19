@@ -89,9 +89,3 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --no-deps
-
-  coverage:
-    name: code coverage
-    uses: sassman/.github/.github/workflows/coverage.yml@main
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
