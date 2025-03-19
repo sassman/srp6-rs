@@ -15,7 +15,7 @@ This scheme is applied for all variables used in the calculus.
 */
 use crate::big_number::{BigNumber, Zero};
 use crate::hash::*;
-use crate::{Result, Srp6Error};
+use crate::{error::Srp6Error, Result};
 
 const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
 
@@ -380,114 +380,4 @@ pub fn generate_private_key<const KEY_LENGTH: usize>() -> PrivateKey {
 /// [`Salt`] `s` is a random number
 pub fn generate_salt<const SALT_LENGTH: usize>() -> Salt {
     Salt::new_rand(SALT_LENGTH)
-}
-
-#[cfg(test)]
-#[cfg(feature = "wow")]
-mod tests {
-    use crate::api::host::tests::Mock;
-    use crate::dangerous::Srp6_256;
-
-    use super::*;
-
-    const KEY_LENGTH: usize = 32;
-    const SALT_LENGTH: usize = 32;
-
-    #[test]
-    fn should_generate_a_salt_of_n() {
-        let s = generate_salt::<32>();
-        assert_eq!(s.to_vec().len(), 32);
-    }
-
-    #[test]
-    fn should_calculate_users_private_key_x_and_password_verifier() {
-        let params = Srp6_256::default();
-        let x = &calculate_private_key_x(Mock::I(), Mock::p(), &Mock::s());
-        assert_eq!(x.num_bytes(), 20);
-        let v = calculate_password_verifier_v(&params.N, &params.g, x);
-
-        assert_eq!(&v, &Mock::v());
-    }
-
-    #[test]
-    #[allow(non_snake_case)]
-    fn should_calculate_servers_pubkey_B() {
-        let params = Srp6_256::default();
-        let B = calculate_pubkey_B(&params.N, &params.k, &params.g, &Mock::v(), &Mock::b());
-        assert_eq!(B, Mock::B())
-    }
-
-    #[test]
-    fn should_calculate_session_key_on_host_side() {
-        let params = Srp6_256::default();
-        let session_key_s = calculate_session_key_S_for_host::<KEY_LENGTH>(
-            &params.N,
-            &Mock::A(),
-            &Mock::B(),
-            &Mock::b(),
-            &Mock::v(),
-        )
-        .unwrap();
-
-        assert!(!session_key_s.is_zero());
-        assert_eq!(&session_key_s, &Mock::S())
-    }
-    #[test]
-    #[should_panic]
-    #[allow(non_snake_case)]
-    fn should_fail_for_public_key_mod_N_is_zero() {
-        let params = Srp6_256::default();
-        calculate_session_key_S_for_host::<KEY_LENGTH>(
-            &params.N,
-            &params.N,
-            &Mock::B(),
-            &Mock::b(),
-            &Mock::v(),
-        )
-        .unwrap();
-    }
-
-    #[test]
-    fn should_calculate_hash_of_a_session_key() {
-        let hash_of_session_key = calculate_session_key_hash_interleave_K::<KEY_LENGTH>(&Mock::S());
-        assert_eq!(&hash_of_session_key, &Mock::K())
-    }
-
-    #[test]
-    fn should_calculate_the_xor_hash_right() {
-        let params = Srp6_256::default();
-        let h = calculate_hash_N_xor_g::<KEY_LENGTH>(&params.N, &params.g);
-        let expected = BigNumber::from_hex_str_be(
-            "DD 7B B0 3A 38 AC 73 11 03 98 7C 5A 50 6F CA 96 6C 7B C2 A7",
-        )
-        .unwrap();
-
-        assert_eq!(h.as_slice(), expected.to_vec().as_slice());
-    }
-
-    #[test]
-    fn should_calculate_proof() {
-        let params = Srp6_256::default();
-        let proof_m = calculate_proof_M::<KEY_LENGTH, SALT_LENGTH>(
-            &params.N,
-            &params.g,
-            Mock::I(),
-            &Mock::s(),
-            &Mock::A(),
-            &Mock::B(),
-            &Mock::K(),
-        );
-
-        assert_eq!(&proof_m, &Mock::M())
-    }
-
-    #[test]
-    fn should_panic_client_key_calc_for_mod_zero_public_server_key() {
-        let params = Srp6_256::default();
-        let res = calculate_session_key_S_for_client::<32>(
-            &params.N, &params.N, &params.N, &params.N, &params.N, &params.N, &params.N,
-        );
-        assert!(res.is_err());
-        assert_eq!(res.err().unwrap(), Srp6Error::InvalidPublicKey(params.N));
-    }
 }

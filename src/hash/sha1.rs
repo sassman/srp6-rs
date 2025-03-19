@@ -23,7 +23,7 @@ mod tests {
     use std::convert::TryFrom;
 
     use super::*;
-    use crate::PublicKey;
+    use crate::prelude::PublicKey;
 
     #[test]
     #[allow(non_snake_case)]

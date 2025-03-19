@@ -1,32 +1,17 @@
-/*!
-default prime modulus and generator numbers taken from [RFC5054 Appendix A],
-so they can be treated as vetted and safe.
-
-## Usage:
-```rust
-use srp6::{Srp6_4096, HostAPI};
-
-let srp = Srp6_4096::default();
-let (_salt_s, _verifier_v) = srp.generate_new_user_secrets("Bob", "secret-password");
-```
-
-then you can alias a type for a convienice e.g.:
-```rust
-use srp6::{Srp6, Generator, TryInto};
-
-pub type MyCustomSrp6 = Srp6<2, 2>;
-pub fn my_custom_srp6_new() -> MyCustomSrp6 {
-    MyCustomSrp6::new(
-        Generator::from(5),
-        "FE27".try_into().unwrap(),
-    ).unwrap()
-}
-
-let my_srp = my_custom_srp6_new();
-```
-
-[RFC5054 Appendix A]: https://datatracker.ietf.org/doc/html/rfc5054#appendix-A
-*/
+//!
+//! default prime modulus and generator numbers taken from [RFC5054 Appendix A],
+//! so they can be treated as vetted and safe.
+//!
+//! ## Usage:
+//!
+//! ```rust
+//! use srp6::prelude::{Srp6_4096, HostAPI};
+//!
+//! let srp = Srp6_4096::default();
+//! let (_salt_s, _verifier_v) = srp.generate_new_user_secrets("Bob", "secret-password");
+//! ```
+//!
+//! [RFC5054 Appendix A]: https://datatracker.ietf.org/doc/html/rfc5054#appendix-A
 
 use crate::rfc_5054_appendix_a::{
     group_2048_bit, group_3072_bit, group_4096_bit, group_6144_bit, group_8192_bit,

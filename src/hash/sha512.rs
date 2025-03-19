@@ -19,11 +19,12 @@ pub fn hash_w_pad<const PAD: usize>(a: &BigNumber, b: &BigNumber) -> BigNumber {
 
 #[cfg(test)]
 mod tests {
-    use hex_literal::hex;
     use std::convert::TryFrom;
 
+    use hex_literal::hex;
+
     use super::*;
-    use crate::PublicKey;
+    use crate::prelude::PublicKey;
 
     #[test]
     #[allow(non_snake_case)]

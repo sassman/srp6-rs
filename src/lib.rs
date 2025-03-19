@@ -147,8 +147,6 @@
 //! - [RFC5054](https://datatracker.ietf.org/doc/html/rfc5054) that describes SRP6 for TLS Authentication
 //! - [check out the 2 examples](./examples) that illustrates the srp authentication flow as well
 
-use thiserror::Error;
-
 pub mod defaults;
 pub mod hash;
 pub mod protocol_details;
@@ -158,6 +156,7 @@ pub mod prelude {
     pub use crate::api::user::*;
     pub use crate::big_number::BigNumber;
     pub use crate::defaults::*;
+    pub use crate::error::Srp6Error;
     pub use crate::hash::HASH_LENGTH;
     pub use crate::primitives::*;
     pub use std::convert::TryInto;
@@ -168,40 +167,25 @@ pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
 
-#[cfg(any(test, feature = "doc-test-mocks"))]
+// #[cfg(all(doctest, feature = "doc-test-mocks"))]
+#[cfg(doctest)]
 pub mod doc_test_mocks;
 
 mod api;
 mod big_number;
+mod error;
 mod primitives;
 
-// TODO: remove this, in favor of the prelude module
-pub use api::host::*;
-pub use api::user::*;
-pub use defaults::*;
-pub use primitives::{
-    ClearTextPassword, Generator, MultiplierParameter, PasswordVerifier, PrimeModulus, PrivateKey,
-    Proof, PublicKey, Salt, SessionKey, StrongProof, StrongSessionKey, UserCredentials,
-    UserSecrets, Username, UsernameRef,
-};
-pub use std::convert::TryInto;
+// // TODO: remove this, in favor of the prelude module
+// pub use api::host::*;
+// pub use api::user::*;
+// pub use defaults::*;
+// pub use primitives::{
+//     ClearTextPassword, Generator, MultiplierParameter, PasswordVerifier, PrimeModulus, PrivateKey,
+//     Proof, PublicKey, Salt, SessionKey, StrongProof, StrongSessionKey, UserCredentials,
+//     UserSecrets, Username, UsernameRef,
+// };
+// pub use std::convert::TryInto;
 
-/// encapsulates a [`Srp6Error`]
-pub type Result<T> = std::result::Result<T, Srp6Error>;
-
-#[derive(Error, Debug, PartialEq)]
-pub enum Srp6Error {
-    #[error(
-        "The provided key length ({given:?} byte) does not match the expected ({expected:?} byte)"
-    )]
-    KeyLengthMismatch { given: usize, expected: usize },
-
-    #[error("The provided proof is invalid")]
-    InvalidProof(Proof),
-
-    #[error("The provided strong proof is invalid")]
-    InvalidStrongProof(StrongProof),
-
-    #[error("The provided public key is invalid")]
-    InvalidPublicKey(PublicKey),
-}
+/// encapsulates a [`crate::error::Srp6Error`]
+pub type Result<T> = std::result::Result<T, crate::error::Srp6Error>;
