@@ -189,3 +189,8 @@ mod primitives;
 
 /// encapsulates a [`crate::error::Srp6Error`]
 pub type Result<T> = std::result::Result<T, crate::error::Srp6Error>;
+
+pub use api::host::*;
+pub use api::user::*;
+pub use defaults::*;
+pub use primitives::*;
