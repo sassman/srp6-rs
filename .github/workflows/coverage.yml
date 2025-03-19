@@ -23,7 +23,7 @@ jobs:
           - llvm-cov --features hash-sha1 --no-default-features
           - llvm-cov --features wow --no-default-features
           - llvm-cov --features hash-sha512 --no-default-features
-      max-parallel: 6
+      max-parallel: 0
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

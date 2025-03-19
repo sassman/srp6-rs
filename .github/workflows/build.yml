@@ -51,7 +51,7 @@ jobs:
           - test --features hash-sha1 --no-default-features --lib
           - test --features wow --no-default-features --lib
           - test --features hash-sha512 --no-default-features --lib
-      max-parallel: 6
+      max-parallel: 0
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.channel == 'nightly' }}
     steps:
