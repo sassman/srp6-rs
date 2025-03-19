@@ -43,6 +43,14 @@ jobs:
       matrix:
         os: ["macos-latest", "ubuntu-latest", "windows-latest"]
         channel: ["nightly", "stable"]
+        cargo-test-cmd:
+          - test --lib
+          - test --features doc-test-mocks
+          - test --features dangerous --no-default-features --lib
+          - test --features hash-sha1 --no-default-features --lib
+          - test --features wow --no-default-features --lib
+          - test --features hash-sha512 --no-default-features --lib
+      max-parallel: 6
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.channel == 'nightly' }}
     steps:
@@ -53,13 +61,8 @@ jobs:
           channel: ${{ matrix.channel }}
           default: true
           profile: minimal
-      - name: cargo test
-        run: |
-          cargo test --features doc-test-mocks
-          cargo test --lib
-          cargo test --features hash-sha1 --no-default-features --lib
-          cargo test --features dangerous --no-default-features --lib
-          cargo test --features wow --no-default-features --lib
+      - name: cargo test run
+        run: cargo ${{ matrix['cargo-cmd'] }}
 
   audit:
     name: security audit
