@@ -273,22 +273,22 @@ pub fn calculate_password_verifier_v(
     g.modpow(x, N)
 }
 
-/// `u` is the hash of host's and client's [`PublicKey`]
+/// [`../rfc_lingo::u`] is the hash of host's [`PublicKey`][`../rfc_lingo::A`] and client's [`PublicKey`][`../rfc_lingo::B`]
 /// formula: `H(PAD(A) | PAD(B))`
-/// The Padding is based on the key length, so if N is 1024 bit, the padding is 128 bytes
+/// The Padding is based on the key length, e.g. if N is 1024 bit, the padding is 128 bytes
 #[allow(non_snake_case)]
 pub fn calculate_u<const N_BYTE_LEN: usize>(A: &PublicKey, B: &PublicKey) -> BigNumber {
     hash_w_pad::<N_BYTE_LEN>(A, B)
 }
 
-/// `A` is the [`PublicKey`] of the client
+/// [`../rfc_lingo::A`] is the [`PublicKey`] of the client
 /// formula: `A = g^a % N`
 #[allow(non_snake_case)]
 pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> PublicKey {
     g.modpow(a, N)
 }
 
-/// [`PublicKey`][B] is the hosts public key
+/// [`PublicKey`][`../rfc_lingo::B`] is the hosts public key
 /// `B = kv + g^b`
 #[allow(non_snake_case)]
 pub fn calculate_pubkey_B(

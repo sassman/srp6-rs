@@ -55,12 +55,12 @@ impl BigNumber {
         Self(BigInt::from_bytes_be(Sign::Plus, &bytes))
     }
 
-    /// [`raw`] is expected to be big endian
+    /// `raw` is expected to be big endian
     pub fn from_bytes_be(raw: &[u8]) -> Self {
         Self(BigInt::from_bytes_be(Sign::Plus, raw))
     }
 
-    /// [`raw`] is expected to be big endian
+    /// `raw` is expected to be big endian
     pub fn from_bytes_le(raw: &[u8]) -> Self {
         Self(BigInt::from_bytes_le(Sign::Plus, raw))
     }
@@ -69,11 +69,11 @@ impl BigNumber {
     /// High
     ///    -> Low
     ///  "123acab"
-    /// This method also strips whitespaces. So block formats are also supported.
+    /// This method strips all non alphanumerical, So block formats are also supported.
     pub fn from_hex_str_be(str: &str) -> std::result::Result<Self, BigNumberError> {
         let str = str
             .chars()
-            .filter(|c| !c.is_whitespace())
+            .filter(|c| c.is_alphanumeric())
             .collect::<String>();
 
         let str = if str.len() % 2 != 0 {
@@ -148,7 +148,6 @@ impl Debug for BigNumber {
 }
 
 // region from traits
-/// from a [`n`] basic u32
 impl From<u32> for BigNumber {
     fn from(n: u32) -> Self {
         Self(BigInt::from(n))
