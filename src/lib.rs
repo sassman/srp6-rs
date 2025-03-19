@@ -64,7 +64,7 @@
 //! ### 3. A `Proof` that Alice is Alice
 //!
 //! - with the handshake, alice needs to create [`Proof`] that she is who she says she is
-//! - this [`Proof`] and his [`PublicKey`] will be sent to the server where it is verified
+//! - this [`Proof`] and her [`PublicKey`] will be sent to the server where it is verified
 //!
 //! ```rust
 //! use srp6::prelude::*;
@@ -89,7 +89,7 @@
 //! ### 4. Verify `Proof` from Alice
 //!
 //! - The client sends the proof (`[HandshakeProof`]) to the server
-//! - The server calculates his version of the Proof and compoares if they match
+//! - The server calculates their version of the Proof and compoares if they match
 //! - On Success both parties have calculated a strong proof ([`StrongProof`] M2) and a session key ([`StrongSessionKey`] K)
 //!
 //! ```rust
@@ -158,7 +158,7 @@ pub mod prelude {
 #[cfg(feature = "dangerous")]
 pub mod dangerous;
 pub mod rfc_5054_appendix_a;
-#[cfg(all(test, feature = "hash-sha1"))]
+#[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
 
 #[cfg(any(test, feature = "doc-test-mocks"))]
@@ -175,7 +175,7 @@ pub use defaults::*;
 pub use primitives::{
     ClearTextPassword, Generator, MultiplierParameter, PasswordVerifier, PrimeModulus, PrivateKey,
     Proof, PublicKey, Salt, SessionKey, StrongProof, StrongSessionKey, UserCredentials,
-    UserDetails, Username, UsernameRef,
+    UserSecrets, Username, UsernameRef,
 };
 pub use std::convert::TryInto;
 

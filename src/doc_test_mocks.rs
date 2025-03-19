@@ -5,8 +5,8 @@
 //! Note: The salt and verifier are generated at random, hence they will be different every time.
 use crate::prelude::*;
 
-pub fn lookup_user_details(username: UsernameRef) -> UserDetails {
-    UserDetails {
+pub fn lookup_user_details(username: UsernameRef) -> UserSecrets {
+    UserSecrets {
         username: username.to_owned(),
         salt: Salt::from_hex_str_be(
             "2A27E3AF 30443FCA 7A9D8C0A 3D6423A4 3AC28B82 C119E240 E7499F1F

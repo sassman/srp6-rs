@@ -88,7 +88,7 @@ pub struct UserCredentials<'a> {
 
 /// User details composes [`Username`], [`Salt`] and [`PasswordVerifier`] in one struct
 #[derive(Debug, Clone)]
-pub struct UserDetails {
+pub struct UserSecrets {
     pub username: Username,
     pub salt: Salt,
     pub verifier: PasswordVerifier,

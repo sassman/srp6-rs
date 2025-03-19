@@ -25,7 +25,7 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
     ) -> (Salt, PasswordVerifier);
 
     /// starts the handshake with the client
-    fn start_handshake(&self, user: &UserDetails) -> (Handshake<KL, SL>, HandshakeProofVerifier);
+    fn start_handshake(&self, user: &UserSecrets) -> (Handshake<KL, SL>, HandshakeProofVerifier);
 }
 
 /// Contains all variables needed for a successful
@@ -53,7 +53,7 @@ pub struct HandshakeProofVerifier {
     /// the servers pub and private key
     pub server_keys: KeyPair,
     /// the users s, v and I
-    pub user: UserDetails,
+    pub user: UserSecrets,
     /// a generator modulo N
     pub g: Generator,
     /// a big and safe prime number
@@ -159,7 +159,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
     #[allow(non_snake_case)]
     fn start_handshake(
         &self,
-        user: &UserDetails,
+        user: &UserSecrets,
     ) -> (Handshake<KEY_LENGTH, SALT_LENGTH>, HandshakeProofVerifier) {
         let (s, v) = (&user.salt, &user.verifier);
         let b = generate_private_key::<KEY_LENGTH>();
@@ -361,8 +361,8 @@ pub mod tests {
     }
 
     #[cfg(feature = "dangerous")]
-    fn mocked_user_details() -> UserDetails {
-        UserDetails {
+    fn mocked_user_details() -> UserSecrets {
+        UserSecrets {
             username: Mock::I().to_owned(),
             salt: Mock::s(),
             verifier: Mock::v(),

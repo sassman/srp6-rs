@@ -89,11 +89,11 @@ mod mocked {
     use super::*;
 
     /// normally salt and verifier is retrieved rom a user database
-    pub fn lookup_user_details(username: UsernameRef) -> UserDetails {
+    pub fn lookup_user_details(username: UsernameRef) -> UserSecrets {
         let (salt, verifier) =
             Srp6_4096::default().generate_new_user_secrets(username, USER_PASSWORD);
 
-        UserDetails {
+        UserSecrets {
             username: username.to_owned(),
             salt,
             verifier,

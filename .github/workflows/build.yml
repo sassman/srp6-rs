@@ -57,6 +57,7 @@ jobs:
         run: |
           cargo test --features doc-test-mocks
           cargo test --lib
+          cargo test --features hash-sha1 --no-default-features --lib
           cargo test --features dangerous --no-default-features --lib
           cargo test --features wow --no-default-features --lib
 
