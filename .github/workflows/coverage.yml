@@ -19,6 +19,7 @@ jobs:
           - llvm-cov
           - llvm-cov --features doc-test-mocks
           - llvm-cov --features dangerous --no-default-features
+          - llvm-cov --features test-rfc-5054-appendix-b --no-default-features
           - llvm-cov --features hash-sha1 --no-default-features
           - llvm-cov --features wow --no-default-features
           - llvm-cov --features hash-sha512 --no-default-features
