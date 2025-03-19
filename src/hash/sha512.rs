@@ -52,11 +52,6 @@ mod tests {
         let exp_hash = hex!(
             "3112C8B58EB9326827D201366C00B174AE045313816D62CB110C8178462E20453F47408F5BDA1B1BB23CDE16BD74C8AF07279E0972149FAB3266F6AA713D155C");
 
-        assert_eq!(
-            u.to_vec(),
-            exp_hash,
-            "u was not calculated correctly: {}",
-            u.to_string()
-        );
+        assert_eq!(u.to_vec(), exp_hash, "u was not calculated correctly: {u}",);
     }
 }

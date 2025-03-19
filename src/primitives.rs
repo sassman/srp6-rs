@@ -69,8 +69,8 @@ pub type StrongProof = BigNumber;
 pub type Username = String;
 /// Username reference `I` as [`&str`]
 pub type UsernameRef<'a> = &'a str;
-/// Clear text password `p` as [`str`]
 
+/// Clear text password `p` as [`str`]
 #[doc(alias("P", "p"))]
 pub type ClearTextPassword = String;
 pub type ClearTextPasswordRef<'a> = &'a str;
@@ -187,9 +187,7 @@ pub fn calculate_session_key_hash_interleave_K<const N_BYTE_LEN: usize>(
         vK[i * 2 + 1] = *h_Si.1;
     }
 
-    let K = BigNumber::from_bytes_be(&vK);
-
-    K
+    StrongSessionKey::from_bytes_be(&vK)
 }
 
 #[allow(non_snake_case)]
@@ -287,9 +285,7 @@ pub fn calculate_u<const N_BYTE_LEN: usize>(A: &PublicKey, B: &PublicKey) -> Big
 /// formula: `A = g^a % N`
 #[allow(non_snake_case)]
 pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> PublicKey {
-    let A = g.modpow(a, N);
-
-    A
+    g.modpow(a, N)
 }
 
 /// [`PublicKey`][B] is the hosts public key
@@ -303,9 +299,8 @@ pub fn calculate_pubkey_B(
     b: &PrivateKey,
 ) -> PublicKey {
     let g_mod_N = g.modpow(b, N);
-    let B = &((k * v) + g_mod_N) % N;
-
-    B
+    // This is B
+    &((k * v) + g_mod_N) % N
 }
 
 /// `x` is the users private key (only they know)
