@@ -1,8 +1,7 @@
 use crate::hash::*;
 
-use num_bigint::{BigInt, RandBigInt, Sign};
-use num_traits::Signed;
-use rand::thread_rng;
+use num_bigint::{BigInt, Sign};
+use rand::{rng, Rng};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
@@ -51,11 +50,9 @@ impl Default for BigNumber {
 impl BigNumber {
     /// new random initialized big number
     pub fn new_rand(n_bytes: usize) -> Self {
-        let mut rng = thread_rng();
-        let a = rng.gen_bigint((n_bytes * 8) as u64);
-        let a = if a.is_negative() { a.abs() } else { a };
-
-        Self(a)
+        let rng = rng();
+        let bytes: Vec<u8> = rng.random_iter().take(n_bytes).collect();
+        Self(BigInt::from_bytes_be(Sign::Plus, &bytes))
     }
 
     /// [`raw`] is expected to be big endian

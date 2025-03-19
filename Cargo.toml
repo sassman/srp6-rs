@@ -9,7 +9,7 @@ include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
 thiserror = "2.0"
-rand = "0.8"
+rand = { version = "0.9", default-features = false, features = ["thread_rng"] }
 num-bigint = { version = "0.4", features = [
     "rand",
     "serde",
