@@ -16,14 +16,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        coverage-cmd:
-          - llvm-cov
-          - llvm-cov --features doc-test-mocks
-          - llvm-cov --features dangerous --no-default-features
-          - llvm-cov --features test-rfc-5054-appendix-b --no-default-features
-          - llvm-cov --features hash-sha1 --no-default-features
-          - llvm-cov --features wow --no-default-features
-          - llvm-cov --features hash-sha512 --no-default-features
+        flags:
+          - "doc-test-mocks"
+          - "dangerous,test-rfc-5054-appendix-b"
+          - "wow"
+          - "hash-sha512"
       max-parallel: 0
     runs-on: ubuntu-latest
     steps:
@@ -35,9 +32,11 @@ jobs:
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo ${{ matrix['coverage-cmd'] }} --workspace --codecov --output-path codecov-$(uuidgen).json
+        run: cargo llvm-cov --features "${{ matrix['flags'] }}" --no-default-features --workspace --codecov --output-path codecov-$(uuidgen).json
       - name: collect all coverage files into a comma separeted list
         run: echo "coverage_files=$(ls -1 codecov*.json | tr '\n' ',')" >> $GITHUB_ENV
+      - name: create a flag identifier
+        run: echo "cooverage_flag=$(echo "${{matrix['flags']}}" | tr ',' '_')" >> $GITHUB_ENV
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         env:
@@ -45,4 +44,5 @@ jobs:
         with:
           files: ${{ env.coverage_files }}
           verbose: true
+          flags: ${{ env.cooverage_flag }}
           fail_ci_if_error: false
