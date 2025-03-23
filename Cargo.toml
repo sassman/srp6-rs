@@ -1,6 +1,6 @@
 [package]
 name = "srp6"
-version = "1.0.0-alpha.6"
+version = "1.0.0-alpha.7"
 authors = ["Sven Kanoldt <sven@d34dl0ck.me>"]
 edition = "2018"
 description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6 and 6a)"
