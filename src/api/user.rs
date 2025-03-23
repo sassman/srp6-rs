@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::host::Handshake;
 use crate::primitives::*;
-use crate::{Result, Srp6Error};
+use crate::{error::Srp6Error, Result};
 
 /// Contains the client's [`PublicKey`] and their [`Proof`] and is sent to the server
 #[derive(Debug, Serialize, Deserialize)]

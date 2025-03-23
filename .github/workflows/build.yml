@@ -2,19 +2,91 @@ name: Build
 on:
   push:
     branches: ["*"]
-    paths-ignore:
-      - "**/docs/**"
-      - "**.md"
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
-  build:
-    uses: sassman/.github/.github/workflows/build.yml@main
+  check:
+    name: check
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+      - run: cargo check
 
-  coverage:
-    name: code coverage
-    uses: sassman/.github/.github/workflows/coverage.yml@main
-    secrets:
-      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  lint:
+    name: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+        cargo-cmd:
+          - fmt --all -- --check
+          - clippy --all-targets -- -D warnings
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+      - run: cargo ${{ matrix['cargo-cmd'] }}
+
+  tests:
+    name: tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+        channel: ["nightly", "stable"]
+        cargo-test-cmd:
+          - test --lib
+          - test --features doc-test-mocks
+          - test --features dangerous --no-default-features --lib
+          - test --features test-rfc-5054-appendix-b --no-default-features --lib
+          - test --features hash-sha1 --no-default-features --lib
+          - test --features wow --no-default-features --lib
+          - test --features hash-sha512 --no-default-features --lib
+      max-parallel: 0
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.channel == 'nightly' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+        with:
+          channel: ${{ matrix.channel }}
+          default: true
+          profile: minimal
+      - name: cargo test run
+        run: cargo ${{ matrix['cargo-cmd'] }}
+
+  audit:
+    name: security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+      - name: audit
+        run: cargo deny check advisories bans sources
+        continue-on-error: true
+
+  docs:
+    name: docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+      - name: check documentation
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps

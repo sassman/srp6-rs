@@ -4,9 +4,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![codecov](https://codecov.io/gh/sassman/srp6-rs/branch/main/graph/badge.svg)](https://codecov.io/gh/sassman/srp6-rs)
 
-> A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6a). Version 6 (legacy) is as features available.
+> A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6a).
 
-## About SRP
+## About SRP6
 
 > The Secure Remote Password protocol performs secure remote authentication of short human-memorizable passwords and resists both passive and active network attacks. Because SRP offers this unique combination of password security, user convenience, and freedom from restrictive licenses, it is the most widely standardized protocol of its type, and as a result is being used by organizations both large and small, commercial and open-source, to secure nearly every type of human-authenticated network traffic on a variety of computing platforms.
 

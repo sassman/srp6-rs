@@ -1,10 +1,21 @@
-use srp6::*;
+use srp6::prelude::*;
 
-const USER_PASSWORD: &ClearTextPassword = "secret-password";
+const USER_PASSWORD: ClearTextPasswordRef = "password123";
+
+// a println -like macro, to nicely format the key
+macro_rules! printkeyln {
+    ($label:expr, $key:expr) => {
+        println!(
+            " - {} = \n\n    {}\n",
+            $label,
+            $key.to_string().replace("\n", "\n    ")
+        );
+    };
+}
 
 fn main() {
     // the server looks up the user details by a received username
-    let user = mocked::lookup_user_details("Bob");
+    let user = mocked::lookup_user_details("alice");
 
     // the server creates a handshake
     let (handshake, proof_verifier) = Srp6_4096::default().start_handshake(&user);
@@ -13,79 +24,76 @@ fn main() {
         "## Simulating a Server and {} is our client.",
         user.username
     );
-    println!("host secrets are:");
-    println!(
-        " - public key          [B] = {:?}",
-        &proof_verifier.server_keys.0
-    );
-    println!(
-        " - private key         [b] = {:?}",
-        &proof_verifier.server_keys.1
-    );
+    println!("server secrets are:");
+    printkeyln!("public key  [B]", &proof_verifier.server_keys.0);
+    printkeyln!("private key [b]", &proof_verifier.server_keys.1);
     println!();
-    println!("{}'s secrets are:", user.username);
-    println!(" - verifier          [v] = {:?}", &user.verifier);
-    println!(" - salt              [s] = {:?}", &user.salt);
+    println!("## {}'s secrets", user.username);
+    printkeyln!("verifier [v]", &user.verifier);
+    printkeyln!("salt     [s]", &user.salt);
     println!();
-    println!("{}'s handshake looks like:", user.username);
-    println!(" - salt              [s] = {:?}", &handshake.s);
-    println!(" - server public key [B] = {:?}", &handshake.B);
-    println!(" - prime modulus     [N] = {:?}", &handshake.N);
-    println!(" - generator modulus [g] = {:?}", &handshake.g);
-    println!(" - multiplier        [k] = {:?}", &handshake.k);
+    println!("## {}'s handshake", user.username);
+    printkeyln!("salt               [s]", handshake.s);
+    printkeyln!("server public key  [B]", &handshake.B);
+    printkeyln!("prime modulus      [N]", &handshake.N);
+    printkeyln!("generator modulus  [g]", &handshake.g);
+    printkeyln!("multiplier         [k]", &handshake.k);
     println!();
-    println!("### Next Step: sending this handshake to the client");
 
     // the client provides proof to the server
     let (proof, strong_proof_verifier) = handshake
         .calculate_proof(user.username.as_str(), USER_PASSWORD)
         .unwrap();
     assert_eq!(proof.A.num_bytes(), Srp6_4096::KEY_LEN);
-    assert_eq!(proof.M1.num_bytes(), 20, "sha1 hash length expected");
+    assert_eq!(
+        proof.M1.num_bytes(),
+        HASH_LENGTH,
+        "sha1 or sha-512 hash length expected"
+    );
+    println!("### Next Step: sending this handshake to the client");
     println!();
     println!("## Simulating client {}", user.username);
-    println!("{}'s proof looks like:", user.username);
-    println!(" - Proof          [M1] = {:?}", &proof.M1);
-    println!(" - {}s public key [A] = {:?}", user.username, &proof.A);
+    println!("### {}'s proof", user.username);
+    printkeyln!("proof      [M1]", &proof.M1);
+    printkeyln!("public key  [A]", &proof.A);
     println!();
-    println!("### Next Step: sending proof to the server");
 
     // the server verifies this proof
     let strong_proof = proof_verifier.verify_proof(&proof);
     assert!(strong_proof.is_ok());
     let (strong_proof, session_key_server) = strong_proof.unwrap();
+    println!("### Next Step: sending proof to the server");
     println!();
     println!(
         "## Simulating a Server and {} is our client.",
         user.username
     );
-    println!(" - Strong Proof     [M2] = {:?}", &strong_proof);
-    println!(" - Session Key      [K]  = {:?}", &session_key_server);
+    printkeyln!("strong proof         [M2]", &strong_proof);
+    printkeyln!("session key (server)  [K]", &session_key_server);
     println!();
-    println!("🎉🥳🎊🍾🎈 Proof of the client successfully verified");
-    println!("### Next Step: sending this strong proof to the client");
+    println!("[server] 🎉🥳🎊🍾🎈 Proof of the client successfully verified");
 
     // the client needs to verify the strong proof
     let session_key_client = strong_proof_verifier
         .verify_strong_proof(&strong_proof)
         .unwrap();
+    println!("### Next Step: sending this strong proof to the client");
     println!();
     println!("## Simulating client {}", user.username);
-    println!(" - Strong Proof     [M2] = {:?}", &strong_proof);
-    println!(" - Session Key       [K] = {:?}", &session_key_client);
+    printkeyln!("session key (client) [K]", &session_key_client);
     println!();
-    println!("🎉🥳🎊🍾🎈 Proof of the server successfully verified");
+    println!("[client] 🎉🥳🎊🍾🎈 Proof of the server successfully verified");
 }
 
 mod mocked {
     use super::*;
 
     /// normally salt and verifier is retrieved rom a user database
-    pub fn lookup_user_details(username: UsernameRef) -> UserDetails {
+    pub fn lookup_user_details(username: UsernameRef) -> UserSecrets {
         let (salt, verifier) =
             Srp6_4096::default().generate_new_user_secrets(username, USER_PASSWORD);
 
-        UserDetails {
+        UserSecrets {
             username: username.to_owned(),
             salt,
             verifier,

@@ -1,8 +1,8 @@
-use num_bigint::{BigInt, RandBigInt, Sign};
-use num_traits::Signed;
-use rand::thread_rng;
+use crate::hash::*;
+
+use num_bigint::{BigInt, Sign};
+use rand::{rng, Rng};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sha1::{Digest, Sha1};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
@@ -50,39 +50,48 @@ impl Default for BigNumber {
 impl BigNumber {
     /// new random initialized big number
     pub fn new_rand(n_bytes: usize) -> Self {
-        let mut rng = thread_rng();
-        let a = rng.gen_bigint((n_bytes * 8) as u64);
-        let a = if a.is_negative() { a.abs() } else { a };
-
-        Self(a)
+        let rng = rng();
+        let bytes: Vec<u8> = rng.random_iter().take(n_bytes).collect();
+        Self(BigInt::from_bytes_be(Sign::Plus, &bytes))
     }
 
-    /// [`raw`] is expected to be big endian
+    /// `raw` is expected to be big endian
     pub fn from_bytes_be(raw: &[u8]) -> Self {
         Self(BigInt::from_bytes_be(Sign::Plus, raw))
     }
 
-    /// [`raw`] is expected to be little endian
+    /// `raw` is expected to be big endian
     pub fn from_bytes_le(raw: &[u8]) -> Self {
         Self(BigInt::from_bytes_le(Sign::Plus, raw))
     }
 
-    /// from a hex string, hex strings are always big endian:
+    /// from hex string, hex strings are always big endian:
     /// High
     ///    -> Low
     ///  "123acab"
+    /// This method strips all non alphanumerical, So block formats are also supported.
     pub fn from_hex_str_be(str: &str) -> std::result::Result<Self, BigNumberError> {
+        let str = str
+            .chars()
+            .filter(|c| c.is_alphanumeric())
+            .collect::<String>();
+
         let str = if str.len() % 2 != 0 {
             format!("{:0>len$}", str, len = (str.len() / 2 + 1) * 2)
         } else {
             str.to_owned()
         };
 
-        Ok(Self::from_bytes_be(
-            hex::decode(str)
-                .map_err(|_| BigNumberError::InvalidHexStr)?
-                .as_slice(),
-        ))
+        let mut bytes_be = Vec::with_capacity(str.len() / 2);
+
+        for i in (0..str.len()).step_by(2) {
+            let byte_str = &str[i..i + 2];
+            let byte =
+                u8::from_str_radix(byte_str, 16).map_err(|_| BigNumberError::InvalidHexStr)?;
+            bytes_be.push(byte);
+        }
+
+        Ok(Self::from_bytes_be(&bytes_be))
     }
 
     pub fn modpow(&self, exponent: &Self, modulo: &Self) -> Self {
@@ -95,27 +104,24 @@ impl BigNumber {
 
     /// returns the byte vec in little endian byte order
     pub fn to_vec(&self) -> Vec<u8> {
-        let (_, x) = self.0.to_bytes_le();
+        let (_, x) = self.0.to_bytes_be();
         x
     }
 
     /// the counter part of `::to_vec()`
-    pub fn from_vec(le_data: &[u8]) -> Self {
-        Self::from_bytes_le(le_data)
-    }
-
-    pub fn to_array<const N: usize>(&self) -> [u8; N] {
-        self.to_array_pad_zero::<N>()
+    pub fn from_vec(data: &[u8]) -> Self {
+        Self::from_bytes_be(data)
     }
 
     /// returns the byte vec in little endian byte order, padded by 0 for `len` bytes
-    pub fn to_array_pad_zero<const N: usize>(&self) -> [u8; N] {
-        let mut r = [0_u8; N];
-        for (i, x) in self.to_vec().iter().take(N).enumerate() {
-            r[i] = *x;
-        }
+    pub fn to_array_pad_zero<const N: usize>(&self) -> Vec<u8> {
+        let pad = self.num_bytes().max(N);
 
-        r
+        let unpadded = self.to_vec();
+        let mut padded = vec![0; pad];
+        padded[pad - unpadded.len()..].copy_from_slice(&unpadded);
+
+        padded
     }
 }
 
@@ -142,7 +148,6 @@ impl Debug for BigNumber {
 }
 
 // region from traits
-/// from a [`n`] basic u32
 impl From<u32> for BigNumber {
     fn from(n: u32) -> Self {
         Self(BigInt::from(n))
@@ -157,25 +162,42 @@ impl From<BigInt> for BigNumber {
 
 impl<const N: usize> From<[u8; N]> for BigNumber {
     fn from(k: [u8; N]) -> Self {
-        Self::from_bytes_le(&k)
+        Self::from_bytes_be(&k)
     }
 }
 
-impl From<Sha1> for BigNumber {
-    fn from(hasher: Sha1) -> Self {
+impl From<HashFunc> for BigNumber {
+    fn from(hasher: HashFunc) -> Self {
         hasher.finalize().as_slice().into()
     }
 }
 
 impl From<&[u8]> for BigNumber {
     fn from(somewhere: &[u8]) -> Self {
-        Self::from_bytes_le(somewhere)
+        Self::from_bytes_be(somewhere)
     }
 }
 
 impl From<&BigNumber> for String {
+    /// Returns a hex string representation of the big number
+    /// it is formatted in 8 hex chars per block (hexlets)
+    /// and 7 hexlets per line
     fn from(x: &BigNumber) -> Self {
-        x.0.to_str_radix(16).to_uppercase()
+        let hex = x.0.to_str_radix(16).to_uppercase();
+
+        let hexlets: Vec<String> = hex
+            .chars()
+            .collect::<Vec<_>>()
+            .chunks(8)
+            .map(|chunk| chunk.iter().collect::<String>())
+            .collect();
+
+        // Group 7 hexlets per line
+        hexlets
+            .chunks(7)
+            .map(|line| line.join(" "))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
 
@@ -207,19 +229,19 @@ fn should_try_from_string() {
 
     let s = "ab11cd".to_string();
     let x: BigNumber = s.try_into().unwrap();
-    assert_eq!(x.to_vec(), &[0xcd, 0x11, 0xab]);
+    assert_eq!(x.to_vec(), &[0xab, 0x11, 0xcd]);
 }
 
 #[test]
 fn should_from_bytes() {
     let x = BigNumber::from_bytes_be(&[0xab, 0x11, 0xcd]);
-    assert_eq!(x.to_vec(), &[0xcd, 0x11, 0xab]);
+    assert_eq!(x.to_vec(), &[0xab, 0x11, 0xcd]);
 }
 
 #[test]
 fn should_to_vec() {
     let x = BigNumber::from_hex_str_be("ab11cd").unwrap();
-    assert_eq!(x.to_vec(), &[0xcd, 0x11, 0xab]);
+    assert_eq!(x.to_vec(), &[0xab, 0x11, 0xcd]);
 }
 
 #[test]
@@ -231,7 +253,9 @@ fn should_random_initialize() {
 #[test]
 fn should_pad_0() {
     let x = BigNumber::from_bytes_be(&[0x11, 0xcd]);
-    assert_eq!(x.to_array_pad_zero::<3>(), [0xcd_u8, 0x11, 0]);
+    assert_eq!(x.to_array_pad_zero::<3>(), [0, 0x11, 0xcd]);
+
+    assert_eq!(x.to_array_pad_zero::<1>(), [0x11, 0xcd]);
 }
 
 #[test]
@@ -342,16 +366,22 @@ impl Display for BigNumber {
 }
 
 #[test]
+fn test_whitespace_is_ignored() {
+    assert_eq!(
+        BigNumber::try_from("A B 1 1 C D",).unwrap(),
+        BigNumber::from_hex_str_be("AB11CD",).unwrap()
+    );
+}
+
+#[test]
 fn test_into_string_and_display() {
+    let expected = "3E9D557B 7899AC2A 8DEC8D00 46FB310A 42A233BD 1DF0244B 574AB946\nA22A4A18";
     let x = BigNumber::from_hex_str_be(
         "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18",
     )
     .unwrap();
     let s: String = x.into();
-    assert_eq!(
-        s,
-        "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18"
-    );
+    assert_eq!(s, expected);
     assert_eq!(
         format!(
             "{}",
@@ -360,7 +390,7 @@ fn test_into_string_and_display() {
             )
             .unwrap()
         ),
-        "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18"
+        expected
     );
 }
 
@@ -384,42 +414,20 @@ impl Zero for BigNumber {
     }
 }
 
-#[cfg(all(test, feature = "test-for-openssl-compatibility"))]
-mod tests {
-    #[test]
-    fn should_show_big_int_vs_openssl() {
-        let v = "3E9D557B7899AC2A8DEC8D0046FB310A42A233BD1DF0244B574AB946A22A4A18";
-        let a = num_bigint::BigInt::parse_bytes(v.as_bytes(), 16).unwrap();
-        let b = openssl::bn::BigNum::from_hex_str(v).unwrap();
-
-        assert_eq!(b.to_vec(), a.to_bytes_be().1);
-    }
-
-    #[test]
-    /// see: https://www.openssl.org/docs/man1.1.0/man3/BN_mod_exp.html
-    /// > BN_mod_exp() computes a to the p-th power modulo m (r=a^p % m).
-    /// > This function uses less time and space than BN_exp().
-    /// > Do not call this function when m is even and any of the parameters have the BN_FLG_CONSTTIME flag set.
-    fn should_mod_exp() {
-        // OpenSSL
-        let (a, p, m) = (
-            openssl::bn::BigNum::from_hex_str("6").unwrap(),
-            openssl::bn::BigNum::from_hex_str("3").unwrap(),
-            openssl::bn::BigNum::from_hex_str("7").unwrap(),
-        );
-        let mut r = openssl::bn::BigNum::new().unwrap();
-        let mut ctx = openssl::bn::BigNumContext::new().unwrap();
-        r.mod_exp(&a, &p, &m, &mut ctx).unwrap();
-
-        let expected = openssl::bn::BigNum::from_hex_str("6").unwrap();
-        assert_eq!(r, expected);
-
-        // BigInt
-        let (a, p, m) = (
-            num_bigint::BigInt::from(6),
-            num_bigint::BigInt::from(3),
-            num_bigint::BigInt::from(7),
-        );
-        assert_eq!(a.modpow(&p, &m), num_bigint::BigInt::from(6));
-    }
+#[test]
+fn test_network_endianess() {
+    assert_eq!(
+        hex_literal::hex!("AB 11 CD"),
+        [0xAB, 0x11, 0xCD],
+        "we trust the hex_literal crate"
+    );
+    assert_eq!(
+        BigInt::from_bytes_be(Sign::Plus, &[0xAB, 0x11, 0xCD]),
+        BigInt::parse_bytes(b"AB11CD", 16).unwrap(),
+        "BigInt::from_bytes_be is big endian"
+    );
+    let b = BigNumber::try_from("AB 11 CD").unwrap();
+    assert_eq!(b.to_array_pad_zero::<3>(), [0xAB, 0x11, 0xCD]);
+    assert_eq!(b.to_vec(), [0xAB, 0x11, 0xCD]);
+    assert_eq!(b.to_string(), "AB11CD");
 }

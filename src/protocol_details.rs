@@ -7,7 +7,7 @@ A very brief summary of the papers and RFCs of SRP6 and SRP6a
 N    A large safe prime                     (N = 2q+1, where q is prime)
      All arithmetic is done modulo N.
 g    A generator modulo N
-k    Multiplier parameter                   (k = H(N, g) in SRP-6a, k = 3 for legacy SRP-6)
+k    Multiplier parameter                   (k = H(N, g) in SRP-6a, k = 3 for dangerous SRP-6)
 s    User's salt
 I    Username                               (the rfc calls it U)
 p    Cleartext Password
@@ -33,7 +33,7 @@ N, g, s, B = <read from server>
 a = random()
 A = g^a % N
 u = SHA1(PAD(A) | PAD(B))
-k = SHA1(N | PAD(g))                        (k = 3 for legacy SRP-6)
+k = SHA1(N | PAD(g))                        (k = 3 for dangerous SRP-6)
 x = SHA1(s | SHA1(I | ":" | p))
 S = (B - (k * g^x)) ^ (a + (u * x)) % N
 K = SHA_Interleave(S)
@@ -68,4 +68,5 @@ H(A | M | K)
 - [design](http://srp.stanford.edu/design.html)
 - [rfc](https://datatracker.ietf.org/doc/html/rfc2945)
 - [vetted N](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
+- [test vectors](https://datatracker.ietf.org/doc/html/rfc5054#appendix-B)
 */
