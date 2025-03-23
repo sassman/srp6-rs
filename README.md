@@ -15,17 +15,29 @@ read more at [srp.stanford.edu](http://srp.stanford.edu) and in [RFC2945] that d
 ## Features
 
 - client and server implementation of SRP 6 / 6a as in [RFC2945]
-- key length of 256 to 4096 bit provided as in [RFC5054]
+- key length of 1024 to 8192 bit provided as in [RFC5054]
+- sha512 hashing instead of sha1
 - free of unsafe code
 - no openssl dependencies
 - rust native
+
+## Feature flags
+
+- `default` - uses `hash-sha512` and keys >= 2048 bit
+- `dangerous` - uses `hash-sha1` and provides keys < 2048 bit, please do not use this in production code.
+- `wow` - uses `hash-sha1`, insecure keys and a uppercase of username and password for the hash, please do not use this in production code. This is used in an old World of Warcraft client.
+
+Those flags are only used for specific test scenarios and should not be used in production code.
+- `doc-test-mocks`
+- `test-rfc-5054-appendix-b`
 
 ## Documentation
 
 To avoid code duplications this README is kept lean, please find examples and code at:
 
 - [official crate docs](https://docs.rs/srp6)
-- [examples of usage](https://github.com/sassman/srp6-rs/blob/main/examples)
+- [formulas and protocol details](https://docs.rs/srp6/latest/srp6/protocol_details/index.html)
+- [usage examples](https://github.com/sassman/srp6-rs/blob/main/examples)
 
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 [RFC5054]: https://datatracker.ietf.org/doc/html/rfc5054#appendix-A
@@ -33,4 +45,4 @@ To avoid code duplications this README is kept lean, please find examples and co
 ## License
 
 - **[MIT License](LICENSE)**
-- Copyright 2021 © [Sven Assmann](https://www.d34dl0ck.me)
+- Copyright 2021 - 2025 © [Sven Kanoldt](https://www.d34dl0ck.me)
