@@ -13,15 +13,6 @@ on:
 jobs:
   coverage:
     name: code coverage
-    strategy:
-      fail-fast: false
-      matrix:
-        flags:
-          - "doc-test-mocks"
-          - "dangerous,test-rfc-5054-appendix-b"
-          - "wow"
-          - "hash-sha512"
-      max-parallel: 0
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,14 +20,20 @@ jobs:
         uses: sassman/.github/.github/actions/rust-toolchain@main
         with:
           channel: stable
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+        with:
+          channel: nightly
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo llvm-cov --features "${{ matrix['flags'] }}" --no-default-features --workspace --codecov --output-path codecov-$(uuidgen).json
+        run: |
+          cargo +nightly llvm-cov --doctests --codecov --output-path codecov-1.json
+          cargo llvm-cov --features "dangerous,test-rfc-5054-appendix-b" --no-default-features --codecov --output-path codecov-2.json
+          cargo llvm-cov --features "wow" --no-default-features --codecov --output-path codecov-3.json
+          cargo llvm-cov --features "hash-sha512" --no-default-features --codecov --output-path codecov-4.json
       - name: collect all coverage files into a comma separeted list
         run: echo "coverage_files=$(ls -1 codecov*.json | tr '\n' ',')" >> $GITHUB_ENV
-      - name: create a flag identifier
-        run: echo "cooverage_flag=$(echo "${{matrix['flags']}}" | tr ',' '_')" >> $GITHUB_ENV
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         env:
@@ -44,5 +41,4 @@ jobs:
         with:
           files: ${{ env.coverage_files }}
           verbose: true
-          flags: ${{ env.cooverage_flag }}
           fail_ci_if_error: false

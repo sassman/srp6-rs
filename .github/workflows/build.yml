@@ -45,8 +45,7 @@ jobs:
         os: ["macos-latest", "ubuntu-latest", "windows-latest"]
         channel: ["nightly", "stable"]
         cargo-test-cmd:
-          - test --lib
-          - test --features doc-test-mocks
+          - test
           - test --features dangerous --no-default-features --lib
           - test --features test-rfc-5054-appendix-b --no-default-features --lib
           - test --features hash-sha1 --no-default-features --lib
