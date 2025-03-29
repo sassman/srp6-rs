@@ -13,18 +13,6 @@ on:
 jobs:
   coverage:
     name: code coverage
-    strategy:
-      fail-fast: false
-      matrix:
-        coverage-cmd:
-          - llvm-cov
-          - llvm-cov --features doc-test-mocks
-          - llvm-cov --features dangerous --no-default-features
-          - llvm-cov --features test-rfc-5054-appendix-b --no-default-features
-          - llvm-cov --features hash-sha1 --no-default-features
-          - llvm-cov --features wow --no-default-features
-          - llvm-cov --features hash-sha512 --no-default-features
-      max-parallel: 0
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,10 +20,18 @@ jobs:
         uses: sassman/.github/.github/actions/rust-toolchain@main
         with:
           channel: stable
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+        with:
+          channel: nightly
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate code coverage
-        run: cargo ${{ matrix['coverage-cmd'] }} --workspace --codecov --output-path codecov-$(uuidgen).json
+        run: |
+          cargo +nightly llvm-cov --doctests --codecov --output-path codecov-1.json
+          cargo llvm-cov --features "dangerous,test-rfc-5054-appendix-b" --no-default-features --codecov --output-path codecov-2.json
+          cargo llvm-cov --features "wow" --no-default-features --codecov --output-path codecov-3.json
+          cargo llvm-cov --features "hash-sha512" --no-default-features --codecov --output-path codecov-4.json
       - name: collect all coverage files into a comma separeted list
         run: echo "coverage_files=$(ls -1 codecov*.json | tr '\n' ',')" >> $GITHUB_ENV
       - name: Upload coverage to Codecov

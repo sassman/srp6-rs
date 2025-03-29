@@ -28,7 +28,6 @@ read more at [srp.stanford.edu](http://srp.stanford.edu) and in [RFC2945] that d
 - `wow` - uses `hash-sha1`, insecure keys and a uppercase of username and password for the hash, please do not use this in production code. This is used in an old World of Warcraft client.
 
 Those flags are only used for specific test scenarios and should not be used in production code.
-- `doc-test-mocks`
 - `test-rfc-5054-appendix-b`
 
 ## Documentation

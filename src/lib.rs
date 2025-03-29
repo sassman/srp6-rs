@@ -46,7 +46,8 @@
 //!
 //! ```rust
 //! use srp6::prelude::*;
-//! use srp6::doc_test_mocks as mocks;
+//! #[path = "doc_test_mocks.rs"]
+//! mod mocks;
 //!
 //! // the username is sent by the client
 //! let user = mocks::lookup_user_details("alice");
@@ -71,7 +72,8 @@
 //!
 //! ```rust
 //! use srp6::prelude::*;
-//! use srp6::doc_test_mocks as mocks;
+//! #[path = "doc_test_mocks.rs"]
+//! mod mocks;
 //!
 //! // this is entered by the user on the client (none is sent to the server)
 //! let username = "alice";
@@ -97,7 +99,8 @@
 //!
 //! ```rust
 //! use srp6::prelude::*;
-//! use srp6::doc_test_mocks as mocks;
+//! #[path = "doc_test_mocks.rs"]
+//! mod mocks;
 //!
 //! // this comes from the server
 //! let username = "alice";
@@ -120,7 +123,8 @@
 //!
 //! ```rust
 //! use srp6::prelude::*;
-//! use srp6::doc_test_mocks as mocks;
+//! #[path = "doc_test_mocks.rs"]
+//! mod mocks;
 //!
 //! // see the previous step..
 //! let strong_proof_verifier = mocks::strong_proof_verifier_from_step_3();
@@ -167,9 +171,8 @@ pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
 
-// #[cfg(all(doctest, feature = "doc-test-mocks"))]
-#[cfg(doctest)]
-pub mod doc_test_mocks;
+// #[cfg(any(test, doc, doctest, docsrs, feature = "doc-test-mocks"))]
+// pub mod doc_test_mocks;
 
 mod api;
 mod big_number;
