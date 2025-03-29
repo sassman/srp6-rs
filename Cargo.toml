@@ -16,7 +16,7 @@ num-bigint = { version = "0.4", features = [
 ], default-features = false }
 num-traits = "0.2"
 hex-literal = "1.0"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
 sha1 = { version = "^0.10", optional = true }
 sha2 = { version = "^0.10", optional = true }
 
@@ -24,7 +24,9 @@ sha2 = { version = "^0.10", optional = true }
 serde_json = "1.0"
 
 [features]
-default = ["hash-sha512"]
+default = ["hash-sha512", "serde"]
+serde = ["dep:serde"]
+js-bindings = []
 
 hash-sha512 = ["dep:sha2"]
 hash-sha1 = ["dep:sha1"]

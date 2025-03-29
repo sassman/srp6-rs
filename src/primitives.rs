@@ -13,6 +13,8 @@ This scheme is applied for all variables used in the calculus.
 
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 */
+use serde::{Deserialize, Serialize};
+
 use crate::big_number::{BigNumber, Zero};
 use crate::hash::*;
 use crate::{error::Srp6Error, Result};
@@ -87,7 +89,7 @@ pub struct UserCredentials<'a> {
 }
 
 /// User details composes [`Username`], [`Salt`] and [`PasswordVerifier`] in one struct
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSecrets {
     pub username: Username,
     pub salt: Salt,

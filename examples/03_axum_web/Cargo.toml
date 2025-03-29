@@ -1,0 +1,10 @@
+[workspace]
+members = ["server", "shared/js-bindings", "shared/data"]
+
+[workspace.dependencies]
+axum = "*"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+
+srp6 = { path = "../../" }
+srp6-shared-data = { path = "shared/data" }

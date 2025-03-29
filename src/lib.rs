@@ -171,8 +171,8 @@ pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
 
-// #[cfg(any(test, doc, doctest, docsrs, feature = "doc-test-mocks"))]
-// pub mod doc_test_mocks;
+#[cfg(feature = "js-bindings")]
+pub mod js_bindings;
 
 mod api;
 mod big_number;
