@@ -1,9 +1,9 @@
 [package]
 name = "srp6"
-version = "1.0.0-alpha.7"
+version = "1.0.0-beta.1"
 authors = ["Sven Kanoldt <sven@d34dl0ck.me>"]
 edition = "2018"
-description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6 and 6a)"
+description = "A safe implementation of the secure remote password authentication and key-exchange protocol - SRP version 6 and 6a"
 license = "MIT"
 include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
@@ -32,5 +32,4 @@ hash-sha1 = ["dep:sha1"]
 dangerous = ["hash-sha1"]
 wow = ["dangerous"]
 
-doc-test-mocks = ["hash-sha512"]
 test-rfc-5054-appendix-b = ["hash-sha1"]
