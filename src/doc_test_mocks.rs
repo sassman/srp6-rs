@@ -3,7 +3,7 @@
 //! You can run it with `cargo run --example 02_authenticate`.
 //!
 //! Note: The salt and verifier are generated at random, hence they will be different every time.
-use crate::prelude::*;
+use srp6::prelude::*;
 
 pub fn lookup_user_details(username: UsernameRef) -> UserSecrets {
     UserSecrets {
