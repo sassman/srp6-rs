@@ -1,9 +1,11 @@
+use serde::{Deserialize, Serialize};
+
 use super::host::Handshake;
 use crate::primitives::*;
-use crate::{Result, Srp6Error};
+use crate::{error::Srp6Error, Result};
 
 /// Contains the client's [`PublicKey`] and their [`Proof`] and is sent to the server
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 pub struct HandshakeProof<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
     /// the client public key

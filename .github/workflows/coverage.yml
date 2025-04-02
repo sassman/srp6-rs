@@ -1,0 +1,44 @@
+name: Coverage
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    types:
+      - labeled
+      - opened
+      - reopened
+      - synchronize
+  workflow_dispatch:
+
+jobs:
+  coverage:
+    name: code coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+        with:
+          channel: stable
+      - name: setup | rust
+        uses: sassman/.github/.github/actions/rust-toolchain@main
+        with:
+          channel: nightly
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Generate code coverage
+        run: |
+          cargo +nightly llvm-cov --doctests --codecov --output-path codecov-1.json
+          cargo llvm-cov --features "dangerous,test-rfc-5054-appendix-b" --no-default-features --codecov --output-path codecov-2.json
+          cargo llvm-cov --features "wow" --no-default-features --codecov --output-path codecov-3.json
+          cargo llvm-cov --features "hash-sha512" --no-default-features --codecov --output-path codecov-4.json
+      - name: collect all coverage files into a comma separeted list
+        run: echo "coverage_files=$(ls -1 codecov*.json | tr '\n' ',')" >> $GITHUB_ENV
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        with:
+          files: ${{ env.coverage_files }}
+          verbose: true
+          fail_ci_if_error: false

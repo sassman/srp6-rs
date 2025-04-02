@@ -1,25 +1,35 @@
 [package]
 name = "srp6"
-version = "1.0.0-alpha.4"
-authors = ["Sven Assmann <sven.assmann.it@gmail.com>"]
+version = "1.0.0-beta.1"
+authors = ["Sven Kanoldt <sven@d34dl0ck.me>"]
 edition = "2018"
-description = "A safe implementation of the secure remote password authentication and key-exchange protocol (SRP version 6 and 6a)"
+description = "A safe implementation of the secure remote password authentication and key-exchange protocol - SRP version 6 and 6a"
 license = "MIT"
 include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 
 [dependencies]
-thiserror = "1.0"
-sha-1 = "0.9"
-rand = "0.8"
-num-bigint = { version = "0.4", features = ["rand"] }
+thiserror = "2.0"
+rand = { version = "0.9", default-features = false, features = ["thread_rng"] }
+num-bigint = { version = "0.4", features = [
+    "rand",
+    "serde",
+], default-features = false }
 num-traits = "0.2"
-hex = "0.4"
-hex-literal = "0.3"
-log = { version = "0.4", features = ["release_max_level_warn"] }
+hex-literal = "1.0"
 serde = { version = "1.0", features = ["derive"] }
+sha1 = { version = "^0.10", optional = true }
+sha2 = { version = "^0.10", optional = true }
 
 [dev-dependencies]
+serde_json = "1.0"
 
 [features]
-legacy = []
-default = []
+default = ["hash-sha512"]
+
+hash-sha512 = ["dep:sha2"]
+hash-sha1 = ["dep:sha1"]
+
+dangerous = ["hash-sha1"]
+wow = ["dangerous"]
+
+test-rfc-5054-appendix-b = ["hash-sha1"]
