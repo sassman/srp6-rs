@@ -2,6 +2,15 @@
 name = "srp6"
 version = "1.0.0-beta.1"
 authors = ["Sven Kanoldt <sven@d34dl0ck.me>"]
+repository = "https://github.com/sassman/srp6-rs"
+categories = ["Cryptography"]
+keywords = [
+    "srp",
+    "secure remote password",
+    "authentication",
+    "key exchange",
+    "protocols",
+]
 edition = "2018"
 description = "A safe implementation of the secure remote password authentication and key-exchange protocol - SRP version 6 and 6a"
 license = "MIT"

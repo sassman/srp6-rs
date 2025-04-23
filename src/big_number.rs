@@ -99,7 +99,7 @@ impl BigNumber {
     }
 
     pub fn num_bytes(&self) -> usize {
-        (self.0.bits() as usize + 7) / 8
+        self.0.bits().div_ceil(8) as usize
     }
 
     /// returns the byte vec in little endian byte order
