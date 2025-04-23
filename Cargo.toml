@@ -1,6 +1,6 @@
 [package]
 name = "srp6"
-version = "1.0.0-beta.1"
+version = "1.0.0-beta.2"
 authors = ["Sven Kanoldt <sven@d34dl0ck.me>"]
 repository = "https://github.com/sassman/srp6-rs"
 categories = ["Cryptography"]
