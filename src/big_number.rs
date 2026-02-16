@@ -1,7 +1,7 @@
 use crate::hash::*;
 
 use num_bigint::{BigInt, Sign};
-use rand::{rng, Rng};
+use rand::{rng, RngExt};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
