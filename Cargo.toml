@@ -7,7 +7,7 @@ categories = ["Cryptography"]
 keywords = [
     "srp",
     "authentication",
-    "key exchange",
+    "key-exchange",
     "protocols",
 ]
 edition = "2018"
