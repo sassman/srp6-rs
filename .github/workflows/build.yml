@@ -51,7 +51,6 @@ jobs:
           - test --features hash-sha1 --no-default-features --lib
           - test --features wow --no-default-features --lib
           - test --features hash-sha512 --no-default-features --lib
-      max-parallel: 0
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.channel == 'nightly' }}
     steps:
@@ -60,10 +59,8 @@ jobs:
         uses: sassman/.github/.github/actions/rust-toolchain@main
         with:
           channel: ${{ matrix.channel }}
-          default: true
-          profile: minimal
       - name: cargo test run
-        run: cargo ${{ matrix['cargo-cmd'] }}
+        run: cargo ${{ matrix['cargo-test-cmd'] }}
 
   audit:
     name: security audit
