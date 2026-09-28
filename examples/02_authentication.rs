@@ -19,13 +19,13 @@ fn main() {
 
     // the server creates a handshake
     let (handshake, proof_verifier) = Srp6_4096::default().start_handshake(&user);
-    assert_eq!(handshake.B.num_bytes(), Srp6_4096::KEY_LEN);
+    assert_eq!(handshake.B.as_bignum().num_bytes(), Srp6_4096::KEY_LEN);
     println!(
         "## Simulating a Server and {} is our client.",
         user.username
     );
     println!("server secrets are:");
-    printkeyln!("public key  [B]", &proof_verifier.server_keys.0);
+    printkeyln!("public key  [B]", proof_verifier.server_keys.0.as_bignum());
     printkeyln!("private key [b]", &proof_verifier.server_keys.1);
     println!();
     println!("## {}'s secrets", user.username);
@@ -34,7 +34,7 @@ fn main() {
     println!();
     println!("## {}'s handshake", user.username);
     printkeyln!("salt               [s]", handshake.s);
-    printkeyln!("server public key  [B]", &handshake.B);
+    printkeyln!("server public key  [B]", handshake.B.as_bignum());
     printkeyln!("prime modulus      [N]", &handshake.N);
     printkeyln!("generator modulus  [g]", &handshake.g);
     printkeyln!("multiplier         [k]", &handshake.k);
@@ -44,7 +44,7 @@ fn main() {
     let (proof, strong_proof_verifier) = handshake
         .calculate_proof(user.username.as_str(), USER_PASSWORD)
         .unwrap();
-    assert_eq!(proof.A.num_bytes(), Srp6_4096::KEY_LEN);
+    assert_eq!(proof.A.as_bignum().num_bytes(), Srp6_4096::KEY_LEN);
     assert_eq!(
         proof.M1.num_bytes(),
         HASH_LENGTH,
@@ -55,7 +55,7 @@ fn main() {
     println!("## Simulating client {}", user.username);
     println!("### {}'s proof", user.username);
     printkeyln!("proof      [M1]", &proof.M1);
-    printkeyln!("public key  [A]", &proof.A);
+    printkeyln!("public key  [A]", proof.A.as_bignum());
     println!();
 
     // the server verifies this proof

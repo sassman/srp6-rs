@@ -4,12 +4,13 @@ use super::host::Handshake;
 use crate::primitives::*;
 use crate::{error::Srp6Error, Result};
 
-/// Contains the client's [`PublicKey`] and their [`Proof`] and is sent to the server
+/// Contains the client's [`PublicKey`] (as an unvalidated [`RawPublicKey`])
+/// and their [`Proof`] and is sent to the server
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 pub struct HandshakeProof<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
-    /// the client public key
-    pub A: PublicKey,
+    /// the client public key, not yet validated against `N`, see [`RawPublicKey::into_validated`]
+    pub A: RawPublicKey,
     /// the clients proof
     pub M1: Proof,
 }
@@ -51,11 +52,13 @@ pub(crate) fn calculate_proof_M_for_client<const KL: usize, const SL: usize>(
     let a = generate_private_key::<KL>();
     let A = calculate_pubkey_A(&handshake.N, &handshake.g, &a);
     let x = calculate_private_key_x(username, user_password, &handshake.s);
+    // the server's B arrives as a RawPublicKey and must be validated before use
+    let B = handshake.B.clone().into_validated(&handshake.N)?;
     let S = calculate_session_key_S_for_client::<KL>(
         &handshake.N,
         &handshake.k,
         &handshake.g,
-        &handshake.B,
+        &B,
         &A,
         &a,
         &x,
@@ -67,7 +70,7 @@ pub(crate) fn calculate_proof_M_for_client<const KL: usize, const SL: usize>(
         username,
         &handshake.s,
         &A,
-        &handshake.B,
+        &B,
         &K,
     );
 
@@ -76,7 +79,7 @@ pub(crate) fn calculate_proof_M_for_client<const KL: usize, const SL: usize>(
         K,
         M1: M1.clone(),
     };
-    let proof = HandshakeProof { A, M1 };
+    let proof = HandshakeProof { A: A.into(), M1 };
 
     Ok((proof, strong_proof_verifier))
 }

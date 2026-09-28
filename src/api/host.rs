@@ -32,8 +32,8 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 pub struct Handshake<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
-    /// the servers public key
-    pub B: PublicKey,
+    /// the servers public key, not yet validated against `N`, see [`RawPublicKey::into_validated`]
+    pub B: RawPublicKey,
     /// a generator modulo N
     pub g: Generator,
     /// a big and safe prime number
@@ -72,7 +72,8 @@ impl HandshakeProofVerifier {
         let I = &self.user.username;
         let s = &self.user.salt;
         let v = &self.user.verifier;
-        let A = &proof.A;
+        // the client's A arrives as a RawPublicKey and must be validated before use
+        let A = &proof.A.clone().into_validated(N)?;
         let M1 = &proof.M1;
 
         let S = &calculate_session_key_S_for_host::<N_BYTE_LEN>(N, A, B, b, v)?;
@@ -170,7 +171,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
             g: self.g.clone(),
             k: self.k.clone(),
             s: s.clone(),
-            B: B.clone(),
+            B: B.clone().into(),
         };
 
         let pv = HandshakeProofVerifier {

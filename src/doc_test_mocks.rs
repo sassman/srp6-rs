@@ -65,7 +65,7 @@ pub fn handshake_from_the_server(
         s: user.salt,
         N: srp.N,
         g: srp.g,
-        B: PublicKey::from_hex_str_be(
+        B: RawPublicKey::from_hex_str_be(
             "305A710C 399CE43C 56D38BEE 8504193E 91242E95 CF16D0C8 4D377C6C
             6A1484EC 70732FFC F469C9D4 612C8F95 1FB478F7 16BE3B18 1E9C1ABE
             8B03B83E 542D3B92 F5C23DDA AEE847BE 7618427B 258882EE E7F99974
@@ -95,8 +95,9 @@ pub fn handshake_from_the_server(
 pub fn stored_proof_verifier_from_step_2(username: UsernameRef) -> HandshakeProofVerifier {
     let user = lookup_user_details(username);
     let srp = Srp6_4096::default();
-    let B = PublicKey::from_hex_str_be(
-        "305A710C 399CE43C 56D38BEE 8504193E 91242E95 CF16D0C8 4D377C6C
+    let B = PublicKey::new(
+        BigNumber::from_hex_str_be(
+            "305A710C 399CE43C 56D38BEE 8504193E 91242E95 CF16D0C8 4D377C6C
         6A1484EC 70732FFC F469C9D4 612C8F95 1FB478F7 16BE3B18 1E9C1ABE
         8B03B83E 542D3B92 F5C23DDA AEE847BE 7618427B 258882EE E7F99974
         BDE2DB8C 5E102129 79212BDC 4A3E49D2 99952839 E02A150E A9B08B24
@@ -115,6 +116,9 @@ pub fn stored_proof_verifier_from_step_2(username: UsernameRef) -> HandshakeProo
         43D477AA 2FC608F8 49346A75 B84627DC 99D7E45F C45F8300 DBD3D1FA
         D74D8378 4D881F3A 1FEBBA47 ACFD4785 1CFF7BBC 367410DB D302B6A5
         C1BB4F43 FA89B674",
+        )
+        .unwrap(),
+        &srp.N,
     )
     .unwrap();
 
@@ -151,7 +155,7 @@ pub fn stored_proof_verifier_from_step_2(username: UsernameRef) -> HandshakeProo
 
 pub fn alice_proof() -> HandshakeProof<{ Srp6_4096::KEY_LEN }, { Srp6_4096::SALT_LEN }> {
     HandshakeProof {
-        A: PublicKey::from_hex_str_be(
+        A: RawPublicKey::from_hex_str_be(
             "5F1B7060 47346324 30A8A030 18CD56FE 9F837360 52F4D079 D8625A58
             3E490541 4282F002 C3CB2883 765A7FD8 8B5C37D9 7D74554C B0A580FA
             77F834E7 3D89DB9D B7AF622C F2E232B5 D6E4FE96 E7C0754D 6D7B4376
@@ -184,9 +188,10 @@ pub fn alice_proof() -> HandshakeProof<{ Srp6_4096::KEY_LEN }, { Srp6_4096::SALT
 
 pub fn strong_proof_verifier_from_step_3() -> StrongProofVerifier<{ Srp6_4096::KEY_LEN }> {
     let alice_proof = alice_proof();
+    let srp = Srp6_4096::default();
 
     StrongProofVerifier {
-        A: alice_proof.A,
+        A: alice_proof.A.into_validated(&srp.N).unwrap(),
         K: SessionKey::from_hex_str_be(
             "DC5923B7 43FC8512 8AEE0096 D5EB3756 E4FB7EB0 405CEC8A AB4D3AA7
              5F7CDDA8 344D0132 FC87F10D 3495C867 E10898AE CBD6C343 5F2A3221

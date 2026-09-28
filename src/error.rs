@@ -16,5 +16,5 @@ pub enum Srp6Error {
     InvalidStrongProof(StrongProof),
 
     #[error("The provided public key is invalid")]
-    InvalidPublicKey(PublicKey),
+    InvalidPublicKey(BigNumber),
 }

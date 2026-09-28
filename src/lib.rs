@@ -62,7 +62,7 @@
 //! assert_eq!(handshake.N, srp.N);
 //! assert_eq!(handshake.g, srp.g);
 //! // Same leading-zero caveat as the salt above.
-//! assert!(handshake.B.num_bytes() <= Srp6_4096::KEY_LEN);
+//! assert!(handshake.B.as_bignum().num_bytes() <= Srp6_4096::KEY_LEN);
 //!
 //! // send `handshake` to the client
 //! // keep `proof_verifier` for later in a session or cache
