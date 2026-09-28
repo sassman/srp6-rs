@@ -50,7 +50,7 @@ pub(crate) fn calculate_proof_M_for_client<const KL: usize, const SL: usize>(
     let username = credentials.username;
     let user_password = credentials.password;
     let a = generate_private_key::<KL>();
-    let A = calculate_pubkey_A(&handshake.N, &handshake.g, &a);
+    let A = calculate_pubkey_A(&handshake.N, &handshake.g, &a)?;
     let x = calculate_private_key_x(username, user_password, &handshake.s);
     // the server's B arrives as a RawPublicKey and must be validated before use
     let B = handshake.B.clone().into_validated(&handshake.N)?;

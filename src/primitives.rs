@@ -375,17 +375,26 @@ pub fn calculate_u<const N_BYTE_LEN: usize>(A: &PublicKey, B: &PublicKey) -> Big
 /// [`A`][`crate::rfc_lingo::A`] is the [`PublicKey`] of the client
 /// formula: `A = g^a % N`
 ///
-/// `g` is a validated [`Generator`] modulo the prime `N`, so `g^a % N` can
-/// never land on 0 here, this construction bypasses [`PublicKey::new`]'s
-/// check on purpose (it lives in this module, so it may reach into the
-/// private field directly).
+/// # Errors
+/// [`Srp6Error::InvalidPublicKey`] if the result is `0 mod N`. For a prime
+/// `N` and a generator `g < N` that cannot happen, but `N` is supplied by
+/// the caller and never proven prime: with a degenerate group such as
+/// `N = 4, g = 2, a = 2` the result is 0. Constructing through
+/// [`PublicKey::new`] keeps that a `Result` rather than a panic.
 #[allow(non_snake_case)]
-pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> PublicKey {
-    PublicKey(g.modpow(a, N))
+pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> Result<PublicKey> {
+    PublicKey::new(g.modpow(a, N), N)
 }
 
 /// [`PublicKey`][`crate::rfc_lingo::B`] is the hosts public key
 /// `B = kv + g^b`
+///
+/// # Errors
+/// [`Srp6Error::InvalidPublicKey`] if the result is `0 mod N`. Unlike
+/// [`calculate_pubkey_A`], `B` is a sum reduced mod `N`, so `k*v = -g^b`
+/// lands on 0 even for a well formed group. It is vanishingly unlikely,
+/// and the client rejects such a `B` on receipt anyway, but the host
+/// should not hand one out: draw a fresh `b` and call again.
 #[allow(non_snake_case)]
 pub fn calculate_pubkey_B(
     N: &PrimeModulus,
@@ -393,12 +402,10 @@ pub fn calculate_pubkey_B(
     g: &Generator,
     v: &PasswordVerifier,
     b: &PrivateKey,
-) -> PublicKey {
+) -> Result<PublicKey> {
     let g_mod_N = g.modpow(b, N);
     // This is B
-    // same reasoning as calculate_pubkey_A: direct tuple construction is fine
-    // here since we are inside primitives.rs
-    PublicKey(&((k * v) + g_mod_N) % N)
+    PublicKey::new(&((k * v) + g_mod_N) % N, N)
 }
 
 /// `x` is the users private key (only they know)

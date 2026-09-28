@@ -56,7 +56,7 @@
 //!
 //! // the server starts the handshake
 //! let srp = Srp6_4096::default();
-//! let (handshake, proof_verifier) = srp.start_handshake(&user);
+//! let (handshake, proof_verifier) = srp.start_handshake(&user).unwrap();
 //!
 //! assert_eq!(handshake.s, user.salt);
 //! assert_eq!(handshake.N, srp.N);

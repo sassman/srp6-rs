@@ -24,7 +24,14 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
     ) -> (Salt, PasswordVerifier);
 
     /// starts the handshake with the client
-    fn start_handshake(&self, user: &UserSecrets) -> (Handshake<KL, SL>, HandshakeProofVerifier);
+    ///
+    /// # Errors
+    /// [`Srp6Error::InvalidPublicKey`] if the drawn `b` yields a `B` that is
+    /// `0 mod N`, see [`calculate_pubkey_B`]. Retry with a fresh draw.
+    fn start_handshake(
+        &self,
+        user: &UserSecrets,
+    ) -> Result<(Handshake<KL, SL>, HandshakeProofVerifier)>;
 }
 
 /// Contains all variables needed for a successful
@@ -160,11 +167,11 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
     fn start_handshake(
         &self,
         user: &UserSecrets,
-    ) -> (Handshake<KEY_LENGTH, SALT_LENGTH>, HandshakeProofVerifier) {
+    ) -> Result<(Handshake<KEY_LENGTH, SALT_LENGTH>, HandshakeProofVerifier)> {
         let (s, v) = (&user.salt, &user.verifier);
         let b = generate_private_key::<KEY_LENGTH>();
 
-        let B = calculate_pubkey_B(&self.N, &self.k, &self.g, v, &b);
+        let B = calculate_pubkey_B(&self.N, &self.k, &self.g, v, &b)?;
 
         let h = Handshake {
             N: self.N.clone(),
@@ -181,7 +188,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
             N: self.N.clone(),
         };
 
-        (h, pv)
+        Ok((h, pv))
     }
 }
 

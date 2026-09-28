@@ -18,7 +18,9 @@ fn main() {
     let user = mocked::lookup_user_details("alice");
 
     // the server creates a handshake
-    let (handshake, proof_verifier) = Srp6_4096::default().start_handshake(&user);
+    let (handshake, proof_verifier) = Srp6_4096::default()
+        .start_handshake(&user)
+        .expect("a freshly drawn b yields a valid B");
     assert_eq!(handshake.B.as_bignum().num_bytes(), Srp6_4096::KEY_LEN);
     println!(
         "## Simulating a Server and {} is our client.",

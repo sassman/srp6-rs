@@ -64,7 +64,7 @@ fn test_appendix_b_srp_test_vectors() {
     .unwrap();
 
     assert_eq!(
-        calculate_pubkey_A(&N, &g, &a),
+        calculate_pubkey_A(&N, &g, &a).unwrap(),
         A,
         "Public key A was not calculated correctly"
     );
@@ -89,7 +89,7 @@ fn test_appendix_b_srp_test_vectors() {
     .unwrap();
 
     assert_eq!(
-        calculate_pubkey_B(&N, &k, &g, &v, &b),
+        calculate_pubkey_B(&N, &k, &g, &v, &b).unwrap(),
         B,
         "Public key B was not calculated correctly"
     );
