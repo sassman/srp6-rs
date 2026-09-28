@@ -25,7 +25,7 @@ read more at [srp.stanford.edu](http://srp.stanford.edu) and in [RFC2945] that d
 
 - `default` - uses `hash-sha512` and keys >= 2048 bit
 - `dangerous` - uses `hash-sha1` and provides keys < 2048 bit, please do not use this in production code.
-- `wow` - uses `hash-sha1`, insecure keys and a uppercase of username and password for the hash, please do not use this in production code. This is used in an old World of Warcraft client.
+- `wow-1-12-1` - uses `hash-sha1`, insecure keys and a uppercase of username and password for the hash, please do not use this in production code. This matches World of Warcraft 1.12.1 (build 5875) specifically; later clients changed the flavour.
 
 Those flags are only used for specific test scenarios and should not be used in production code.
 - `test-rfc-5054-appendix-b`

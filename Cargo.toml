@@ -38,6 +38,8 @@ hash-sha512 = ["dep:sha2"]
 hash-sha1 = ["dep:sha1"]
 
 dangerous = ["hash-sha1"]
-wow = ["dangerous"]
+# World of Warcraft 1.12.1 (build 5875) only. Later clients changed the
+# flavour, so the version is part of the name rather than implied.
+wow-1-12-1 = ["dangerous"]
 
 test-rfc-5054-appendix-b = ["hash-sha1"]
