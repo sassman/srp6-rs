@@ -58,7 +58,7 @@ impl PublicKey {
     /// every value of this type, not just the ones checked right before use.
     pub fn new(value: BigNumber, n: &PrimeModulus) -> Result<Self> {
         if (&value % n).is_zero() {
-            return Err(Srp6Error::InvalidPublicKey(value));
+            return Err(Srp6Error::InvalidPublicKey(RawPublicKey(value)));
         }
 
         Ok(Self(value))
@@ -200,7 +200,7 @@ pub fn calculate_session_key_S_for_host<const N_BYTE_LEN: usize>(
     // safeguard A % N == 0 should be checked
     // this is now a second line of defense, PublicKey::new() already rejects this at construction
     if (A.as_bignum() % N).is_zero() {
-        return Err(Srp6Error::InvalidPublicKey(A.as_bignum().clone()));
+        return Err(Srp6Error::InvalidPublicKey(A.clone().into()));
     }
 
     let u = &calculate_u::<N_BYTE_LEN>(A, B);
@@ -231,7 +231,7 @@ pub fn calculate_session_key_S_for_client<const N_BYTE_LEN: usize>(
     // safeguard B % N == 0
     // this is now a second line of defense, PublicKey::new() already rejects this at construction
     if (B.as_bignum() % N).is_zero() {
-        return Err(Srp6Error::InvalidPublicKey(B.as_bignum().clone()));
+        return Err(Srp6Error::InvalidPublicKey(B.clone().into()));
     }
 
     let u = &calculate_u::<N_BYTE_LEN>(A, B);

@@ -15,6 +15,8 @@ pub enum Srp6Error {
     #[error("The provided strong proof is invalid")]
     InvalidStrongProof(StrongProof),
 
+    /// Carries the rejected value as a [`RawPublicKey`]: it is by definition an
+    /// unvalidated public key, and a [`PublicKey`] could not hold it.
     #[error("The provided public key is invalid")]
-    InvalidPublicKey(BigNumber),
+    InvalidPublicKey(RawPublicKey),
 }
