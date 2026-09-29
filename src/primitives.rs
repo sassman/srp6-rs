@@ -46,7 +46,7 @@ pub type KeyPair = (PublicKey, PrivateKey);
 #[doc(alias = "v")]
 pub type PasswordVerifier = BigNumber;
 
-/// Refers to a multiplier parameter `k` (k = H(N, g) in SRP-6a, k = 3 for dangerous SRP-6)
+/// Refers to a multiplier parameter `k` (k = H(N, g) in SRP-6a, k = 3 for legacy SRP-6)
 #[doc(alias = "k")]
 pub type MultiplierParameter = BigNumber;
 
@@ -350,7 +350,7 @@ pub fn calculate_p_hash(I: UsernameRef, p: ClearTextPasswordRef) -> Hash {
         .into()
 }
 
-/// `k = H(N | PAD(g))` (k = 3 for dangerous SRP-6)
+/// `k = H(N | PAD(g))` (k = 3 for legacy SRP-6)
 #[allow(non_snake_case)]
 #[cfg(not(feature = "wow-1-12-1"))]
 pub fn calculate_k<const KEY_LENGTH: usize>(
@@ -363,7 +363,7 @@ pub fn calculate_k<const KEY_LENGTH: usize>(
         .into()
 }
 
-/// `k = H(N | PAD(g))` (k = 3 for dangerous SRP-6)
+/// `k = H(N | PAD(g))` (k = 3 for legacy SRP-6)
 #[cfg(feature = "wow-1-12-1")]
 pub fn calculate_k<const KEY_LENGTH: usize>(
     _: &PrimeModulus,

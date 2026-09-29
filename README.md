@@ -24,8 +24,8 @@ read more at [srp.stanford.edu](http://srp.stanford.edu) and in [RFC2945] that d
 ## Feature flags
 
 - `default` - uses `hash-sha512` and keys >= 2048 bit
-- `dangerous` - uses `hash-sha1` and provides keys < 2048 bit, please do not use this in production code.
-- `wow-1-12-1` - uses `hash-sha1`, insecure keys and a uppercase of username and password for the hash, please do not use this in production code. This matches World of Warcraft 1.12.1 (build 5875) specifically; later clients changed the flavour.
+- `hash-sha1` - swaps the hash function to SHA-1, which is weak; the RFC 5054 groups are still available, so this alone does not shrink your keys.
+- `wow-1-12-1` - the World of Warcraft 1.12.1 (build 5875) flavour: `hash-sha1`, `k = 3`, uppercased username and password, and that client's 256-bit group (`srp6::wow`). Please do not use this in production code - it exists to talk to a client that shipped in 2006, and later clients changed the flavour.
 
 Those flags are only used for specific test scenarios and should not be used in production code.
 - `test-rfc-5054-appendix-b`
