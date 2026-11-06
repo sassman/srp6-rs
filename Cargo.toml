@@ -20,6 +20,9 @@ thiserror = "2.0"
 rand = { version = "0.10", default-features = false, features = ["thread_rng"] }
 num-bigint = { version = "0.4", default-features = false }
 num-traits = "0.2"
+crypto-bigint = { version = "=0.7.10", optional = true, default-features = false, features = [
+    "alloc",
+] }
 hex-literal = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 sha1 = { version = "^0.11", optional = true }
@@ -33,6 +36,10 @@ default = ["hash-sha512"]
 
 hash-sha512 = ["dep:sha2"]
 hash-sha1 = ["dep:sha1"]
+
+# swaps the arithmetic backend to crypto-bigint; the public API and byte formats
+# stay the same, only the representation behind them changes.
+crypto-bigint = ["dep:crypto-bigint"]
 
 # World of Warcraft 1.12.1 (build 5875) only: k = 3, uppercased credentials and
 # the 256-bit group in `src/wow.rs`. Later clients changed the flavour, so the
