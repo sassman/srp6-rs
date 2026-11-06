@@ -10,7 +10,7 @@ fn test_appendix_b_srp_test_vectors() {
     /// this is all based on sha1, that is why the length is 32
     const N_BYTE_LEN: usize = 1024 / 8;
 
-    let I = Username::from("alice");
+    let I = Username::new("alice").expect("valid username");
     let P = ClearTextPassword::from("password123");
     let s = Salt::from_hex_str_be("BEB25379 D1A8581E B5A72767 3A2441EE").unwrap();
     const SALT_LENGTH: usize = 16;
