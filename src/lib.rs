@@ -16,7 +16,7 @@
 //!
 //! // this is happening on the client,
 //! // the password is never send to the server at any time
-//! let new_username = Username::from("alice");
+//! let new_username = Username::new("alice").expect("valid username");
 //! let user_password = ClearTextPassword::from("password123");
 //!
 //! let (salt_s, verifier_v) = Srp6_4096::default()
@@ -52,7 +52,8 @@
 //! mod mocks;
 //!
 //! // the username is sent by the client
-//! let user = mocks::lookup_user_details("alice");
+//! let alice = Username::new("alice").expect("valid username");
+//! let user = mocks::lookup_user_details(&alice);
 //!
 //! // the server starts the handshake
 //! let srp = Srp6_4096::default();
@@ -79,15 +80,15 @@
 //! mod mocks;
 //!
 //! // this is entered by the user on the client (none is sent to the server)
-//! let username = "alice";
+//! let username = Username::new("alice").expect("valid username");
 //! let password = "password123";
 //!
 //! // this comes from the server
-//! let handshake = mocks::handshake_from_the_server(username);
+//! let handshake = mocks::handshake_from_the_server(&username);
 //!
 //! // the final proof calculation
 //! let (proof, strong_proof_verifier) = handshake
-//!     .calculate_proof(username, password)
+//!     .calculate_proof(&username, password)
 //!     .unwrap();
 //!
 //! // send this `proof` to the server
@@ -106,8 +107,8 @@
 //! mod mocks;
 //!
 //! // this comes from the server
-//! let username = "alice";
-//! let proof_verifier = mocks::stored_proof_verifier_from_step_2(username);
+//! let username = Username::new("alice").expect("valid username");
+//! let proof_verifier = mocks::stored_proof_verifier_from_step_2(&username);
 //! let proof_from_alice = mocks::alice_proof();
 //!
 //! // the server verifies the proof from alice

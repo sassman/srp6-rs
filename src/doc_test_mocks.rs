@@ -200,7 +200,8 @@ pub fn strong_proof_verifier_from_step_3() -> StrongProofVerifier<{ Srp6_4096::K
 }
 
 pub fn strong_proof_from_the_server() -> StrongProof {
-    let proof_verifier = stored_proof_verifier_from_step_2("alice");
+    let alice = Username::new("alice").expect("valid username");
+    let proof_verifier = stored_proof_verifier_from_step_2(&alice);
     let proof_from_alice = alice_proof();
 
     let strong_proof = proof_verifier.verify_proof(&proof_from_alice);

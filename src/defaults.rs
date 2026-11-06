@@ -5,10 +5,11 @@
 //! ## Usage:
 //!
 //! ```rust
-//! use srp6::prelude::{Srp6_4096, HostAPI};
+//! use srp6::prelude::{HostAPI, Srp6_4096, Username};
 //!
+//! let bob = Username::new("Bob").expect("valid username");
 //! let srp = Srp6_4096::default();
-//! let (_salt_s, _verifier_v) = srp.generate_new_user_secrets("Bob", "secret-password");
+//! let (_salt_s, _verifier_v) = srp.generate_new_user_secrets(&bob, "secret-password");
 //! ```
 //!
 //! [RFC5054 Appendix A]: https://datatracker.ietf.org/doc/html/rfc5054#appendix-A
