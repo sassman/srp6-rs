@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+# Branches older than the justfile still push; only the check is skipped.
+if [ ! -f justfile ]; then
+    echo "pre-push: no justfile on this branch, skipping ci-check" >&2
+    exit 0
+fi
+
+echo "pre-push: running just ci-check" >&2
+exec just ci-check
