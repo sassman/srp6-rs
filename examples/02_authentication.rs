@@ -15,7 +15,8 @@ macro_rules! printkeyln {
 
 fn main() {
     // the server looks up the user details by a received username
-    let user = mocked::lookup_user_details("alice");
+    let alice = Username::new("alice").expect("valid username");
+    let user = mocked::lookup_user_details(&alice);
 
     // the server creates a handshake
     let (handshake, proof_verifier) = Srp6_4096::default()
@@ -44,7 +45,7 @@ fn main() {
 
     // the client provides proof to the server
     let (proof, strong_proof_verifier) = handshake
-        .calculate_proof(user.username.as_str(), USER_PASSWORD)
+        .calculate_proof(&user.username, USER_PASSWORD)
         .unwrap();
     assert_eq!(proof.A.as_bignum().num_bytes(), Srp6_4096::KEY_LEN);
     assert_eq!(
