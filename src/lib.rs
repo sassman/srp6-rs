@@ -25,8 +25,10 @@
 //!         &user_password
 //!     );
 //!
-//! assert_eq!(salt_s.num_bytes(), Srp6_4096::KEY_LEN);
-//! assert_eq!(verifier_v.num_bytes(), Srp6_4096::KEY_LEN);
+//! // At most the key length: a big number drops its leading zero bytes, so a fixed
+//! // length would fail about once in 256 runs.
+//! assert!(salt_s.num_bytes() <= Srp6_4096::KEY_LEN);
+//! assert!(verifier_v.num_bytes() <= Srp6_4096::KEY_LEN);
 //!
 //! // The server needs to persist,
 //! // `new_username`, `salt_s` and `verifier_v` in a user database / pw file
@@ -59,7 +61,8 @@
 //! assert_eq!(handshake.s, user.salt);
 //! assert_eq!(handshake.N, srp.N);
 //! assert_eq!(handshake.g, srp.g);
-//! assert_eq!(handshake.B.num_bytes(), Srp6_4096::KEY_LEN);
+//! // Same leading-zero caveat as the salt above.
+//! assert!(handshake.B.num_bytes() <= Srp6_4096::KEY_LEN);
 //!
 //! // send `handshake` to the client
 //! // keep `proof_verifier` for later in a session or cache
@@ -143,7 +146,7 @@
 //!
 //! ## Note on hash length
 //!
-//! The original RFC5054 uses SHA1 as the hash function. This crate uses SHA512 as the default hash function. Because SHA1 is considered weak, it is recommended to use newer versions of the SHA family. The hash length is 64 bytes for SHA512 instead of 20 bytes for SHA1. If you really need to use SHA1, you can use the `dangerous` feature.
+//! The original RFC5054 uses SHA1 as the hash function. This crate uses SHA512 as the default hash function. Because SHA1 is considered weak, it is recommended to use newer versions of the SHA family. The hash length is 64 bytes for SHA512 instead of 20 bytes for SHA1. If you really need to use SHA1, you can use the `hash-sha1` feature.
 //!
 //! ## Further details and domain vocabolary
 //! - You can find the documentation of SRP6 [variables in a dedicated module][`protocol_details`].
@@ -165,11 +168,11 @@ pub mod prelude {
     pub use crate::primitives::*;
     pub use std::convert::TryInto;
 }
-#[cfg(feature = "dangerous")]
-pub mod dangerous;
 pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
+#[cfg(feature = "wow-1-12-1")]
+pub mod wow;
 
 // #[cfg(any(test, doc, doctest, docsrs, feature = "doc-test-mocks"))]
 // pub mod doc_test_mocks;
