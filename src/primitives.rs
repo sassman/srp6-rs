@@ -19,6 +19,7 @@ use crate::big_number::{BigNumber, BigNumberError, Zero};
 use crate::hash::*;
 use crate::{error::Srp6Error, Result};
 use std::convert::TryFrom;
+use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
@@ -77,11 +78,23 @@ impl PublicKey {
         self.0.to_vec()
     }
 
+    /// Length of the big-endian encoding, without leading zeroes.
+    /// See [`BigNumber::num_bytes`].
+    pub fn num_bytes(&self) -> usize {
+        self.0.num_bytes()
+    }
+
     /// Access to the inner [`BigNumber`] for arithmetic. Deliberately not a
-    /// [`std::ops::Deref`] impl, so that reaching for the unvalidated inner
-    /// value stays an explicit, visible choice at every call site.
+    /// [`std::ops::Deref`] impl, so the wrapper stays visible wherever the
+    /// number is used.
     pub fn as_bignum(&self) -> &BigNumber {
         &self.0
+    }
+}
+
+impl Display for PublicKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 
@@ -129,10 +142,23 @@ impl RawPublicKey {
         self.0.to_vec()
     }
 
-    /// Access to the inner [`BigNumber`] for cases that only need to read the
-    /// bytes without validation (e.g. logging).
+    /// Length of the big-endian encoding, without leading zeroes.
+    /// See [`BigNumber::num_bytes`].
+    pub fn num_bytes(&self) -> usize {
+        self.0.num_bytes()
+    }
+
+    /// Access to the inner [`BigNumber`] for arithmetic. Validation stays the
+    /// caller's explicit choice, which is why this is not a
+    /// [`std::ops::Deref`] impl.
     pub fn as_bignum(&self) -> &BigNumber {
         &self.0
+    }
+}
+
+impl Display for RawPublicKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
     }
 }
 
