@@ -37,7 +37,7 @@ pub type Salt = BigNumber;
 ///
 /// Unlike the other primitives, [`PublicKey`] is not a plain alias to
 /// [`BigNumber`]. It can only be built through [`PublicKey::new`], which
-/// enforces the RFC 5054 §2.5.4 safeguard: "abort if [the] value ... is 0 mod N".
+/// enforces the RFC 5054 §2.5.4 safeguard: "abort if \[the\] value ... is 0 mod N".
 /// This makes it impossible to hold a degenerate key (0, `N`, or any multiple
 /// of `N`) in a value of this type.
 ///
@@ -51,7 +51,7 @@ impl PublicKey {
     /// Validates `value` and wraps it into a [`PublicKey`].
     ///
     /// Per [RFC 5054 §2.5.4](https://datatracker.ietf.org/doc/html/rfc5054#section-2.5.4),
-    /// a host or client must "abort if [the received public key] % N is zero",
+    /// a host or client must "abort if \[the received public key\] % N is zero",
     /// since a degenerate key of that shape lets a hostile peer drive the
     /// shared session key to a value it already knows. This constructor is
     /// the only way to obtain a [`PublicKey`], so that guarantee holds for
