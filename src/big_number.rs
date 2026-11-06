@@ -111,6 +111,12 @@ impl BigNumber {
         self.0.to_vec()
     }
 
+    /// Constant-time equality for values of the same width. Use this where a
+    /// comparison must not leak the first differing byte, as for proofs.
+    pub fn ct_eq(&self, other: &Self) -> bool {
+        self.0.ct_eq(&other.0)
+    }
+
     /// the counter part of `::to_vec()`
     pub fn from_vec(data: &[u8]) -> Self {
         Self::from_bytes_be(data)
@@ -142,6 +148,18 @@ fn test_mod_exp() {
         "{}.modExp(3, 7) is not 6",
         r
     );
+}
+
+#[test]
+fn constant_time_equality_matches_value_equality() {
+    let seven = BigNumber::from(7);
+    assert!(seven.ct_eq(&BigNumber::from(7)));
+    assert!(!seven.ct_eq(&BigNumber::from(8)));
+    assert!(BigNumber::default().ct_eq(&BigNumber::from(0)));
+
+    let negative = BigNumber::from(1) - BigNumber::from(2);
+    assert!(negative.ct_eq(&(BigNumber::from(1) - BigNumber::from(2))));
+    assert!(!negative.ct_eq(&BigNumber::from(1)));
 }
 
 impl Debug for BigNumber {

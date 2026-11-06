@@ -87,7 +87,7 @@ impl HandshakeProofVerifier {
         let K = calculate_session_key_hash_interleave_K::<N_BYTE_LEN>(S);
         let M = &calculate_proof_M::<N_BYTE_LEN, SALT_LENGTH>(N, g, I, s, A, B, &K);
 
-        if M != M1 {
+        if !M.ct_eq(M1) {
             return Err(Srp6Error::InvalidProof(M.clone()));
         }
         let M2 = calculate_strong_proof_M2::<N_BYTE_LEN>(A, M, &K);

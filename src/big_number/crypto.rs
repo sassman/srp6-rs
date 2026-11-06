@@ -6,7 +6,7 @@
 
 use std::fmt::Write as _;
 
-use crypto_bigint::{BoxedUint, ConcatenatingMul, NonZero, Odd};
+use crypto_bigint::{BoxedUint, ConcatenatingMul, CtEq, NonZero, Odd};
 
 #[derive(Clone)]
 pub(super) struct Inner {
@@ -36,6 +36,12 @@ impl Inner {
 
     pub(super) fn is_zero(&self) -> bool {
         self.magnitude.is_zero().to_bool()
+    }
+
+    /// Constant-time equality for equal-precision magnitudes. The sign is
+    /// compared as a plain bool; it is public for the proofs this serves.
+    pub(super) fn ct_eq(&self, other: &Self) -> bool {
+        self.negative == other.negative && self.magnitude.ct_eq(&other.magnitude).to_bool()
     }
 
     /// `raw` is expected to be big endian.
