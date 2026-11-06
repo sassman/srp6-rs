@@ -110,6 +110,23 @@ impl RawPublicKey {
         BigNumber::from_hex_str_be(str).map(Self)
     }
 
+    /// The wire carries `A` and `B` little-endian, so this is the constructor
+    /// for bytes received from a peer. See [`BigNumber::from_bytes_le`].
+    pub fn from_bytes_le(raw: &[u8]) -> Self {
+        Self(BigNumber::from_bytes_le(raw))
+    }
+
+    /// Big-endian bytes, zero-padded to at least `N` bytes.
+    /// See [`BigNumber::to_array_pad_zero`].
+    pub fn to_array_pad_zero<const N: usize>(&self) -> Vec<u8> {
+        self.0.to_array_pad_zero::<N>()
+    }
+
+    /// Big-endian bytes. See [`BigNumber::to_vec`].
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+
     /// Access to the inner [`BigNumber`] for cases that only need to read the
     /// bytes without validation (e.g. logging).
     pub fn as_bignum(&self) -> &BigNumber {
@@ -122,6 +139,17 @@ impl From<PublicKey> for RawPublicKey {
     fn from(key: PublicKey) -> Self {
         Self(key.0)
     }
+}
+
+#[test]
+fn a_raw_key_round_trips_through_wire_bytes() {
+    let bytes_le = [0x01, 0x02, 0x03];
+
+    let key = RawPublicKey::from_bytes_le(&bytes_le);
+
+    assert_eq!(key.as_bignum(), &BigNumber::from_bytes_le(&bytes_le));
+    assert_eq!(key.to_vec(), vec![0x03, 0x02, 0x01]);
+    assert_eq!(key.to_array_pad_zero::<5>(), vec![0, 0, 0x03, 0x02, 0x01]);
 }
 
 /// Refers to a private secret random number a (user), b (server)
