@@ -132,12 +132,12 @@ fn test_mod_exp() {
     let m = BigNumber::from_hex_str_be("7").unwrap();
     let r = a.modpow(&p, &m);
 
-    assert_eq!(&r, &BigNumber::from(6), "{} is not 6", &r);
+    assert_eq!(&r, &BigNumber::from(6), "{} is not 6", r);
     assert_eq!(
         &a.modpow(&p, &m),
         &BigNumber::from(6),
         "{}.modExp(3, 7) is not 6",
-        &r
+        r
     );
 }
 

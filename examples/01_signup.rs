@@ -12,9 +12,9 @@ fn main() {
     println!("Simulating a server and signup with user {}", new_username);
     println!("{}'s secrets are:", new_username);
     println!(" - Salt [s]:");
-    println!("   - {}", &salt_s.to_string());
+    println!("   - {}", salt_s);
     println!(" - Password verifier [v]:");
-    println!("   - {}", &verifier_v.to_string());
+    println!("   - {}", verifier_v);
     println!();
     println!("This is a one time action, normally this data is stored in a user database");
     println!();
