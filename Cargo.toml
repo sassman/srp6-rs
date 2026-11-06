@@ -18,10 +18,7 @@ include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 [dependencies]
 thiserror = "2.0"
 rand = { version = "0.10", default-features = false, features = ["thread_rng"] }
-num-bigint = { version = "0.4", features = [
-    "rand",
-    "serde",
-], default-features = false }
+num-bigint = { version = "0.4", default-features = false }
 num-traits = "0.2"
 hex-literal = "1.0"
 serde = { version = "1.0", features = ["derive"] }
