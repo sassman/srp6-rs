@@ -13,11 +13,13 @@ This scheme is applied for all variables used in the calculus.
 
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 */
-use crate::big_number::{BigNumber, Zero};
+use serde::{Deserialize, Serialize};
+
+use crate::big_number::{BigNumber, BigNumberError, Zero};
 use crate::hash::*;
 use crate::{error::Srp6Error, Result};
-use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
+use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
@@ -35,8 +37,148 @@ pub type Generator = BigNumber;
 pub type Salt = BigNumber;
 
 /// Refers to a Public shared key called A (user), B (server)
+///
+/// Unlike the other primitives, [`PublicKey`] is not a plain alias to
+/// [`BigNumber`]. It can only be built through [`PublicKey::new`], which
+/// enforces the RFC 5054 §2.5.4 safeguard: "abort if \[the\] value ... is 0 mod N".
+/// This makes it impossible to hold a degenerate key (0, `N`, or any multiple
+/// of `N`) in a value of this type.
+///
+/// See also [`RawPublicKey`], the unvalidated wire counterpart used for
+/// (de)serialization.
 #[doc(alias("A", "B"))]
-pub type PublicKey = BigNumber;
+#[derive(Debug, Clone, PartialEq)]
+pub struct PublicKey(BigNumber);
+
+impl PublicKey {
+    /// Validates `value` and wraps it into a [`PublicKey`].
+    ///
+    /// Per [RFC 5054 §2.5.4](https://datatracker.ietf.org/doc/html/rfc5054#section-2.5.4),
+    /// a host or client must "abort if \[the received public key\] % N is zero",
+    /// since a degenerate key of that shape lets a hostile peer drive the
+    /// shared session key to a value it already knows. This constructor is
+    /// the only way to obtain a [`PublicKey`], so that guarantee holds for
+    /// every value of this type, not just the ones checked right before use.
+    pub fn new(value: BigNumber, n: &PrimeModulus) -> Result<Self> {
+        if (&value % n).is_zero() {
+            return Err(Srp6Error::InvalidPublicKey(RawPublicKey(value)));
+        }
+
+        Ok(Self(value))
+    }
+
+    /// Big-endian bytes, zero-padded to at least `N` bytes.
+    /// See [`BigNumber::to_array_pad_zero`].
+    pub fn to_array_pad_zero<const N: usize>(&self) -> Vec<u8> {
+        self.0.to_array_pad_zero::<N>()
+    }
+
+    /// Big-endian bytes. See [`BigNumber::to_vec`].
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+
+    /// Length of the big-endian encoding, without leading zeroes.
+    /// See [`BigNumber::num_bytes`].
+    pub fn num_bytes(&self) -> usize {
+        self.0.num_bytes()
+    }
+
+    /// Access to the inner [`BigNumber`] for arithmetic. Deliberately not a
+    /// [`std::ops::Deref`] impl, so the wrapper stays visible wherever the
+    /// number is used.
+    pub fn as_bignum(&self) -> &BigNumber {
+        &self.0
+    }
+}
+
+impl Display for PublicKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+/// The unvalidated, wire-facing counterpart to [`PublicKey`].
+///
+/// This is the type that appears in structs sent over the network
+/// (e.g. [`crate::HandshakeProof::A`]) and is the only public key type that
+/// derives [`Deserialize`]. A derived `Deserialize` directly on [`PublicKey`]
+/// would construct its inner value without going through [`PublicKey::new`],
+/// letting a hostile payload reintroduce a degenerate key (e.g. `A = 0`) over
+/// the wire. `#[serde(try_from = "..")]` can't fix this either, since
+/// validation needs [`PrimeModulus`] `N`, which isn't part of the payload.
+///
+/// Call [`RawPublicKey::into_validated`] to turn this into a [`PublicKey`]
+/// once `N` is available.
+#[doc(alias("A", "B"))]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RawPublicKey(BigNumber);
+
+impl RawPublicKey {
+    /// Validates this raw value against `n`, see [`PublicKey::new`].
+    pub fn into_validated(self, n: &PrimeModulus) -> Result<PublicKey> {
+        PublicKey::new(self.0, n)
+    }
+
+    /// `raw` is expected to be big endian, see [`BigNumber::from_hex_str_be`].
+    pub fn from_hex_str_be(str: &str) -> std::result::Result<Self, BigNumberError> {
+        BigNumber::from_hex_str_be(str).map(Self)
+    }
+
+    /// The wire carries `A` and `B` little-endian, so this is the constructor
+    /// for bytes received from a peer. See [`BigNumber::from_bytes_le`].
+    pub fn from_bytes_le(raw: &[u8]) -> Self {
+        Self(BigNumber::from_bytes_le(raw))
+    }
+
+    /// Big-endian bytes, zero-padded to at least `N` bytes.
+    /// See [`BigNumber::to_array_pad_zero`].
+    pub fn to_array_pad_zero<const N: usize>(&self) -> Vec<u8> {
+        self.0.to_array_pad_zero::<N>()
+    }
+
+    /// Big-endian bytes. See [`BigNumber::to_vec`].
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+
+    /// Length of the big-endian encoding, without leading zeroes.
+    /// See [`BigNumber::num_bytes`].
+    pub fn num_bytes(&self) -> usize {
+        self.0.num_bytes()
+    }
+
+    /// Access to the inner [`BigNumber`] for arithmetic. Validation stays the
+    /// caller's explicit choice, which is why this is not a
+    /// [`std::ops::Deref`] impl.
+    pub fn as_bignum(&self) -> &BigNumber {
+        &self.0
+    }
+}
+
+impl Display for RawPublicKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl From<PublicKey> for RawPublicKey {
+    /// A validated [`PublicKey`] is always representable as a [`RawPublicKey`].
+    fn from(key: PublicKey) -> Self {
+        Self(key.0)
+    }
+}
+
+#[test]
+fn a_raw_key_round_trips_through_wire_bytes() {
+    let bytes_le = [0x01, 0x02, 0x03];
+
+    let key = RawPublicKey::from_bytes_le(&bytes_le);
+
+    assert_eq!(key.as_bignum(), &BigNumber::from_bytes_le(&bytes_le));
+    assert_eq!(key.to_vec(), vec![0x03, 0x02, 0x01]);
+    assert_eq!(key.to_array_pad_zero::<5>(), vec![0, 0, 0x03, 0x02, 0x01]);
+}
 
 /// Refers to a private secret random number a (user), b (server)
 #[doc(alias("a", "b", "x"))]
@@ -253,12 +395,13 @@ pub fn calculate_session_key_S_for_host<const N_BYTE_LEN: usize>(
     v: &PasswordVerifier,
 ) -> Result<SessionKey> {
     // safeguard A % N == 0 should be checked
-    if (A % N).is_zero() {
-        return Err(Srp6Error::InvalidPublicKey(A.clone()));
+    // this is now a second line of defense, PublicKey::new() already rejects this at construction
+    if (A.as_bignum() % N).is_zero() {
+        return Err(Srp6Error::InvalidPublicKey(A.clone().into()));
     }
 
     let u = &calculate_u::<N_BYTE_LEN>(A, B);
-    let base = &(A * &v.modpow(u, N));
+    let base = &(A.as_bignum() * &v.modpow(u, N));
     let S: BigNumber = base.modpow(b, N);
 
     Ok(S)
@@ -283,14 +426,15 @@ pub fn calculate_session_key_S_for_client<const N_BYTE_LEN: usize>(
     x: &PrivateKey,
 ) -> Result<SessionKey> {
     // safeguard B % N == 0
-    if (B % N).is_zero() {
-        return Err(Srp6Error::InvalidPublicKey(B.clone()));
+    // this is now a second line of defense, PublicKey::new() already rejects this at construction
+    if (B.as_bignum() % N).is_zero() {
+        return Err(Srp6Error::InvalidPublicKey(B.clone().into()));
     }
 
     let u = &calculate_u::<N_BYTE_LEN>(A, B);
     let exp: BigNumber = a + &(u * x);
     let g_mod_x = &g.modpow(x, N);
-    let base = B - &(k * g_mod_x);
+    let base = B.as_bignum() - &(k * g_mod_x);
     let S = base.modpow(&exp, N);
 
     Ok(S)
@@ -422,18 +566,32 @@ pub fn calculate_password_verifier_v(
 /// The Padding is based on the key length, e.g. if N is 1024 bit, the padding is 128 bytes
 #[allow(non_snake_case)]
 pub fn calculate_u<const N_BYTE_LEN: usize>(A: &PublicKey, B: &PublicKey) -> BigNumber {
-    hash_w_pad::<N_BYTE_LEN>(A, B)
+    hash_w_pad::<N_BYTE_LEN>(A.as_bignum(), B.as_bignum())
 }
 
 /// [`A`][`crate::rfc_lingo::A`] is the [`PublicKey`] of the client
 /// formula: `A = g^a % N`
+///
+/// # Errors
+/// [`Srp6Error::InvalidPublicKey`] if the result is `0 mod N`. For a prime
+/// `N` and a generator `g < N` that cannot happen, but `N` is supplied by
+/// the caller and never proven prime: with a degenerate group such as
+/// `N = 4, g = 2, a = 2` the result is 0. Constructing through
+/// [`PublicKey::new`] keeps that a `Result` rather than a panic.
 #[allow(non_snake_case)]
-pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> PublicKey {
-    g.modpow(a, N)
+pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> Result<PublicKey> {
+    PublicKey::new(g.modpow(a, N), N)
 }
 
 /// [`PublicKey`][`crate::rfc_lingo::B`] is the hosts public key
 /// `B = kv + g^b`
+///
+/// # Errors
+/// [`Srp6Error::InvalidPublicKey`] if the result is `0 mod N`. Unlike
+/// [`calculate_pubkey_A`], `B` is a sum reduced mod `N`, so `k*v = -g^b`
+/// lands on 0 even for a well formed group. It is vanishingly unlikely,
+/// and the client rejects such a `B` on receipt anyway, but the host
+/// should not hand one out: draw a fresh `b` and call again.
 #[allow(non_snake_case)]
 pub fn calculate_pubkey_B(
     N: &PrimeModulus,
@@ -441,10 +599,10 @@ pub fn calculate_pubkey_B(
     g: &Generator,
     v: &PasswordVerifier,
     b: &PrivateKey,
-) -> PublicKey {
+) -> Result<PublicKey> {
     let g_mod_N = g.modpow(b, N);
     // This is B
-    &((k * v) + g_mod_N) % N
+    PublicKey::new(&((k * v) + g_mod_N) % N, N)
 }
 
 /// `x` is the users private key (only they know)

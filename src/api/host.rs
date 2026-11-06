@@ -24,7 +24,14 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
     ) -> (Salt, PasswordVerifier);
 
     /// starts the handshake with the client
-    fn start_handshake(&self, user: &UserSecrets) -> (Handshake<KL, SL>, HandshakeProofVerifier);
+    ///
+    /// # Errors
+    /// [`Srp6Error::InvalidPublicKey`] if the drawn `b` yields a `B` that is
+    /// `0 mod N`, see [`calculate_pubkey_B`]. Retry with a fresh draw.
+    fn start_handshake(
+        &self,
+        user: &UserSecrets,
+    ) -> Result<(Handshake<KL, SL>, HandshakeProofVerifier)>;
 }
 
 /// Contains all variables needed for a successful
@@ -32,8 +39,8 @@ pub trait HostAPI<const KL: usize, const SL: usize> {
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 pub struct Handshake<const KEY_LENGTH: usize, const SALT_LENGTH: usize> {
-    /// the servers public key
-    pub B: PublicKey,
+    /// the servers public key, not yet validated against `N`, see [`RawPublicKey::into_validated`]
+    pub B: RawPublicKey,
     /// a generator modulo N
     pub g: Generator,
     /// a big and safe prime number
@@ -72,7 +79,8 @@ impl HandshakeProofVerifier {
         let I = &self.user.username;
         let s = &self.user.salt;
         let v = &self.user.verifier;
-        let A = &proof.A;
+        // the client's A arrives as a RawPublicKey and must be validated before use
+        let A = &proof.A.clone().into_validated(N)?;
         let M1 = &proof.M1;
 
         let S = &calculate_session_key_S_for_host::<N_BYTE_LEN>(N, A, B, b, v)?;
@@ -159,18 +167,18 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
     fn start_handshake(
         &self,
         user: &UserSecrets,
-    ) -> (Handshake<KEY_LENGTH, SALT_LENGTH>, HandshakeProofVerifier) {
+    ) -> Result<(Handshake<KEY_LENGTH, SALT_LENGTH>, HandshakeProofVerifier)> {
         let (s, v) = (&user.salt, &user.verifier);
         let b = generate_private_key::<KEY_LENGTH>();
 
-        let B = calculate_pubkey_B(&self.N, &self.k, &self.g, v, &b);
+        let B = calculate_pubkey_B(&self.N, &self.k, &self.g, v, &b)?;
 
         let h = Handshake {
             N: self.N.clone(),
             g: self.g.clone(),
             k: self.k.clone(),
             s: s.clone(),
-            B: B.clone(),
+            B: B.clone().into(),
         };
 
         let pv = HandshakeProofVerifier {
@@ -180,7 +188,7 @@ impl<const KEY_LENGTH: usize, const SALT_LENGTH: usize> HostAPI<KEY_LENGTH, SALT
             N: self.N.clone(),
         };
 
-        (h, pv)
+        Ok((h, pv))
     }
 }
 

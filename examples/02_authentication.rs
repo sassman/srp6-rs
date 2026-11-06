@@ -19,14 +19,16 @@ fn main() {
     let user = mocked::lookup_user_details(&alice);
 
     // the server creates a handshake
-    let (handshake, proof_verifier) = Srp6_4096::default().start_handshake(&user);
+    let (handshake, proof_verifier) = Srp6_4096::default()
+        .start_handshake(&user)
+        .expect("a freshly drawn b yields a valid B");
     assert_eq!(handshake.B.num_bytes(), Srp6_4096::KEY_LEN);
     println!(
         "## Simulating a Server and {} is our client.",
         user.username
     );
     println!("server secrets are:");
-    printkeyln!("public key  [B]", &proof_verifier.server_keys.0);
+    printkeyln!("public key  [B]", proof_verifier.server_keys.0);
     printkeyln!("private key [b]", &proof_verifier.server_keys.1);
     println!();
     println!("## {}'s secrets", user.username);
@@ -35,7 +37,7 @@ fn main() {
     println!();
     println!("## {}'s handshake", user.username);
     printkeyln!("salt               [s]", handshake.s);
-    printkeyln!("server public key  [B]", &handshake.B);
+    printkeyln!("server public key  [B]", handshake.B);
     printkeyln!("prime modulus      [N]", &handshake.N);
     printkeyln!("generator modulus  [g]", &handshake.g);
     printkeyln!("multiplier         [k]", &handshake.k);
@@ -56,7 +58,7 @@ fn main() {
     println!("## Simulating client {}", user.username);
     println!("### {}'s proof", user.username);
     printkeyln!("proof      [M1]", &proof.M1);
-    printkeyln!("public key  [A]", &proof.A);
+    printkeyln!("public key  [A]", proof.A);
     println!();
 
     // the server verifies this proof
