@@ -50,17 +50,21 @@ fn test_appendix_b_srp_test_vectors() {
     )
     .unwrap();
 
-    let A = PublicKey::try_from(
-        "61D5E490 F6F1B795 47B0704C 436F523D D0E560F0 C64115BB 72557EC4
+    let A = PublicKey::new(
+        BigNumber::try_from(
+            "61D5E490 F6F1B795 47B0704C 436F523D D0E560F0 C64115BB 72557EC4
          4352E890 3211C046 92272D8B 2D1A5358 A2CF1B6E 0BFCF99F 921530EC
          8E393561 79EAE45E 42BA92AE ACED8251 71E1E8B9 AF6D9C03 E1327F44
          BE087EF0 6530E69F 66615261 EEF54073 CA11CF58 58F0EDFD FE15EFEA
          B349EF5D 76988A36 72FAC47B 0769447B",
+        )
+        .unwrap(),
+        &N,
     )
     .unwrap();
 
     assert_eq!(
-        calculate_pubkey_A(&N, &g, &a),
+        calculate_pubkey_A(&N, &g, &a).unwrap(),
         A,
         "Public key A was not calculated correctly"
     );
@@ -71,17 +75,21 @@ fn test_appendix_b_srp_test_vectors() {
     )
     .unwrap();
 
-    let B = PublicKey::try_from(
-        "BD0C6151 2C692C0C B6D041FA 01BB152D 4916A1E7 7AF46AE1 05393011
+    let B = PublicKey::new(
+        BigNumber::try_from(
+            "BD0C6151 2C692C0C B6D041FA 01BB152D 4916A1E7 7AF46AE1 05393011
          BAF38964 DC46A067 0DD125B9 5A981652 236F99D9 B681CBF8 7837EC99
          6C6DA044 53728610 D0C6DDB5 8B318885 D7D82C7F 8DEB75CE 7BD4FBAA
          37089E6F 9C6059F3 88838E7A 00030B33 1EB76840 910440B1 B27AAEAE
          EB4012B7 D7665238 A8E3FB00 4B117B58",
+        )
+        .unwrap(),
+        &N,
     )
     .unwrap();
 
     assert_eq!(
-        calculate_pubkey_B(&N, &k, &g, &v, &b),
+        calculate_pubkey_B(&N, &k, &g, &v, &b).unwrap(),
         B,
         "Public key B was not calculated correctly"
     );
@@ -118,7 +126,13 @@ fn test_appendix_b_srp_test_vectors() {
     );
 
     let (proof, strong_proof_verifier) = calculate_proof_M_for_client::<N_BYTE_LEN, SALT_LENGTH>(
-        &Handshake::<N_BYTE_LEN, SALT_LENGTH> { B, g, N, k, s },
+        &Handshake::<N_BYTE_LEN, SALT_LENGTH> {
+            B: B.into(),
+            g,
+            N,
+            k,
+            s,
+        },
         &UserCredentials {
             username: &I,
             password: &P,
