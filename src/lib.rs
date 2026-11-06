@@ -172,6 +172,8 @@ pub mod prelude {
 pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
+#[cfg(feature = "crypto-bigint")]
+pub mod group;
 #[cfg(feature = "wow-1-12-1")]
 pub mod wow;
 
