@@ -18,7 +18,6 @@ use serde::{Deserialize, Serialize};
 use crate::big_number::{BigNumber, BigNumberError, Zero};
 use crate::hash::*;
 use crate::{error::Srp6Error, Result};
-use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use thiserror::Error;
 
