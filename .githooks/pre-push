@@ -1,11 +1,54 @@
 #!/bin/sh
 set -eu
 
-# Branches older than the justfile still push; only the check is skipped.
-if [ ! -f justfile ]; then
-    echo "pre-push: no justfile on this branch, skipping ci-check" >&2
-    exit 0
-fi
+# Git passes the refs being pushed on stdin. Check each pushed commit, not
+# whatever happens to be checked out here: pushing another branch from this
+# worktree must not run ci-check against the wrong tree.
 
-echo "pre-push: running just ci-check" >&2
-exec just ci-check
+repo_root=$(git rev-parse --show-toplevel)
+head=$(git rev-parse HEAD)
+worktree_root="$repo_root/.worktrees/pre-push"
+
+checked=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+    # A deletion has an all-zero local sha.
+    case "$local_sha" in 0000000000000000000000000000000000000000) continue ;; esac
+    # Tags are already built and released by CI.
+    case "$remote_ref" in refs/heads/*) ;; *) continue ;; esac
+    case " $checked " in *" $local_sha "*) continue ;; esac
+    checked="$checked $local_sha"
+
+    temporary=0
+    if [ "$local_sha" = "$head" ] && [ -z "$(git status --porcelain)" ]; then
+        workdir=$repo_root
+    else
+        ref_name=${remote_ref#refs/heads/}
+        safe_ref=$(printf '%s' "$ref_name" | tr -c 'A-Za-z0-9._-' '-')
+        workdir="$worktree_root/${safe_ref:-pushed}-$(printf '%s' "$local_sha" | cut -c1-12)"
+        temporary=1
+
+        if [ -e "$workdir" ]; then
+            git -C "$repo_root" worktree remove --force "$workdir" >/dev/null 2>&1 \
+                || rm -rf "$workdir"
+        fi
+        mkdir -p "$worktree_root"
+        git -C "$repo_root" worktree add --detach "$workdir" "$local_sha" >/dev/null
+    fi
+
+    if [ ! -f "$workdir/justfile" ]; then
+        echo "pre-push: $local_sha has no justfile, skipping ci-check" >&2
+        [ "$temporary" -eq 0 ] || git -C "$repo_root" worktree remove --force "$workdir" >/dev/null 2>&1 || true
+        continue
+    fi
+
+    echo "pre-push: running just ci-check for $local_sha in $workdir" >&2
+    if ! (
+        cd "$workdir"
+        CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$repo_root/target}" just ci-check
+    ); then
+        echo "pre-push: ci-check failed; worktree left at $workdir" >&2
+        exit 1
+    fi
+
+    [ "$temporary" -eq 0 ] || git -C "$repo_root" worktree remove --force "$workdir" >/dev/null 2>&1 || true
+done

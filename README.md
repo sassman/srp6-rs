@@ -44,8 +44,9 @@ To avoid code duplications this README is kept lean, please find examples and co
 ## Development
 
 Run `just install-hooks` once per clone. It points git at `.githooks`, whose
-pre-push hook runs `just ci-check`; that mirrors the build workflow on the local
-OS and stable toolchain, so a failing gate stops the push rather than the PR.
+pre-push hook runs `just ci-check` against the commits being pushed; that
+mirrors the build workflow on the local OS and stable toolchain, so a failing
+gate stops the push rather than the PR.
 
 ## License
 
