@@ -41,6 +41,13 @@ To avoid code duplications this README is kept lean, please find examples and co
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 [RFC5054]: https://datatracker.ietf.org/doc/html/rfc5054#appendix-A
 
+## Development
+
+Run `just install-hooks` once per clone. It points git at `.githooks`, whose
+pre-push hook runs `just ci-check` against the commits being pushed; that
+mirrors the build workflow on the local OS and stable toolchain, so a failing
+gate stops the push rather than the PR.
+
 ## License
 
 - **[MIT License](LICENSE)**
