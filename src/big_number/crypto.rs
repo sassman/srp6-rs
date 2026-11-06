@@ -1,4 +1,4 @@
-//! The crypto-bigint backend, selected by the `crypto-bigint` feature.
+//! The crypto-bigint backend.
 //!
 //! A signed magnitude over [`BoxedUint`]: SRP needs arbitrary widths for now,
 //! and one intermediate (`B - k*g^x` on the client) is negative. The sign is
@@ -7,7 +7,6 @@
 use std::fmt::Write as _;
 
 use crypto_bigint::{BoxedUint, ConcatenatingMul, NonZero, Odd};
-use num_bigint::{BigInt, Sign};
 
 #[derive(Clone)]
 pub(super) struct Inner {
@@ -57,13 +56,6 @@ impl Inner {
 
     pub(super) fn from_u32(n: u32) -> Self {
         Self::new(BoxedUint::from(n), false)
-    }
-
-    pub(super) fn from_bigint(a: BigInt) -> Self {
-        let (sign, bytes) = a.to_bytes_be();
-        let mut value = Self::from_bytes_be(&bytes);
-        value.negative = sign == Sign::Minus && !value.is_zero();
-        value
     }
 
     /// Big endian, without leading zeroes; zero is `[0]`.

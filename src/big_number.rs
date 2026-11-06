@@ -1,16 +1,11 @@
 use crate::hash::*;
 
-use num_bigint::BigInt;
 use rand::{rng, RngExt};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 
-#[cfg(not(feature = "crypto-bigint"))]
-#[path = "big_number/num.rs"]
-mod backend;
-#[cfg(feature = "crypto-bigint")]
 #[path = "big_number/crypto.rs"]
 mod backend;
 
@@ -159,12 +154,6 @@ impl Debug for BigNumber {
 impl From<u32> for BigNumber {
     fn from(n: u32) -> Self {
         Self(Inner::from_u32(n))
-    }
-}
-
-impl From<BigInt> for BigNumber {
-    fn from(a: BigInt) -> Self {
-        Self(Inner::from_bigint(a))
     }
 }
 
@@ -428,11 +417,6 @@ fn test_network_endianess() {
         hex_literal::hex!("AB 11 CD"),
         [0xAB, 0x11, 0xCD],
         "we trust the hex_literal crate"
-    );
-    assert_eq!(
-        BigInt::from_bytes_be(num_bigint::Sign::Plus, &[0xAB, 0x11, 0xCD]),
-        BigInt::parse_bytes(b"AB11CD", 16).unwrap(),
-        "BigInt::from_bytes_be is big endian"
     );
     let b = BigNumber::try_from("AB 11 CD").unwrap();
     assert_eq!(b.to_array_pad_zero::<3>(), [0xAB, 0x11, 0xCD]);

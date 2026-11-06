@@ -169,7 +169,6 @@ pub mod prelude {
     pub use crate::primitives::*;
     pub use std::convert::TryInto;
 }
-#[cfg(feature = "crypto-bigint")]
 pub mod group;
 pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
