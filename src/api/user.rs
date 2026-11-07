@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::host::Handshake;
+use crate::big_number::ConstantTimeEq;
 use crate::primitives::*;
 use crate::{error::Srp6Error, Result};
 
@@ -33,7 +34,7 @@ impl<const KEY_LENGTH: usize> StrongProofVerifier<KEY_LENGTH> {
         let K = &self.K;
         let my_strong_proof = calculate_strong_proof_M2::<KEY_LENGTH>(A, M, K);
 
-        if M2 != &my_strong_proof {
+        if !M2.ct_eq(&my_strong_proof) {
             Err(Srp6Error::InvalidStrongProof(M2.clone()))
         } else {
             Ok(K.clone())

@@ -1,11 +1,12 @@
 use crate::hash::*;
 
-use num_bigint::{BigInt, Sign};
 use rand::{rng, RngExt};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
+
+use super::crypto::Inner;
 
 /// also exporting the trait here
 pub use num_traits::Zero;
@@ -32,7 +33,7 @@ impl<'de> Deserialize<'de> for BigNumber {
 
 /// [`BigNumber`] helps to work with big numbers as in openssl used.
 #[derive(PartialEq, Clone)]
-pub struct BigNumber(BigInt);
+pub struct BigNumber(Inner);
 
 #[derive(Error, Debug)]
 pub enum BigNumberError {
@@ -43,7 +44,7 @@ pub enum BigNumberError {
 /// new empty unsigned big number
 impl Default for BigNumber {
     fn default() -> Self {
-        Self(BigInt::new(Sign::Plus, vec![]))
+        Self(Inner::zero())
     }
 }
 
@@ -52,17 +53,17 @@ impl BigNumber {
     pub fn new_rand(n_bytes: usize) -> Self {
         let rng = rng();
         let bytes: Vec<u8> = rng.random_iter().take(n_bytes).collect();
-        Self(BigInt::from_bytes_be(Sign::Plus, &bytes))
+        Self::from_bytes_be(&bytes)
     }
 
     /// `raw` is expected to be big endian
     pub fn from_bytes_be(raw: &[u8]) -> Self {
-        Self(BigInt::from_bytes_be(Sign::Plus, raw))
+        Self(Inner::from_bytes_be(raw))
     }
 
     /// `raw` is expected to be big endian
     pub fn from_bytes_le(raw: &[u8]) -> Self {
-        Self(BigInt::from_bytes_le(Sign::Plus, raw))
+        Self(Inner::from_bytes_le(raw))
     }
 
     /// from hex string, hex strings are always big endian:
@@ -95,17 +96,16 @@ impl BigNumber {
     }
 
     pub fn modpow(&self, exponent: &Self, modulo: &Self) -> Self {
-        self.0.modpow(&exponent.0, &modulo.0).into()
+        Self(self.0.modpow(&exponent.0, &modulo.0))
     }
 
     pub fn num_bytes(&self) -> usize {
-        self.0.bits().div_ceil(8) as usize
+        self.0.num_bytes()
     }
 
     /// returns the byte vec in little endian byte order
     pub fn to_vec(&self) -> Vec<u8> {
-        let (_, x) = self.0.to_bytes_be();
-        x
+        self.0.to_vec()
     }
 
     /// the counter part of `::to_vec()`
@@ -125,6 +125,20 @@ impl BigNumber {
     }
 }
 
+/// Constant-time equality for values of the same width.
+///
+/// Crate-private on purpose: the verification path needs the guarantee, but
+/// the trait is not part of the public API.
+pub(crate) trait ConstantTimeEq {
+    fn ct_eq(&self, other: &Self) -> bool;
+}
+
+impl ConstantTimeEq for BigNumber {
+    fn ct_eq(&self, other: &Self) -> bool {
+        self.0.ct_eq(&other.0)
+    }
+}
+
 #[test]
 fn test_mod_exp() {
     let a = BigNumber::from_hex_str_be("6").unwrap();
@@ -141,6 +155,18 @@ fn test_mod_exp() {
     );
 }
 
+#[test]
+fn constant_time_equality_matches_value_equality() {
+    let seven = BigNumber::from(7);
+    assert!(seven.ct_eq(&BigNumber::from(7)));
+    assert!(!seven.ct_eq(&BigNumber::from(8)));
+    assert!(BigNumber::default().ct_eq(&BigNumber::from(0)));
+
+    let negative = BigNumber::from(1) - BigNumber::from(2);
+    assert!(negative.ct_eq(&(BigNumber::from(1) - BigNumber::from(2))));
+    assert!(!negative.ct_eq(&BigNumber::from(1)));
+}
+
 impl Debug for BigNumber {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "BigNumber(\"{}\")", self)
@@ -150,13 +176,7 @@ impl Debug for BigNumber {
 // region from traits
 impl From<u32> for BigNumber {
     fn from(n: u32) -> Self {
-        Self(BigInt::from(n))
-    }
-}
-
-impl From<BigInt> for BigNumber {
-    fn from(a: BigInt) -> Self {
-        Self(a)
+        Self(Inner::from_u32(n))
     }
 }
 
@@ -183,7 +203,7 @@ impl From<&BigNumber> for String {
     /// it is formatted in 8 hex chars per block (hexlets)
     /// and 7 hexlets per line
     fn from(x: &BigNumber) -> Self {
-        let hex = x.0.to_str_radix(16).to_uppercase();
+        let hex = x.0.to_hex();
 
         let hexlets: Vec<String> = hex
             .chars()
@@ -269,7 +289,7 @@ impl Rem for &BigNumber {
     type Output = BigNumber;
 
     fn rem(self, rhs: &BigNumber) -> Self::Output {
-        (&self.0).rem(&rhs.0).into()
+        BigNumber(self.0.rem(&rhs.0))
     }
 }
 #[test]
@@ -296,7 +316,7 @@ impl Mul for BigNumber {
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        (self.0 * rhs.0).into()
+        BigNumber(self.0.mul(&rhs.0))
     }
 }
 
@@ -304,7 +324,7 @@ impl Mul for &BigNumber {
     type Output = BigNumber;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        (&self.0 * &rhs.0).into()
+        BigNumber(self.0.mul(&rhs.0))
     }
 }
 
@@ -320,14 +340,14 @@ impl Add for BigNumber {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        self.0.add(rhs.0).into()
+        BigNumber(self.0.add(&rhs.0))
     }
 }
 impl<'b> Add<&'b BigNumber> for &BigNumber {
     type Output = BigNumber;
 
     fn add(self, rhs: &'b BigNumber) -> Self::Output {
-        (&self.0).add(&rhs.0).into()
+        BigNumber(self.0.add(&rhs.0))
     }
 }
 
@@ -335,7 +355,7 @@ impl Sub for BigNumber {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        self.0.sub(rhs.0).into()
+        BigNumber(self.0.sub(&rhs.0))
     }
 }
 #[test]
@@ -348,7 +368,7 @@ impl<'b> Sub<&'b BigNumber> for &BigNumber {
     type Output = BigNumber;
 
     fn sub(self, rhs: &'b BigNumber) -> Self::Output {
-        (&self.0).sub(&rhs.0).into()
+        BigNumber(self.0.sub(&rhs.0))
     }
 }
 #[test]
@@ -406,7 +426,7 @@ fn test_serde_behaviour() {
 
 impl Zero for BigNumber {
     fn zero() -> Self {
-        BigInt::zero().into()
+        Self(Inner::zero())
     }
 
     fn is_zero(&self) -> bool {
@@ -420,11 +440,6 @@ fn test_network_endianess() {
         hex_literal::hex!("AB 11 CD"),
         [0xAB, 0x11, 0xCD],
         "we trust the hex_literal crate"
-    );
-    assert_eq!(
-        BigInt::from_bytes_be(Sign::Plus, &[0xAB, 0x11, 0xCD]),
-        BigInt::parse_bytes(b"AB11CD", 16).unwrap(),
-        "BigInt::from_bytes_be is big endian"
     );
     let b = BigNumber::try_from("AB 11 CD").unwrap();
     assert_eq!(b.to_array_pad_zero::<3>(), [0xAB, 0x11, 0xCD]);

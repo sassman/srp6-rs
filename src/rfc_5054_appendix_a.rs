@@ -50,20 +50,22 @@ pub mod group_1536_bit {
         Srp6::new(g(), N()).unwrap()
     }
 
-    /// 1024-bit group from [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
+    /// 1536-bit group from [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
     /// The hexadecimal representation value for the prime
     pub fn N() -> PrimeModulus {
         PrimeModulus::from_hex_str_be(
-            "EEAF0AB9 ADB38DD6 9C33F80A FA8FC5E8 60726187 75FF3C0B 9EA2314C
-             9C256576 D674DF74 96EA81D3 383B4813 D692C6E0 E0D5D8E2 50B98BE4
-             8E495C1D 6089DAD1 5DC7D7B4 6154D6B6 CE8EF4AD 69B15D49 82559B29
-             7BCF1885 C529F566 660E57EC 68EDBC3C 05726CC0 2FD4CBF4 976EAA9A
-             FD5138FE 8376435B 9FC61D2F C0EB06E3",
+            "9DEF3CAF B939277A B1F12A86 17A47BBB DBA51DF4 99AC4C80 BEEEA961
+             4B19CC4D 5F4F5F55 6E27CBDE 51C6A94B E4607A29 1558903B A0D0F843
+             80B655BB 9A22E8DC DF028A7C EC67F0D0 8134B1C8 B9798914 9B609E0B
+             E3BAB63D 47548381 DBC5B1FC 764E3F4B 53DD9DA1 158BFD3E 2B9C8CF5
+             6EDF0195 39349627 DB2FD53D 24B7C486 65772E43 7D6C7F8C E442734A
+             F7CCB7AE 837C264A E3A9BEB8 7F8A2FE9 B8B5292E 5A021FFF 5E91479E
+             8CE7A28C 2442C6F3 15180F93 499A234D CF76E3FE D135F9BB",
         )
         .unwrap()
     }
 
-    /// The generator for the 1024-bit group
+    /// The generator for the 1536-bit group
     pub fn g() -> Generator {
         Generator::from(2)
     }
@@ -279,5 +281,15 @@ pub mod group_8192_bit {
 
     pub fn g() -> Generator {
         Generator::from(19)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::group_1536_bit;
+
+    #[test]
+    fn the_1536_bit_group_has_its_own_prime() {
+        assert_eq!(group_1536_bit::N().num_bytes(), 192);
     }
 }
