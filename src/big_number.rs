@@ -110,12 +110,6 @@ impl BigNumber {
         self.0.to_vec()
     }
 
-    /// Constant-time equality for values of the same width. Use this where a
-    /// comparison must not leak the first differing byte, as for proofs.
-    pub fn ct_eq(&self, other: &Self) -> bool {
-        self.0.ct_eq(&other.0)
-    }
-
     /// the counter part of `::to_vec()`
     pub fn from_vec(data: &[u8]) -> Self {
         Self::from_bytes_be(data)
@@ -130,6 +124,20 @@ impl BigNumber {
         padded[pad - unpadded.len()..].copy_from_slice(&unpadded);
 
         padded
+    }
+}
+
+/// Constant-time equality for values of the same width.
+///
+/// Crate-private on purpose: the verification path needs the guarantee, but
+/// the trait is not part of the public API.
+pub(crate) trait ConstantTimeEq {
+    fn ct_eq(&self, other: &Self) -> bool;
+}
+
+impl ConstantTimeEq for BigNumber {
+    fn ct_eq(&self, other: &Self) -> bool {
+        self.0.ct_eq(&other.0)
     }
 }
 

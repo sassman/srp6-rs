@@ -1,3 +1,4 @@
+use crate::big_number::ConstantTimeEq;
 use crate::prelude::*;
 use crate::Result;
 use serde::{Deserialize, Serialize};

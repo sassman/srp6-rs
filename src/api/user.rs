@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::host::Handshake;
+use crate::big_number::ConstantTimeEq;
 use crate::primitives::*;
 use crate::{error::Srp6Error, Result};
 
