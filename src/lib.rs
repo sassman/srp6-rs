@@ -177,24 +177,10 @@ pub mod typed;
 #[cfg(feature = "wow-1-12-1")]
 pub mod wow;
 
-// #[cfg(any(test, doc, doctest, docsrs, feature = "doc-test-mocks"))]
-// pub mod doc_test_mocks;
-
 mod api;
 mod big_number;
 mod error;
 mod primitives;
-
-// // TODO: remove this, in favor of the prelude module
-// pub use api::host::*;
-// pub use api::user::*;
-// pub use defaults::*;
-// pub use primitives::{
-//     ClearTextPassword, Generator, MultiplierParameter, PasswordVerifier, PrimeModulus, PrivateKey,
-//     Proof, PublicKey, Salt, SessionKey, StrongProof, StrongSessionKey, UserCredentials,
-//     UserSecrets, Username, UsernameRef,
-// };
-// pub use std::convert::TryInto;
 
 /// encapsulates a [`crate::error::Srp6Error`]
 pub type Result<T> = std::result::Result<T, crate::error::Srp6Error>;
