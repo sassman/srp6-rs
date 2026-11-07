@@ -6,9 +6,7 @@ use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 
-mod crypto;
-
-use crypto::Inner;
+use super::crypto::Inner;
 
 /// also exporting the trait here
 pub use num_traits::Zero;
