@@ -173,6 +173,7 @@ pub mod group;
 pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
+pub mod typed;
 #[cfg(feature = "wow-1-12-1")]
 pub mod wow;
 

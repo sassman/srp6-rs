@@ -73,6 +73,11 @@ impl PublicKey {
         self.0.to_array_pad_zero::<N>()
     }
 
+    /// The runtime-length form of [`PublicKey::to_array_pad_zero`].
+    pub(crate) fn to_array_pad_zero_len(&self, len: usize) -> Vec<u8> {
+        self.0.to_array_pad_zero_len(len)
+    }
+
     /// Big-endian bytes. See [`BigNumber::to_vec`].
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
@@ -129,6 +134,11 @@ impl RawPublicKey {
     /// for bytes received from a peer. See [`BigNumber::from_bytes_le`].
     pub fn from_bytes_le(raw: &[u8]) -> Self {
         Self(BigNumber::from_bytes_le(raw))
+    }
+
+    /// The big-endian counterpart of [`RawPublicKey::from_bytes_le`].
+    pub fn from_bytes_be(raw: &[u8]) -> Self {
+        Self(BigNumber::from_bytes_be(raw))
     }
 
     /// Big-endian bytes, zero-padded to at least `N` bytes.
@@ -447,7 +457,16 @@ pub fn calculate_session_key_S_for_client<const N_BYTE_LEN: usize>(
 pub fn calculate_session_key_hash_interleave_K<const N_BYTE_LEN: usize>(
     S: &SessionKey,
 ) -> StrongSessionKey {
-    let S = S.to_array_pad_zero::<N_BYTE_LEN>();
+    calculate_session_key_hash_interleave_K_len(S, N_BYTE_LEN)
+}
+
+/// The runtime-length form of [`calculate_session_key_hash_interleave_K`].
+#[allow(non_snake_case)]
+pub(crate) fn calculate_session_key_hash_interleave_K_len(
+    S: &SessionKey,
+    n_bytes: usize,
+) -> StrongSessionKey {
+    let S = S.to_array_pad_zero_len(n_bytes);
 
     // take the even bytes out of S
     let n = S.len() / 2;
@@ -488,22 +507,37 @@ pub fn calculate_proof_M<const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
     B: &PublicKey,
     K: &StrongSessionKey,
 ) -> Proof {
-    let xor_hash: Hash = calculate_hash_N_xor_g::<N_BYTE_LEN>(N, g);
+    calculate_proof_M_len(N, g, I, s, A, B, K, N_BYTE_LEN, SALT_LENGTH)
+}
+
+/// The runtime-length form of [`calculate_proof_M`]. The two lengths are the
+/// only addition, which takes it past clippy's argument limit.
+#[allow(non_snake_case, clippy::too_many_arguments)]
+pub(crate) fn calculate_proof_M_len(
+    N: &PrimeModulus,
+    g: &Generator,
+    I: UsernameRef,
+    s: &Salt,
+    A: &PublicKey,
+    B: &PublicKey,
+    K: &StrongSessionKey,
+    n_bytes: usize,
+    salt_bytes: usize,
+) -> Proof {
+    let xor_hash: Hash = calculate_hash_N_xor_g_len(N, g, n_bytes);
     let username_hash = HashFunc::new().chain(I.as_bytes()).finalize();
 
-    let M = Proof::from_bytes_be(
+    Proof::from_bytes_be(
         HashFunc::new()
             .chain(xor_hash)
             .chain(username_hash)
-            .chain(s.to_array_pad_zero::<SALT_LENGTH>())
-            .chain(A.to_array_pad_zero::<N_BYTE_LEN>())
-            .chain(B.to_array_pad_zero::<N_BYTE_LEN>())
-            .chain(K.to_array_pad_zero::<STRONG_SESSION_KEY_LENGTH>())
+            .chain(s.to_array_pad_zero_len(salt_bytes))
+            .chain(A.to_array_pad_zero_len(n_bytes))
+            .chain(B.to_array_pad_zero_len(n_bytes))
+            .chain(K.to_array_pad_zero_len(STRONG_SESSION_KEY_LENGTH))
             .finalize()
             .as_slice(),
-    );
-
-    M
+    )
 }
 
 /// todo(verify): check if padding is needed or not
@@ -514,13 +548,22 @@ pub fn calculate_strong_proof_M2<const KEY_LENGTH: usize>(
     M: &Proof,
     K: &StrongSessionKey,
 ) -> StrongProof {
-    let M2: StrongProof = HashFunc::new()
-        .chain(A.to_array_pad_zero::<KEY_LENGTH>())
-        .chain(M.to_array_pad_zero::<HASH_LENGTH>())
-        .chain(K.to_array_pad_zero::<STRONG_SESSION_KEY_LENGTH>())
-        .into();
+    calculate_strong_proof_M2_len(A, M, K, KEY_LENGTH)
+}
 
-    M2
+/// The runtime-length form of [`calculate_strong_proof_M2`].
+#[allow(non_snake_case)]
+pub(crate) fn calculate_strong_proof_M2_len(
+    A: &PublicKey,
+    M: &Proof,
+    K: &StrongSessionKey,
+    key_bytes: usize,
+) -> StrongProof {
+    HashFunc::new()
+        .chain(A.to_array_pad_zero_len(key_bytes))
+        .chain(M.to_array_pad_zero_len(HASH_LENGTH))
+        .chain(K.to_array_pad_zero_len(STRONG_SESSION_KEY_LENGTH))
+        .into()
 }
 
 /// here we hash g and xor it with the hash of N
@@ -531,9 +574,9 @@ pub fn calculate_strong_proof_M2<const KEY_LENGTH: usize>(
 ///                    // this portion is calculated here
 /// ```
 #[allow(non_snake_case)]
-fn calculate_hash_N_xor_g<const KEY_LENGTH: usize>(N: &PrimeModulus, g: &Generator) -> Hash {
+fn calculate_hash_N_xor_g_len(N: &PrimeModulus, g: &Generator, key_bytes: usize) -> Hash {
     let mut h = HashFunc::new()
-        .chain(N.to_array_pad_zero::<KEY_LENGTH>())
+        .chain(N.to_array_pad_zero_len(key_bytes))
         .finalize();
     let h_g = HashFunc::new().chain(g.to_vec().as_slice()).finalize();
     for (i, v) in h.iter_mut().enumerate() {
@@ -566,7 +609,13 @@ pub fn calculate_password_verifier_v(
 /// The Padding is based on the key length, e.g. if N is 1024 bit, the padding is 128 bytes
 #[allow(non_snake_case)]
 pub fn calculate_u<const N_BYTE_LEN: usize>(A: &PublicKey, B: &PublicKey) -> BigNumber {
-    hash_w_pad::<N_BYTE_LEN>(A.as_bignum(), B.as_bignum())
+    calculate_u_len(A, B, N_BYTE_LEN)
+}
+
+/// The runtime-length form of [`calculate_u`].
+#[allow(non_snake_case)]
+pub(crate) fn calculate_u_len(A: &PublicKey, B: &PublicKey, n_bytes: usize) -> BigNumber {
+    hash_w_pad_len(A.as_bignum(), B.as_bignum(), n_bytes)
 }
 
 /// [`A`][`crate::rfc_lingo::A`] is the [`PublicKey`] of the client

@@ -115,7 +115,12 @@ impl BigNumber {
 
     /// returns the byte vec in little endian byte order, padded by 0 for `len` bytes
     pub fn to_array_pad_zero<const N: usize>(&self) -> Vec<u8> {
-        let pad = self.num_bytes().max(N);
+        self.to_array_pad_zero_len(N)
+    }
+
+    /// The runtime-length form of [`BigNumber::to_array_pad_zero`].
+    pub(crate) fn to_array_pad_zero_len(&self, len: usize) -> Vec<u8> {
+        let pad = self.num_bytes().max(len);
 
         let unpadded = self.to_vec();
         let mut padded = vec![0; pad];

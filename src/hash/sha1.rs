@@ -8,10 +8,15 @@ pub type HashFunc = sha1::Sha1;
 /// sha1 hash function
 /// Caution: sha1 is cryptographically broken and should not be used for secure applications
 pub fn hash_w_pad<const PAD: usize>(a: &BigNumber, b: &BigNumber) -> BigNumber {
+    hash_w_pad_len(a, b, PAD)
+}
+
+/// The runtime-length form of [`hash_w_pad`].
+pub fn hash_w_pad_len(a: &BigNumber, b: &BigNumber, pad: usize) -> BigNumber {
     BigNumber::from_bytes_be(
         HashFunc::new()
-            .chain(a.to_array_pad_zero::<PAD>())
-            .chain(b.to_array_pad_zero::<PAD>())
+            .chain(a.to_array_pad_zero_len(pad))
+            .chain(b.to_array_pad_zero_len(pad))
             .finalize()
             .as_slice(),
     )
