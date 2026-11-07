@@ -375,21 +375,6 @@ pub type ClearTextPasswordRef<'a> = &'a str;
 // #[doc(alias = "u")]
 // pub type Hash = BigLNumber;
 
-/// [`Username`] and [`ClearTextPassword`] used on the client side
-#[derive(Debug, Clone)]
-pub struct UserCredentials<'a> {
-    pub username: UsernameRef<'a>,
-    pub password: ClearTextPasswordRef<'a>,
-}
-
-/// User details composes [`Username`], [`Salt`] and [`PasswordVerifier`] in one struct
-#[derive(Debug, Clone)]
-pub struct UserSecrets {
-    pub username: Username,
-    pub salt: Salt,
-    pub verifier: PasswordVerifier,
-}
-
 /// host version of a session key for a given user
 /// S: is the session key of a user
 /// u: is the hash of user and server pub keys

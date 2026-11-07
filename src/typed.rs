@@ -18,7 +18,7 @@ use crate::primitives::{
 use crate::{error::Srp6Error, Result};
 
 /// The server's stored view of one user.
-pub struct TypedUserSecrets<G: Group> {
+pub struct UserSecrets<G: Group> {
     pub username: Username,
     pub salt: Vec<u8>,
     pub verifier: G::Field,
@@ -26,7 +26,7 @@ pub struct TypedUserSecrets<G: Group> {
 
 /// The server's opening handshake.
 #[allow(non_snake_case)]
-pub struct TypedHandshake<G: Group> {
+pub struct Handshake<G: Group> {
     pub B: G::Field,
     pub g: G::Field,
     pub k: G::Field,
@@ -35,16 +35,16 @@ pub struct TypedHandshake<G: Group> {
 
 /// What the server keeps to verify the client's proof.
 #[allow(non_snake_case)]
-pub struct TypedProofVerifier<G: Group> {
+pub struct HandshakeProofVerifier<G: Group> {
     pub b: G::Exponent,
     pub B: G::Field,
     pub g: G::Field,
-    pub user: TypedUserSecrets<G>,
+    pub user: UserSecrets<G>,
 }
 
 /// The client's proof.
 #[allow(non_snake_case)]
-pub struct TypedProof<G: Group> {
+pub struct HandshakeProof<G: Group> {
     pub A: Vec<u8>,
     pub M1: BigNumber,
     _group: PhantomData<G>,
@@ -52,18 +52,24 @@ pub struct TypedProof<G: Group> {
 
 /// What the client keeps to verify the server's strong proof.
 #[allow(non_snake_case)]
-pub struct TypedStrongProofVerifier<G: Group> {
+pub struct StrongProofVerifier<G: Group> {
     pub A: G::Field,
     pub K: BigNumber,
     pub M1: BigNumber,
 }
 
 /// The SRP6 handshake for one closed group.
-pub struct TypedSrp6<G: Group> {
+pub struct Srp6<G: Group> {
     pub group: G,
 }
 
-impl<G: Group> TypedSrp6<G> {
+impl<G: Group + Default> Default for Srp6<G> {
+    fn default() -> Self {
+        Self::new(G::default())
+    }
+}
+
+impl<G: Group> Srp6<G> {
     pub fn new(group: G) -> Self {
         Self { group }
     }
@@ -88,7 +94,7 @@ impl<G: Group> TypedSrp6<G> {
         username: &Username,
         salt: Vec<u8>,
         verifier: G::Field,
-    ) -> (TypedHandshake<G>, TypedProofVerifier<G>) {
+    ) -> (Handshake<G>, HandshakeProofVerifier<G>) {
         let b = self.group.random_exponent();
         let g = self.group.generator();
         let k = self.group.multiplier();
@@ -96,17 +102,17 @@ impl<G: Group> TypedSrp6<G> {
         let k_v = self.group.field_mul(&k, &verifier);
         let b_pub = self.group.field_add(&k_v, &g_b);
 
-        let handshake = TypedHandshake {
+        let handshake = Handshake {
             B: b_pub.clone(),
             g: g.clone(),
             k,
             s: salt.clone(),
         };
-        let verifier = TypedProofVerifier {
+        let verifier = HandshakeProofVerifier {
             b,
             B: b_pub,
             g,
-            user: TypedUserSecrets {
+            user: UserSecrets {
                 username: username.clone(),
                 salt,
                 verifier,
@@ -119,8 +125,8 @@ impl<G: Group> TypedSrp6<G> {
     /// Verifies the client's proof and returns the strong proof `M2`.
     pub fn verify_proof(
         &self,
-        verifier: &TypedProofVerifier<G>,
-        proof: &TypedProof<G>,
+        verifier: &HandshakeProofVerifier<G>,
+        proof: &HandshakeProof<G>,
     ) -> Result<BigNumber> {
         let a_field = self
             .group
@@ -167,10 +173,10 @@ impl<G: Group> TypedSrp6<G> {
     /// Calculates the client's proof and its strong-proof verifier.
     pub fn calculate_proof(
         &self,
-        handshake: &TypedHandshake<G>,
+        handshake: &Handshake<G>,
         username: &Username,
         password: &str,
-    ) -> Result<(TypedProof<G>, TypedStrongProofVerifier<G>)> {
+    ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
         let a_exp = self.group.random_exponent();
         let a = self.group.field_pow(&self.group.generator(), &a_exp);
         let a_bytes = self.group.field_to_bytes(&a);
@@ -212,12 +218,12 @@ impl<G: Group> TypedSrp6<G> {
             G::SALT_BYTES,
         );
 
-        let proof = TypedProof {
+        let proof = HandshakeProof {
             A: a_bytes,
             M1: m1.clone(),
             _group: PhantomData,
         };
-        let verifier = TypedStrongProofVerifier { A: a, K: k, M1: m1 };
+        let verifier = StrongProofVerifier { A: a, K: k, M1: m1 };
 
         Ok((proof, verifier))
     }
@@ -225,7 +231,7 @@ impl<G: Group> TypedSrp6<G> {
     /// Verifies the server's strong proof.
     pub fn verify_strong_proof(
         &self,
-        verifier: &TypedStrongProofVerifier<G>,
+        verifier: &StrongProofVerifier<G>,
         m2: &BigNumber,
     ) -> Result<BigNumber> {
         let a_bytes = self.group.field_to_bytes(&verifier.A);
@@ -251,7 +257,7 @@ mod tests {
     use crate::group::GroupWow;
 
     fn round_trip<G: Group>(group: G) {
-        let srp = TypedSrp6::new(group);
+        let srp = Srp6::new(group);
         let username = Username::new("alice").expect("valid username");
         let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
         let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
@@ -283,7 +289,7 @@ mod tests {
 
     #[test]
     fn a_wrong_password_is_refused() {
-        let srp = TypedSrp6::new(Group2048);
+        let srp = Srp6::new(Group2048);
         let username = Username::new("alice").expect("valid username");
         let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
         let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);

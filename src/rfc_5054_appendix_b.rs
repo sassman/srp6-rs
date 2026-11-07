@@ -18,7 +18,6 @@ fn test_appendix_b_srp_test_vectors() {
 
     let N = group_1024_bit::N();
     let g = group_1024_bit::g();
-    let srp = group_1024_bit::values();
 
     let k = MultiplierParameter::from_hex_str_be("7556AA04 5AEF2CDD 07ABAF0F 665C3E81 8913186F")
         .unwrap();
@@ -125,18 +124,7 @@ fn test_appendix_b_srp_test_vectors() {
         "Session key client is not correct"
     );
 
-    let (proof, strong_proof_verifier) = calculate_proof_M_for_client::<N_BYTE_LEN, SALT_LENGTH>(
-        &Handshake::<N_BYTE_LEN, SALT_LENGTH> {
-            B: B.into(),
-            g,
-            N,
-            k,
-            s,
-        },
-        &UserCredentials {
-            username: &I,
-            password: &P,
-        },
-    )
-    .unwrap();
+    let k_session = calculate_session_key_hash_interleave_K_len(&premaster_secret, N_BYTE_LEN);
+    let m1 = calculate_proof_M_len(&N, &g, &I, &s, &A, &B, &k_session, N_BYTE_LEN, SALT_LENGTH);
+    assert_eq!(m1.num_bytes(), HASH_LENGTH, "M1 is one hash long");
 }

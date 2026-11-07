@@ -82,6 +82,7 @@ pub trait Group {
 
 macro_rules! closed_group {
     ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr) => {
+        #[derive(Default)]
         pub struct $name;
 
         impl Group for $name {
@@ -196,10 +197,12 @@ mod tests {
 
     /// The const field must reproduce the dynamic verifier for the same x.
     macro_rules! const_group_matches_dynamic {
-        ($name:ident, $field:ident, $uint:ident, $g:expr, $srp:expr) => {
+        ($name:ident, $field:ident, $uint:ident, $g:expr, $group:ident) => {
             #[test]
             fn $name() {
-                let srp = $srp;
+                let group = $group;
+                let n = PrimeModulus::from_bytes_be(&group.modulus_bytes());
+                let g = Generator::from_bytes_be(&group.field_to_bytes(&group.generator()));
                 let salt =
                     Salt::from_hex_str_be("BEB25379D1A8581EB5A727673A2441EE").expect("valid hex");
                 let username = Username::new("alice").expect("valid username");
@@ -215,7 +218,7 @@ mod tests {
                 let generator = <$uint>::from_u8($g);
                 let verifier = $field::new(&generator).pow(&exponent).retrieve();
 
-                let expected = calculate_password_verifier_v(&srp.N, &srp.g, &x).to_vec();
+                let expected = calculate_password_verifier_v(&n, &g, &x).to_vec();
                 let actual = verifier.to_be_bytes();
                 assert_eq!(
                     &actual[actual.len() - expected.len()..],
@@ -225,55 +228,13 @@ mod tests {
         };
     }
 
-    const_group_matches_dynamic!(
-        const_1024_matches_dynamic,
-        Field1024,
-        U1024,
-        2,
-        crate::rfc_5054_appendix_a::group_1024_bit::values()
-    );
-    const_group_matches_dynamic!(
-        const_1536_matches_dynamic,
-        Field1536,
-        U1536,
-        2,
-        crate::rfc_5054_appendix_a::group_1536_bit::values()
-    );
-    const_group_matches_dynamic!(
-        const_2048_matches_dynamic,
-        Field2048,
-        U2048,
-        2,
-        crate::rfc_5054_appendix_a::group_2048_bit::values()
-    );
-    const_group_matches_dynamic!(
-        const_3072_matches_dynamic,
-        Field3072,
-        U3072,
-        5,
-        crate::rfc_5054_appendix_a::group_3072_bit::values()
-    );
-    const_group_matches_dynamic!(
-        const_4096_matches_dynamic,
-        Field4096,
-        U4096,
-        5,
-        crate::rfc_5054_appendix_a::group_4096_bit::values()
-    );
-    const_group_matches_dynamic!(
-        const_6144_matches_dynamic,
-        Field6144,
-        U6144,
-        5,
-        crate::rfc_5054_appendix_a::group_6144_bit::values()
-    );
-    const_group_matches_dynamic!(
-        const_8192_matches_dynamic,
-        Field8192,
-        U8192,
-        19,
-        crate::rfc_5054_appendix_a::group_8192_bit::values()
-    );
+    const_group_matches_dynamic!(const_1024_matches_dynamic, Field1024, U1024, 2, Group1024);
+    const_group_matches_dynamic!(const_1536_matches_dynamic, Field1536, U1536, 2, Group1536);
+    const_group_matches_dynamic!(const_2048_matches_dynamic, Field2048, U2048, 2, Group2048);
+    const_group_matches_dynamic!(const_3072_matches_dynamic, Field3072, U3072, 5, Group3072);
+    const_group_matches_dynamic!(const_4096_matches_dynamic, Field4096, U4096, 5, Group4096);
+    const_group_matches_dynamic!(const_6144_matches_dynamic, Field6144, U6144, 5, Group6144);
+    const_group_matches_dynamic!(const_8192_matches_dynamic, Field8192, U8192, 19, Group8192);
 
     #[cfg(any(not(feature = "hash-sha1"), feature = "wow-1-12-1"))]
     fn golden_value(golden: &str, key: &str) -> Vec<u8> {

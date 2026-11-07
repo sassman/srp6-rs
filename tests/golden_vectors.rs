@@ -30,30 +30,33 @@ fn hex(bytes: &[u8]) -> String {
 
 /// Everything a full handshake derives, in a stable text form.
 #[allow(non_snake_case)]
-fn snapshot<const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
-    srp: &Srp6<N_BYTE_LEN, SALT_LENGTH>,
+fn snapshot<G: Group, const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
+    group: G,
     username: &Username,
     password: &str,
     salt: &Salt,
 ) -> String {
+    let N = PrimeModulus::from_bytes_be(&group.modulus_bytes());
+    let g = Generator::from_bytes_be(&group.field_to_bytes(&group.generator()));
+    let k_multiplier = Generator::from_bytes_be(&group.field_to_bytes(&group.multiplier()));
+
     let x = calculate_private_key_x(username, password, salt);
-    let v = calculate_password_verifier_v(&srp.N, &srp.g, &x);
+    let v = calculate_password_verifier_v(&N, &g, &x);
     let a = PrivateKey::from_hex_str_be(PRIVATE_A_HEX).expect("valid hex");
     let b = PrivateKey::from_hex_str_be(PRIVATE_B_HEX).expect("valid hex");
 
-    let A = calculate_pubkey_A(&srp.N, &srp.g, &a).expect("A is not 0 mod N");
-    let B = calculate_pubkey_B(&srp.N, &srp.k, &srp.g, &v, &b).expect("B is not 0 mod N");
+    let A = calculate_pubkey_A(&N, &g, &a).expect("A is not 0 mod N");
+    let B = calculate_pubkey_B(&N, &k_multiplier, &g, &v, &b).expect("B is not 0 mod N");
 
     let s_host =
-        calculate_session_key_S_for_host::<N_BYTE_LEN>(&srp.N, &A, &B, &b, &v).expect("valid A");
+        calculate_session_key_S_for_host::<N_BYTE_LEN>(&N, &A, &B, &b, &v).expect("valid A");
     let s_client =
-        calculate_session_key_S_for_client::<N_BYTE_LEN>(&srp.N, &srp.k, &srp.g, &B, &A, &a, &x)
+        calculate_session_key_S_for_client::<N_BYTE_LEN>(&N, &k_multiplier, &g, &B, &A, &a, &x)
             .expect("valid B");
     assert_eq!(s_host, s_client, "both sides must derive the same S");
 
     let k = calculate_session_key_hash_interleave_K::<N_BYTE_LEN>(&s_host);
-    let m1 =
-        calculate_proof_M::<N_BYTE_LEN, SALT_LENGTH>(&srp.N, &srp.g, username, salt, &A, &B, &k);
+    let m1 = calculate_proof_M::<N_BYTE_LEN, SALT_LENGTH>(&N, &g, username, salt, &A, &B, &k);
     let m2 = calculate_strong_proof_M2::<N_BYTE_LEN>(&A, &m1, &k);
 
     let mut out = String::new();
@@ -74,9 +77,8 @@ fn salt() -> Salt {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_2048_sha512() -> String {
-    let srp = srp6::rfc_5054_appendix_a::group_2048_bit::values();
-    snapshot(
-        &srp,
+    snapshot::<Group2048, 256, 256>(
+        Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
         &salt(),
@@ -85,9 +87,8 @@ fn vectors_2048_sha512() -> String {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_4096_sha512() -> String {
-    let srp = srp6::rfc_5054_appendix_a::group_4096_bit::values();
-    snapshot(
-        &srp,
+    snapshot::<Group4096, 512, 512>(
+        Group4096,
         &Username::new("alice").expect("valid username"),
         "password123",
         &salt(),
@@ -96,9 +97,8 @@ fn vectors_4096_sha512() -> String {
 
 #[cfg(all(feature = "hash-sha1", not(feature = "wow-1-12-1")))]
 fn vectors_2048_sha1() -> String {
-    let srp = srp6::rfc_5054_appendix_a::group_2048_bit::values();
-    snapshot(
-        &srp,
+    snapshot::<Group2048, 256, 256>(
+        Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
         &salt(),
@@ -107,9 +107,8 @@ fn vectors_2048_sha1() -> String {
 
 #[cfg(feature = "wow-1-12-1")]
 fn vectors_wow_sha1() -> String {
-    let srp = srp6::wow::Srp6_256::default();
-    snapshot(
-        &srp,
+    snapshot::<GroupWow, 32, 32>(
+        GroupWow,
         &Username::new("Thrall").expect("valid username"),
         "thrall",
         &salt(),

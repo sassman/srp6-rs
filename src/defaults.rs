@@ -1,11 +1,11 @@
 //!
-//! default prime modulus and generator numbers taken from [RFC5054 Appendix A],
+//! Default prime modulus and generator numbers taken from [RFC5054 Appendix A],
 //! so they can be treated as vetted and safe.
 //!
 //! ## Usage:
 //!
 //! ```rust
-//! use srp6::prelude::{HostAPI, Srp6_4096, Username};
+//! use srp6::prelude::{Srp6_4096, Username};
 //!
 //! let bob = Username::new("Bob").expect("valid username");
 //! let srp = Srp6_4096::default();
@@ -14,65 +14,32 @@
 //!
 //! [RFC5054 Appendix A]: https://datatracker.ietf.org/doc/html/rfc5054#appendix-A
 
-use crate::rfc_5054_appendix_a::{
-    group_2048_bit, group_3072_bit, group_4096_bit, group_6144_bit, group_8192_bit,
-};
+use crate::group::{Group2048, Group3072, Group4096, Group6144, Group8192};
 
-/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 2048 bit / 256 byte.
-pub use group_2048_bit::Srp6_2048;
+/// The 2048-bit group: [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and
+/// [`Salt`][crate::primitives::Salt] `s` are both 2048 bit / 256 byte.
+pub type Srp6_2048 = crate::Srp6<Group2048>;
 
-impl Default for Srp6_2048 {
-    fn default() -> Self {
-        group_2048_bit::values()
-    }
-}
+/// The 3072-bit group: `N` and `s` are both 3072 bit / 384 byte.
+pub type Srp6_3072 = crate::Srp6<Group3072>;
 
-/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 3072 bit / 384 byte.
-pub use group_3072_bit::Srp6_3072;
+/// The 4096-bit group: `N` and `s` are both 4096 bit / 512 byte.
+pub type Srp6_4096 = crate::Srp6<Group4096>;
 
-impl Default for Srp6_3072 {
-    fn default() -> Self {
-        group_3072_bit::values()
-    }
-}
+/// The 6144-bit group: `N` and `s` are both 6144 bit / 768 byte.
+pub type Srp6_6144 = crate::Srp6<Group6144>;
 
-/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 4096 bit / 512 byte.
-pub use group_4096_bit::Srp6_4096;
-
-impl Default for Srp6_4096 {
-    fn default() -> Self {
-        group_4096_bit::values()
-    }
-}
-
-/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 6144 bit / 768 byte.
-pub use group_6144_bit::Srp6_6144;
-
-impl Default for Srp6_6144 {
-    fn default() -> Self {
-        group_6144_bit::values()
-    }
-}
-
-/// length of [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and [`Salt`][crate::primitives::Salt] `s` is 8192 bit / 1024 byte.
-pub use group_8192_bit::Srp6_8192;
-
-impl Default for Srp6_8192 {
-    fn default() -> Self {
-        group_8192_bit::values()
-    }
-}
+/// The 8192-bit group: `N` and `s` are both 8192 bit / 1024 byte.
+pub type Srp6_8192 = crate::Srp6<Group8192>;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::group::Group;
 
     #[test]
     fn should_ensure_key_lengths_are_as_expected() {
-        let srp = Srp6_2048::default();
-        assert_eq!(srp.N.num_bytes() as u32, 2048 / 8);
-
-        let srp = Srp6_3072::default();
-        assert_eq!(srp.N.num_bytes() as u32, 3072 / 8);
+        assert_eq!(Srp6_2048::default().group.modulus_bytes().len(), 2048 / 8);
+        assert_eq!(Srp6_3072::default().group.modulus_bytes().len(), 3072 / 8);
     }
 }
