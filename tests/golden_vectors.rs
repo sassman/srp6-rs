@@ -117,6 +117,8 @@ fn vectors_wow_sha1() -> String {
 }
 
 fn check(expected: &str, actual: &str) {
+    // Git may check the fixture out with CRLF; compare line endings by content.
+    let expected = expected.replace("\r\n", "\n");
     assert_eq!(expected.trim(), actual.trim());
 }
 
