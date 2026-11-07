@@ -6,10 +6,9 @@ use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 
-#[path = "big_number/crypto.rs"]
-mod backend;
+mod crypto;
 
-use backend::Inner;
+use crypto::Inner;
 
 /// also exporting the trait here
 pub use num_traits::Zero;
