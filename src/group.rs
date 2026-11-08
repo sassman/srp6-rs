@@ -2,6 +2,10 @@
 //!
 //! RFC 5054 appendix A and the 1.12.1 wow group each fix one modulus, so their
 //! Montgomery parameters belong in the type instead of a runtime value.
+//!
+//! [`Group`] is the public marker: a caller picks one of the closed groups and
+//! never sees the field arithmetic. That lives in the doc-hidden [`GroupOps`],
+//! so the backend types stay out of the documented API.
 
 use crypto_bigint::{
     const_monty_params, U1024, U1088, U1536, U1600, U2048, U2112, U3072, U3136, U4096, U4160,
@@ -26,44 +30,67 @@ const N8192: &str = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A6
 const NWOW: &str = "894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7";
 
 const_monty_params!(Rfc5054_1024, U1024, N1024);
-pub type Field1024 = crypto_bigint::modular::ConstMontyForm<Rfc5054_1024, { U1024::LIMBS }>;
+pub(crate) type Field1024 = crypto_bigint::modular::ConstMontyForm<Rfc5054_1024, { U1024::LIMBS }>;
 
 const_monty_params!(Rfc5054_1536, U1536, N1536);
-pub type Field1536 = crypto_bigint::modular::ConstMontyForm<Rfc5054_1536, { U1536::LIMBS }>;
+pub(crate) type Field1536 = crypto_bigint::modular::ConstMontyForm<Rfc5054_1536, { U1536::LIMBS }>;
 
 const_monty_params!(Rfc5054_2048, U2048, N2048);
-pub type Field2048 = crypto_bigint::modular::ConstMontyForm<Rfc5054_2048, { U2048::LIMBS }>;
+pub(crate) type Field2048 = crypto_bigint::modular::ConstMontyForm<Rfc5054_2048, { U2048::LIMBS }>;
 
 const_monty_params!(Rfc5054_3072, U3072, N3072);
-pub type Field3072 = crypto_bigint::modular::ConstMontyForm<Rfc5054_3072, { U3072::LIMBS }>;
+pub(crate) type Field3072 = crypto_bigint::modular::ConstMontyForm<Rfc5054_3072, { U3072::LIMBS }>;
 
 const_monty_params!(Rfc5054_4096, U4096, N4096);
-pub type Field4096 = crypto_bigint::modular::ConstMontyForm<Rfc5054_4096, { U4096::LIMBS }>;
+pub(crate) type Field4096 = crypto_bigint::modular::ConstMontyForm<Rfc5054_4096, { U4096::LIMBS }>;
 
 const_monty_params!(Rfc5054_6144, U6144, N6144);
-pub type Field6144 = crypto_bigint::modular::ConstMontyForm<Rfc5054_6144, { U6144::LIMBS }>;
+pub(crate) type Field6144 = crypto_bigint::modular::ConstMontyForm<Rfc5054_6144, { U6144::LIMBS }>;
 
 const_monty_params!(Rfc5054_8192, U8192, N8192);
-pub type Field8192 = crypto_bigint::modular::ConstMontyForm<Rfc5054_8192, { U8192::LIMBS }>;
+pub(crate) type Field8192 = crypto_bigint::modular::ConstMontyForm<Rfc5054_8192, { U8192::LIMBS }>;
 
 #[cfg(feature = "wow-1-12-1")]
 const_monty_params!(Wow1_12_1, U256, NWOW);
 
 #[cfg(feature = "wow-1-12-1")]
-pub type FieldWow = crypto_bigint::modular::ConstMontyForm<Wow1_12_1, { U256::LIMBS }>;
+pub(crate) type FieldWow = crypto_bigint::modular::ConstMontyForm<Wow1_12_1, { U256::LIMBS }>;
 
-/// A closed SRP group: a fixed modulus, its Montgomery field and an exponent
-/// wide enough for `a + u*x`.
-pub trait Group {
+mod sealed {
+    pub trait Sealed {}
+}
+
+/// A closed SRP group.
+///
+/// The set is closed: [`Group1024`] to [`Group8192`] are the RFC 5054 appendix A
+/// groups and, behind `wow-1-12-1`, `GroupWow` is the 1.12.1 client's. Pick one
+/// through [`crate::Srp6`]; the trait only names the sizes and the encodings the
+/// handshake needs.
+pub trait Group: Default + sealed::Sealed {
+    /// The modulus width in bytes.
+    const N_BYTES: usize;
+    /// The salt width in bytes.
+    const SALT_BYTES: usize;
+
+    /// The modulus `N`, big-endian.
+    fn modulus_bytes(&self) -> Vec<u8>;
+    /// The generator `g`, big-endian, `N_BYTES` wide.
+    fn generator_bytes(&self) -> Vec<u8>;
+    /// The multiplier `k`, big-endian, `N_BYTES` wide.
+    fn multiplier_bytes(&self) -> Vec<u8>;
+}
+
+/// The typed arithmetic behind [`Group`].
+///
+/// Hidden and sealed: callers pick a group and use [`crate::Srp6`]'s methods,
+/// so the crypto-bigint field types never reach the documented API.
+#[doc(hidden)]
+pub trait GroupOps: Group {
     type Field: Clone;
     type Exponent: Clone;
 
-    const N_BYTES: usize;
-    const SALT_BYTES: usize;
-
     fn generator(&self) -> Self::Field;
     fn multiplier(&self) -> Self::Field;
-    fn modulus_bytes(&self) -> Vec<u8>;
 
     /// Decodes a big-endian value, refusing one that is 0 modulo N.
     fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field>;
@@ -85,34 +112,53 @@ macro_rules! closed_group {
         #[derive(Default)]
         pub struct $name;
 
+        impl sealed::Sealed for $name {}
+
         impl Group for $name {
-            type Field = $field;
-            type Exponent = $exp;
             const N_BYTES: usize = $n_bytes;
             const SALT_BYTES: usize = $salt_bytes;
+
+            fn modulus_bytes(&self) -> Vec<u8> {
+                <$uint>::from_be_hex($hex).to_be_bytes().to_vec()
+            }
+
+            fn generator_bytes(&self) -> Vec<u8> {
+                let mut bytes = vec![0_u8; $n_bytes];
+                bytes[$n_bytes - 1] = $g;
+                bytes
+            }
+
+            fn multiplier_bytes(&self) -> Vec<u8> {
+                match $k {
+                    Some(k) => {
+                        let mut bytes = vec![0_u8; $n_bytes];
+                        bytes[$n_bytes - 1] = k;
+                        bytes
+                    }
+                    None => {
+                        let hash = HashFunc::new()
+                            .chain(&self.modulus_bytes())
+                            .chain(&self.generator_bytes())
+                            .finalize();
+                        let mut bytes = vec![0_u8; $n_bytes];
+                        bytes[$n_bytes - hash.len()..].copy_from_slice(&hash);
+                        bytes
+                    }
+                }
+            }
+        }
+
+        impl GroupOps for $name {
+            type Field = $field;
+            type Exponent = $exp;
 
             fn generator(&self) -> Self::Field {
                 $field::new(&<$uint>::from_u8($g))
             }
 
             fn multiplier(&self) -> Self::Field {
-                match $k {
-                    Some(k) => self
-                        .field_from_bytes(&[k])
-                        .expect("the multiplier is not 0 mod N"),
-                    None => {
-                        let modulus = self.modulus_bytes();
-                        let mut generator = vec![0_u8; $n_bytes];
-                        generator[$n_bytes - 1] = $g;
-                        let hash = HashFunc::new().chain(&modulus).chain(&generator).finalize();
-                        self.field_from_bytes(&hash)
-                            .expect("the multiplier is not 0 mod N")
-                    }
-                }
-            }
-
-            fn modulus_bytes(&self) -> Vec<u8> {
-                <$uint>::from_be_hex($hex).to_be_bytes().to_vec()
+                self.field_from_bytes(&self.multiplier_bytes())
+                    .expect("the multiplier is not 0 mod N")
             }
 
             fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field> {
@@ -190,10 +236,11 @@ closed_group!(Group8192, Field8192, U8192, U8320, N8192, 19, 1024, 1024, None);
 
 #[cfg(feature = "wow-1-12-1")]
 closed_group!(GroupWow, FieldWow, U256, U384, NWOW, 7, 32, 32, Some(3));
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::*;
+    use crate::primitives::*;
 
     /// The const field must reproduce the dynamic verifier for the same x.
     macro_rules! const_group_matches_dynamic {
@@ -202,7 +249,7 @@ mod tests {
             fn $name() {
                 let group = $group;
                 let n = PrimeModulus::from_bytes_be(&group.modulus_bytes());
-                let g = Generator::from_bytes_be(&group.field_to_bytes(&group.generator()));
+                let g = Generator::from_bytes_be(&group.generator_bytes());
                 let salt =
                     Salt::from_hex_str_be("BEB25379D1A8581EB5A727673A2441EE").expect("valid hex");
                 let username = Username::new("alice").expect("valid username");

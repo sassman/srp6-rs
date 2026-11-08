@@ -35,11 +35,10 @@ pub type Srp6_8192 = crate::Srp6<Group8192>;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::group::Group;
 
     #[test]
     fn should_ensure_key_lengths_are_as_expected() {
-        assert_eq!(Srp6_2048::default().group.modulus_bytes().len(), 2048 / 8);
-        assert_eq!(Srp6_3072::default().group.modulus_bytes().len(), 3072 / 8);
+        assert_eq!(Srp6_2048::default().n_bytes(), 2048 / 8);
+        assert_eq!(Srp6_3072::default().n_bytes(), 3072 / 8);
     }
 }

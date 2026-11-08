@@ -21,39 +21,24 @@ fn main() {
 
     // the server creates a handshake
     let (handshake, proof_verifier) =
-        srp.start_handshake(&user.username, user.salt.clone(), user.verifier);
+        srp.start_handshake(&user.username, user.salt.clone(), user.verifier.clone());
     println!(
         "## Simulating a Server and {} is our client.",
         user.username
     );
     println!("server secrets are:");
-    printkeyln!(
-        "public key  [B]",
-        hex(&srp.group.field_to_bytes(&proof_verifier.B))
-    );
+    printkeyln!("public key  [B]", proof_verifier.B);
     println!();
     println!("## {}'s secrets", user.username);
-    printkeyln!(
-        "verifier [v]",
-        hex(&srp.group.field_to_bytes(&user.verifier))
-    );
-    printkeyln!("salt     [s]", hex(&user.salt));
+    printkeyln!("verifier [v]", user.verifier);
+    printkeyln!("salt     [s]", user.salt);
     println!();
     println!("## {}'s handshake", user.username);
-    printkeyln!("salt               [s]", hex(&handshake.s));
-    printkeyln!(
-        "server public key  [B]",
-        hex(&srp.group.field_to_bytes(&handshake.B))
-    );
-    printkeyln!("prime modulus      [N]", hex(&srp.group.modulus_bytes()));
-    printkeyln!(
-        "generator modulus  [g]",
-        hex(&srp.group.field_to_bytes(&handshake.g))
-    );
-    printkeyln!(
-        "multiplier         [k]",
-        hex(&srp.group.field_to_bytes(&handshake.k))
-    );
+    printkeyln!("salt               [s]", handshake.s);
+    printkeyln!("server public key  [B]", handshake.B);
+    printkeyln!("prime modulus      [N]", hex(&Group4096.modulus_bytes()));
+    printkeyln!("generator          [g]", handshake.g);
+    printkeyln!("multiplier         [k]", handshake.k);
     println!();
 
     // the client provides proof to the server
@@ -61,7 +46,7 @@ fn main() {
         .calculate_proof(&handshake, &user.username, USER_PASSWORD)
         .expect("the client can prove");
     assert_eq!(
-        proof.M1.num_bytes(),
+        proof.M1.as_bytes().len(),
         HASH_LENGTH,
         "sha1 or sha-512 hash length expected"
     );
@@ -69,8 +54,8 @@ fn main() {
     println!();
     println!("## Simulating client {}", user.username);
     println!("### {}'s proof", user.username);
-    printkeyln!("proof      [M1]", hex(&proof.M1.to_vec()));
-    printkeyln!("public key  [A]", hex(&proof.A));
+    printkeyln!("proof      [M1]", proof.M1);
+    printkeyln!("public key  [A]", proof.A);
     println!();
 
     // the server verifies this proof
@@ -83,7 +68,7 @@ fn main() {
         "## Simulating a Server and {} is our client.",
         user.username
     );
-    printkeyln!("strong proof         [M2]", hex(&strong_proof.to_vec()));
+    printkeyln!("strong proof         [M2]", strong_proof);
     printkeyln!(
         "session key (server)  [K]",
         hex(&strong_proof_verifier.K.to_vec())

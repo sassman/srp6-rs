@@ -13,7 +13,11 @@
 
 use std::fmt::Write as _;
 
-use srp6::prelude::*;
+use srp6::group::Group;
+#[cfg(feature = "wow-1-12-1")]
+use srp6::group::GroupWow;
+use srp6::prelude::BigNumber;
+use srp6::primitives::*;
 
 /// The RFC 5054 appendix B salt, reused here so the vectors have one fixed input.
 const SALT_HEX: &str = "BEB25379D1A8581EB5A727673A2441EE";
@@ -37,8 +41,8 @@ fn snapshot<G: Group, const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
     salt: &Salt,
 ) -> String {
     let N = PrimeModulus::from_bytes_be(&group.modulus_bytes());
-    let g = Generator::from_bytes_be(&group.field_to_bytes(&group.generator()));
-    let k_multiplier = Generator::from_bytes_be(&group.field_to_bytes(&group.multiplier()));
+    let g = Generator::from_bytes_be(&group.generator_bytes());
+    let k_multiplier = Generator::from_bytes_be(&group.multiplier_bytes());
 
     let x = calculate_private_key_x(username, password, salt);
     let v = calculate_password_verifier_v(&N, &g, &x);
@@ -77,8 +81,8 @@ fn salt() -> Salt {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_2048_sha512() -> String {
-    snapshot::<Group2048, 256, 256>(
-        Group2048,
+    snapshot::<srp6::group::Group2048, 256, 256>(
+        srp6::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
         &salt(),
@@ -87,8 +91,8 @@ fn vectors_2048_sha512() -> String {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_4096_sha512() -> String {
-    snapshot::<Group4096, 512, 512>(
-        Group4096,
+    snapshot::<srp6::group::Group4096, 512, 512>(
+        srp6::group::Group4096,
         &Username::new("alice").expect("valid username"),
         "password123",
         &salt(),
@@ -97,8 +101,8 @@ fn vectors_4096_sha512() -> String {
 
 #[cfg(all(feature = "hash-sha1", not(feature = "wow-1-12-1")))]
 fn vectors_2048_sha1() -> String {
-    snapshot::<Group2048, 256, 256>(
-        Group2048,
+    snapshot::<srp6::group::Group2048, 256, 256>(
+        srp6::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
         &salt(),

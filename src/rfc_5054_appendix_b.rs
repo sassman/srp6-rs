@@ -1,6 +1,8 @@
 use std::convert::TryFrom;
 
-use crate::prelude::*;
+use crate::big_number::BigNumber;
+use crate::hash::HASH_LENGTH;
+use crate::primitives::*;
 use crate::rfc_5054_appendix_a::group_1024_bit;
 
 /// This test is based on the test vectors from [RFC5054 Appendix B](https://datatracker.ietf.org/doc/html/rfc5054#appendix-B)

@@ -7,7 +7,10 @@
 //! ## Usage
 //!
 //! The example walks one full authentication: the server stores a salt and
-//! verifier per user, opens a handshake, and both sides prove each other.
+//! verifier per user, opens a handshake, and both sides prove each other. The
+//! values at the boundary are byte-backed newtypes ([`Salt`], [`Verifier`],
+//! [`PublicKey`], [`Proof`]), so no arithmetic detail shows up in the types a
+//! caller handles.
 //!
 //! ```rust
 //! use srp6::prelude::*;
@@ -16,9 +19,8 @@
 //! let username = Username::new("alice").expect("valid username");
 //! let srp = Srp6_4096::default();
 //! let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-//! assert_eq!(salt.len(), 512);
-//! let verifier_bytes = srp.group.field_to_bytes(&verifier);
-//! assert_eq!(verifier_bytes.len(), 512);
+//! assert_eq!(salt.as_bytes().len(), 512);
+//! assert_eq!(verifier.as_bytes().len(), 512);
 //!
 //! // login: the server opens the handshake from the stored secrets
 //! let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
@@ -39,6 +41,9 @@
 //!     .expect("the strong proof verifies");
 //! assert_eq!(session_key, strong_proof_verifier.K);
 //! ```
+//!
+//! The const-generic primitives behind this live in [`primitives`], for callers
+//! that pin the lengths at compile time.
 //!
 //! ## Note on key length
 //!
@@ -65,11 +70,14 @@ pub mod prelude {
     pub use crate::error::Srp6Error;
     pub use crate::group::*;
     pub use crate::hash::HASH_LENGTH;
-    pub use crate::primitives::*;
+    pub use crate::primitives::{
+        ClearTextPassword, ClearTextPasswordRef, Username, UsernameError, UsernameRef,
+    };
     pub use crate::typed::*;
     pub use std::convert::TryInto;
 }
 pub mod group;
+pub mod primitives;
 pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
@@ -82,10 +90,8 @@ pub use typed::*;
 
 mod big_number;
 mod error;
-mod primitives;
 
 /// encapsulates a [`crate::error::Srp6Error`]
 pub type Result<T> = std::result::Result<T, crate::error::Srp6Error>;
 
 pub use defaults::*;
-pub use primitives::*;
