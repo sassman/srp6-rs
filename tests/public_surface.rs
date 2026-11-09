@@ -1,7 +1,10 @@
 //! The boundary a caller sees: the typed handshake and byte-backed values.
 
 use srp6::hash::HASH_LENGTH;
-use srp6::{FromHexString, Group2048, Proof, Salt, Srp6, StrongSessionKey, Username, Verifier};
+use srp6::{
+    FromHexString, Group, Group2048, Proof, PublicKey, Salt, Srp6, StrongSessionKey, Username,
+    Verifier,
+};
 
 #[test]
 fn the_typed_handshake_is_reachable_from_outside_the_crate() {
@@ -25,6 +28,17 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
         .expect("the strong proof verifies");
 
     assert_eq!(k, strong_verifier.K);
+}
+
+#[test]
+fn a_public_key_is_constructible_and_checked_at_the_boundary() {
+    let mut bytes = vec![0_u8; Group2048::N_BYTES];
+    bytes[Group2048::N_BYTES - 1] = 2;
+
+    let key = PublicKey::<Group2048>::from_bytes(&bytes).expect("a non-zero key");
+    assert_eq!(key.as_bytes(), bytes.as_slice());
+
+    assert!(PublicKey::<Group2048>::from_bytes(&[0_u8; 256]).is_err());
 }
 
 #[test]

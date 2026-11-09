@@ -2,7 +2,7 @@
 The World of Warcraft 1.12.1 (build 5875) group.
 
 Behind the `wow-1-12-1` feature, alongside the rest of that client's flavour:
-`k = 3` and uppercased credentials (`crate::primitives`).
+`k = 3` and uppercased credentials (`crate::credentials`).
 
 This group is not safe for anything else. `N` is 256 bit, far below the
 [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)

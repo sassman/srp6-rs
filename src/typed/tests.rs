@@ -1,7 +1,6 @@
 use super::*;
-use crate::big_number::BigNumber;
 use crate::credentials::Username;
-use crate::group::{Group2048, Group4096, GroupOps};
+use crate::group::{Group, Group2048, Group4096, GroupOps};
 use crate::hash::HASH_LENGTH;
 
 #[cfg(feature = "wow-1-12-1")]
@@ -63,6 +62,19 @@ fn a_verifier_round_trips_through_its_bytes() {
 }
 
 #[test]
+fn a_public_key_is_a_distinct_validated_type() {
+    let mut bytes = vec![0_u8; Group2048::N_BYTES];
+    bytes[Group2048::N_BYTES - 1] = 2;
+
+    let key = PublicKey::<Group2048>::from_bytes(&bytes).expect("a non-zero key");
+    assert_eq!(key.as_bytes(), bytes.as_slice());
+    assert!(format!("{key:?}").starts_with("PublicKey("));
+
+    assert!(PublicKey::<Group2048>::from_bytes(&[0_u8; 256]).is_err());
+    assert!(PublicKey::<Group2048>::from_bytes(&vec![0_u8; 257]).is_err());
+}
+
+#[test]
 fn degenerate_values_are_refused() {
     assert!(Verifier::<Group2048>::from_bytes(&[0_u8; 256]).is_err());
     assert!(Verifier::<Group2048>::from_bytes(&[0_u8; 257]).is_err());
@@ -112,6 +124,19 @@ fn invalid_hex_is_refused() {
 }
 
 #[test]
+fn the_boundary_types_round_trip_through_json() {
+    let salt = Salt::try_from_hex("00AB").expect("valid hex");
+    let json = serde_json::to_string(&salt).expect("the salt serializes");
+    let back: Salt = serde_json::from_str(&json).expect("the salt deserializes");
+    assert_eq!(salt, back);
+
+    let proof = Proof::try_from_hex(&"00".repeat(HASH_LENGTH)).expect("valid proof");
+    let json = serde_json::to_string(&proof).expect("the proof serializes");
+    let back: Proof = serde_json::from_str(&json).expect("the proof deserializes");
+    assert_eq!(proof, back);
+}
+
+#[test]
 fn the_strong_session_key_round_trips_through_hex() {
     let srp = Srp6::new(Group2048);
     let username = Username::new("alice").expect("valid username");
@@ -129,13 +154,6 @@ fn the_strong_session_key_round_trips_through_hex() {
 
     assert_eq!(StrongSessionKey::try_from_hex(&k.to_string()).unwrap(), k);
     assert!(StrongSessionKey::try_from_hex("00").is_err());
-}
-
-#[test]
-fn the_numeric_hex_path_round_trips_its_display() {
-    let value = BigNumber::try_from_hex("BEB25379D1A8581EB5A727673A2441EE").unwrap();
-
-    assert_eq!(BigNumber::try_from_hex(&value.to_string()).unwrap(), value);
 }
 
 #[test]

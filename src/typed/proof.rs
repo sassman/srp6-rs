@@ -5,9 +5,9 @@ use std::fmt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::hex::{decode_hex, write_hex, FromHexString};
-use crate::big_number::{BigNumber, ConstantTimeEq};
 use crate::hash::HASH_LENGTH;
 use crate::{error::Srp6Error, Result};
+use subtle::ConstantTimeEq;
 
 /// An `M1` or `M2` proof: exactly one hash-length byte string.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -36,12 +36,7 @@ impl Proof {
 
     /// Constant-time equality, for comparing a received proof with an expected one.
     pub fn ct_eq(&self, other: &Self) -> bool {
-        BigNumber::from_bytes_be(&self.0).ct_eq(&BigNumber::from_bytes_be(&other.0))
-    }
-
-    pub(crate) fn from_big_number(value: &BigNumber) -> Self {
-        let padded = value.to_array_pad_zero_len(HASH_LENGTH);
-        Self::from_bytes(&padded).expect("a hash is at most HASH_LENGTH bytes")
+        self.0[..].ct_eq(&other.0[..]).into()
     }
 }
 

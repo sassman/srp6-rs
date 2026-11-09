@@ -76,7 +76,6 @@ pub mod prelude {
 #[cfg(test)]
 mod golden_vectors;
 pub mod group;
-mod primitives;
 pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
@@ -85,10 +84,10 @@ mod typed;
 pub mod wow;
 
 pub use credentials::*;
+pub use error::Srp6Error;
 pub use group::*;
 pub use typed::*;
 
-mod big_number;
 mod credentials;
 mod error;
 

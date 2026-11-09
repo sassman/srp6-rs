@@ -3,7 +3,6 @@ use std::convert::TryInto;
 use std::fmt;
 
 use super::hex::{decode_hex, write_hex, FromHexString};
-use crate::big_number::BigNumber;
 use crate::hash::STRONG_SESSION_KEY_LENGTH;
 use crate::{error::Srp6Error, Result};
 
@@ -29,11 +28,6 @@ impl StrongSessionKey {
 
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
-    }
-
-    pub(crate) fn from_big_number(value: &BigNumber) -> Self {
-        Self::from_bytes(&value.to_array_pad_zero_len(STRONG_SESSION_KEY_LENGTH))
-            .expect("the interleaved key is exactly two hashes wide")
     }
 }
 

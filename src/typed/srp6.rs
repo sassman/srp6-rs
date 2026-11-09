@@ -1,16 +1,12 @@
 use rand::{rng, RngExt};
 
+use super::steps;
 use super::{
     FieldElement, Handshake, HandshakeProof, HandshakeProofVerifier, Proof, PublicKey, Salt,
     StrongProofVerifier, StrongSessionKey, UserSecrets, Verifier,
 };
-use crate::big_number::BigNumber;
 use crate::credentials::{ClearTextPasswordRef, Username};
 use crate::group::{Group, GroupOps};
-use crate::primitives::{
-    calculate_private_key_x, calculate_proof_M_len, calculate_session_key_hash_interleave_K_len,
-    calculate_strong_proof_M2_len, calculate_u_len, PublicKey as BigPublicKey,
-};
 use crate::{error::Srp6Error, Result};
 
 /// The SRP6 handshake for one closed group.
@@ -48,14 +44,29 @@ impl<G: GroupOps> Srp6<G> {
         password: ClearTextPasswordRef,
     ) -> (Salt, Verifier<G>) {
         let salt: Vec<u8> = rng().random_iter().take(G::SALT_BYTES).collect();
-        let x = calculate_private_key_x(username, password, &BigNumber::from_bytes_be(&salt));
-        let x = self.group.exponent_from_hash(&x.to_vec());
+        self.generate_new_user_secrets_with_salt(username, password, Salt::from(salt))
+    }
+
+    fn generate_new_user_secrets_with_salt(
+        &self,
+        username: &Username,
+        password: ClearTextPasswordRef,
+        salt: Salt,
+    ) -> (Salt, Verifier<G>) {
+        let x = steps::private_key_x(&self.group, username, password, &salt);
         let verifier = self.group.field_pow(&self.group.generator(), &x);
 
-        (
-            Salt::from(salt),
-            Verifier::from_field(&self.group, &verifier),
-        )
+        (salt, Verifier::from_field(&self.group, &verifier))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn generate_new_user_secrets_with_fixed_salt(
+        &self,
+        username: &Username,
+        password: ClearTextPasswordRef,
+        salt: Salt,
+    ) -> (Salt, Verifier<G>) {
+        self.generate_new_user_secrets_with_salt(username, password, salt)
     }
 
     /// Starts the handshake for an existing user.
@@ -65,8 +76,18 @@ impl<G: GroupOps> Srp6<G> {
         salt: Salt,
         verifier: Verifier<G>,
     ) -> (Handshake<G>, HandshakeProofVerifier<G>) {
-        let verifier_field = verifier.to_field(&self.group);
         let b = self.group.random_exponent();
+        self.start_handshake_with_b(username, salt, verifier, b)
+    }
+
+    fn start_handshake_with_b(
+        &self,
+        username: &Username,
+        salt: Salt,
+        verifier: Verifier<G>,
+        b: G::Exponent,
+    ) -> (Handshake<G>, HandshakeProofVerifier<G>) {
+        let verifier_field = verifier.to_field(&self.group);
         let g = self.group.generator();
         let k = self.group.multiplier();
         let g_b = self.group.field_pow(&g, &b);
@@ -93,6 +114,17 @@ impl<G: GroupOps> Srp6<G> {
         (handshake, verifier)
     }
 
+    #[cfg(test)]
+    pub(crate) fn start_handshake_with_fixed_b(
+        &self,
+        username: &Username,
+        salt: Salt,
+        verifier: Verifier<G>,
+        b: G::Exponent,
+    ) -> (Handshake<G>, HandshakeProofVerifier<G>) {
+        self.start_handshake_with_b(username, salt, verifier, b)
+    }
+
     /// Verifies the client's proof and returns the strong proof `M2`.
     pub fn verify_proof(
         &self,
@@ -100,48 +132,28 @@ impl<G: GroupOps> Srp6<G> {
         proof: &HandshakeProof<G>,
     ) -> Result<Proof> {
         let a_field = proof.A.to_field(&self.group);
-
-        let n = BigNumber::from_bytes_be(&self.group.modulus_bytes());
-        let a = BigPublicKey::new(BigNumber::from_bytes_be(proof.A.as_bytes()), &n)
-            .map_err(|_| Srp6Error::InvalidPublicKey(proof.A.as_bytes().to_vec()))?;
-        let b_bytes = verifier.B.to_bytes();
-        let b = BigPublicKey::new(BigNumber::from_bytes_be(&b_bytes), &n)
-            .map_err(|_| Srp6Error::InvalidPublicKey(b_bytes))?;
-
-        let u = calculate_u_len(&a, &b, G::N_BYTES);
-        let u = self.group.exponent_from_hash(&u.to_vec());
         let verifier_field = verifier.user.verifier.to_field(&self.group);
+
+        let u = steps::scrambler_u(&self.group, &proof.A, &verifier.B);
         let v_u = self.group.field_pow(&verifier_field, &u);
         let a_vu = self.group.field_mul(&a_field, &v_u);
         let s = self.group.field_pow(&a_vu, &verifier.b);
-        let k = calculate_session_key_hash_interleave_K_len(
-            &BigNumber::from_bytes_be(&self.group.field_to_bytes(&s)),
-            G::N_BYTES,
-        );
+        let s = FieldElement::from_field(&self.group, &s);
+        let k = steps::strong_session_key(&s);
 
-        let salt = BigNumber::from_bytes_be(verifier.user.salt.as_bytes());
-        let g = BigNumber::from_bytes_be(&verifier.g.to_bytes());
-        let m1 = calculate_proof_M_len(
-            &n,
-            &g,
+        let m1 = steps::proof_m1(
+            &self.group,
             &verifier.user.username,
-            &salt,
-            &a,
-            &b,
+            &verifier.user.salt,
+            &proof.A,
+            &verifier.B,
             &k,
-            G::N_BYTES,
-            G::SALT_BYTES,
         );
-        if !Proof::from_big_number(&m1).ct_eq(&proof.M1) {
-            return Err(Srp6Error::InvalidProof(Proof::from_big_number(&m1)));
+        if !m1.ct_eq(&proof.M1) {
+            return Err(Srp6Error::InvalidProof(m1));
         }
 
-        Ok(Proof::from_big_number(&calculate_strong_proof_M2_len(
-            &a,
-            &m1,
-            &k,
-            G::N_BYTES,
-        )))
+        Ok(steps::proof_m2(&proof.A, &m1, &k))
     }
 
     /// Calculates the client's proof and its strong-proof verifier.
@@ -151,29 +163,26 @@ impl<G: GroupOps> Srp6<G> {
         username: &Username,
         password: &str,
     ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
+        let a_exp = self.group.random_exponent();
+        self.calculate_proof_with_a(handshake, username, password, a_exp)
+    }
+
+    fn calculate_proof_with_a(
+        &self,
+        handshake: &Handshake<G>,
+        username: &Username,
+        password: &str,
+        a_exp: G::Exponent,
+    ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
         let b_field = handshake.B.to_field(&self.group);
         let g_field = handshake.g.to_field(&self.group);
         let k_field = handshake.k.to_field(&self.group);
 
-        let a_exp = self.group.random_exponent();
-        let a = self.group.field_pow(&self.group.generator(), &a_exp);
-        let a_bytes = self.group.field_to_bytes(&a);
-        let b_bytes = self.group.field_to_bytes(&b_field);
+        let a_field = self.group.field_pow(&self.group.generator(), &a_exp);
+        let a_public = PublicKey::from_field(&self.group, &a_field);
 
-        let n = BigNumber::from_bytes_be(&self.group.modulus_bytes());
-        let a_key = BigPublicKey::new(BigNumber::from_bytes_be(&a_bytes), &n)
-            .map_err(|_| Srp6Error::InvalidPublicKey(a_bytes))?;
-        let b_key = BigPublicKey::new(BigNumber::from_bytes_be(&b_bytes), &n)
-            .map_err(|_| Srp6Error::InvalidPublicKey(b_bytes))?;
-
-        let u = calculate_u_len(&a_key, &b_key, G::N_BYTES);
-        let u = self.group.exponent_from_hash(&u.to_vec());
-        let x = calculate_private_key_x(
-            username,
-            password,
-            &BigNumber::from_bytes_be(handshake.s.as_bytes()),
-        );
-        let x = self.group.exponent_from_hash(&x.to_vec());
+        let u = steps::scrambler_u(&self.group, &a_public, &handshake.B);
+        let x = steps::private_key_x(&self.group, username, password, &handshake.s);
         let ux = self.group.exponent_mul(&u, &x);
         let exp = self.group.exponent_add(&a_exp, &ux);
 
@@ -181,37 +190,40 @@ impl<G: GroupOps> Srp6<G> {
         let k_gx = self.group.field_mul(&k_field, &g_x);
         let base = self.group.field_sub(&b_field, &k_gx);
         let s = self.group.field_pow(&base, &exp);
-        let k = calculate_session_key_hash_interleave_K_len(
-            &BigNumber::from_bytes_be(&self.group.field_to_bytes(&s)),
-            G::N_BYTES,
-        );
+        let s = FieldElement::from_field(&self.group, &s);
+        let strong_key = steps::strong_session_key(&s);
 
-        let salt = BigNumber::from_bytes_be(handshake.s.as_bytes());
-        let g = BigNumber::from_bytes_be(&handshake.g.to_bytes());
-        let m1 = calculate_proof_M_len(
-            &n,
-            &g,
+        let m1 = steps::proof_m1(
+            &self.group,
             username,
-            &salt,
-            &a_key,
-            &b_key,
-            &k,
-            G::N_BYTES,
-            G::SALT_BYTES,
+            &handshake.s,
+            &a_public,
+            &handshake.B,
+            &strong_key,
         );
 
-        let a_public = PublicKey::from_field(&self.group, &a);
         let proof = HandshakeProof {
             A: a_public.clone(),
-            M1: Proof::from_big_number(&m1),
+            M1: m1,
         };
         let verifier = StrongProofVerifier {
             A: a_public,
-            K: StrongSessionKey::from_big_number(&k),
-            M1: Proof::from_big_number(&m1),
+            K: strong_key,
+            M1: m1,
         };
 
         Ok((proof, verifier))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn calculate_proof_with_fixed_a(
+        &self,
+        handshake: &Handshake<G>,
+        username: &Username,
+        password: &str,
+        a: G::Exponent,
+    ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
+        self.calculate_proof_with_a(handshake, username, password, a)
     }
 
     /// Verifies the server's strong proof.
@@ -220,15 +232,7 @@ impl<G: GroupOps> Srp6<G> {
         verifier: &StrongProofVerifier<G>,
         m2: &Proof,
     ) -> Result<StrongSessionKey> {
-        let a_bytes = verifier.A.to_bytes();
-        let n = BigNumber::from_bytes_be(&self.group.modulus_bytes());
-        let a = BigPublicKey::new(BigNumber::from_bytes_be(&a_bytes), &n)
-            .map_err(|_| Srp6Error::InvalidPublicKey(a_bytes))?;
-
-        let k = BigNumber::from_bytes_be(verifier.K.as_bytes());
-        let m1 = BigNumber::from_bytes_be(verifier.M1.as_bytes());
-        let expected =
-            Proof::from_big_number(&calculate_strong_proof_M2_len(&a, &m1, &k, G::N_BYTES));
+        let expected = steps::proof_m2(&verifier.A, &verifier.M1, &verifier.K);
         if !expected.ct_eq(m2) {
             return Err(Srp6Error::InvalidStrongProof(*m2));
         }

@@ -15,8 +15,8 @@ use crate::{error::Srp6Error, Result};
 /// this type is therefore always a valid group element, and there is no way to
 /// hold a degenerate one.
 ///
-/// [`Verifier`] and [`PublicKey`] are the semantic names used in the handshake;
-/// both carry this same validation.
+/// [`Verifier`] is the semantic name used for the server-stored `v`;
+/// [`crate::PublicKey`] is a distinct type with its own validation.
 pub struct FieldElement<G: Group> {
     bytes: Box<[u8]>,
     _group: PhantomData<G>,
@@ -24,9 +24,6 @@ pub struct FieldElement<G: Group> {
 
 /// The server-stored password verifier `v`.
 pub type Verifier<G> = FieldElement<G>;
-
-/// A peer's public key `A` or `B`.
-pub type PublicKey<G> = FieldElement<G>;
 
 impl<G: Group> FieldElement<G> {
     pub fn as_bytes(&self) -> &[u8] {

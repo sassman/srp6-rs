@@ -5,26 +5,19 @@
 //! and hash flavour the crate ships. Regenerate with:
 //!
 //! ```text
-//! cargo test --test golden_vectors -- --ignored regenerate_golden
-//! cargo test --test golden_vectors --no-default-features --features wow-1-12-1 -- --ignored regenerate_golden
+//! cargo test --lib -- --ignored regenerate_golden
+//! cargo test --lib --no-default-features --features wow-1-12-1 -- --ignored regenerate_golden
 //! ```
 //!
 //! A backend swap must keep every byte these fixtures hold.
 
 use std::fmt::Write as _;
 
-use crate::big_number::BigNumber;
 use crate::credentials::Username;
-use crate::group::Group;
+use crate::group::GroupOps;
 #[cfg(feature = "wow-1-12-1")]
 use crate::group::GroupWow;
-use crate::primitives::{
-    calculate_password_verifier_v, calculate_private_key_x, calculate_proof_M, calculate_pubkey_A,
-    calculate_pubkey_B, calculate_session_key_S_for_client, calculate_session_key_S_for_host,
-    calculate_session_key_hash_interleave_K, calculate_strong_proof_M2, Generator, PrimeModulus,
-    PrivateKey, SessionKey,
-};
-use crate::typed::{FromHexString, Salt};
+use crate::typed::{steps, FromHexString, Salt, Srp6};
 
 /// The RFC 5054 appendix B salt, reused here so the vectors have one fixed input.
 const SALT_HEX: &str = "BEB25379D1A8581EB5A727673A2441EE";
@@ -39,48 +32,85 @@ fn hex(bytes: &[u8]) -> String {
     out
 }
 
+fn hex_to_bytes(hex: &str) -> Vec<u8> {
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("valid hex"))
+        .collect()
+}
+
+fn hex_trimmed(bytes: &[u8]) -> String {
+    let start = bytes
+        .iter()
+        .position(|byte| *byte != 0)
+        .unwrap_or(bytes.len().saturating_sub(1));
+    hex(&bytes[start..])
+}
+
 /// Everything a full handshake derives, in a stable text form.
 #[allow(non_snake_case)]
-fn snapshot<G: Group, const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
-    group: G,
-    username: &Username,
-    password: &str,
-    salt: &Salt,
-) -> String {
-    let N = PrimeModulus::from_bytes_be(&group.modulus_bytes());
-    let g = Generator::from_bytes_be(&group.generator_bytes());
-    let k_multiplier = Generator::from_bytes_be(&group.multiplier_bytes());
+fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &Salt) -> String {
+    let a = group.exponent_from_bytes(&hex_to_bytes(PRIVATE_A_HEX));
+    let b = group.exponent_from_bytes(&hex_to_bytes(PRIVATE_B_HEX));
 
-    let salt_number = BigNumber::from_bytes_be(salt.as_bytes());
-    let x = calculate_private_key_x(username, password, &salt_number);
-    let v = calculate_password_verifier_v(&N, &g, &x);
-    let a = PrivateKey::try_from_hex(PRIVATE_A_HEX).expect("valid hex");
-    let b = PrivateKey::try_from_hex(PRIVATE_B_HEX).expect("valid hex");
+    let srp = Srp6::new(group);
+    let (salt, verifier) =
+        srp.generate_new_user_secrets_with_fixed_salt(username, password, salt.clone());
+    let (handshake, server) =
+        srp.start_handshake_with_fixed_b(username, salt.clone(), verifier.clone(), b.clone());
+    let (proof, client) = srp
+        .calculate_proof_with_fixed_a(&handshake, username, password, a.clone())
+        .expect("the client can prove");
+    let m2 = srp
+        .verify_proof(&server, &proof)
+        .expect("the proof verifies");
+    let strong_key = srp
+        .verify_strong_proof(&client, &m2)
+        .expect("the strong proof verifies");
 
-    let A = calculate_pubkey_A(&N, &g, &a).expect("A is not 0 mod N");
-    let B = calculate_pubkey_B(&N, &k_multiplier, &g, &v, &b).expect("B is not 0 mod N");
+    // `x` and `S` are not public values; recompute them from the same inputs.
+    let helper = G::default();
+    let x = steps::private_key_x(&helper, username, password, &salt);
+    let u = steps::scrambler_u(&helper, &proof.A, &handshake.B);
+    let v_field = verifier.to_field(&helper);
+    let a_field = proof.A.to_field(&helper);
+    let b_field = handshake.B.to_field(&helper);
+    let g_field = handshake.g.to_field(&helper);
+    let k_field = handshake.k.to_field(&helper);
 
-    let s_host =
-        calculate_session_key_S_for_host::<N_BYTE_LEN>(&N, &A, &B, &b, &v).expect("valid A");
-    let s_client =
-        calculate_session_key_S_for_client::<N_BYTE_LEN>(&N, &k_multiplier, &g, &B, &A, &a, &x)
-            .expect("valid B");
-    assert_eq!(s_host, s_client, "both sides must derive the same S");
-
-    let k = calculate_session_key_hash_interleave_K::<N_BYTE_LEN>(&s_host);
-    let m1 =
-        calculate_proof_M::<N_BYTE_LEN, SALT_LENGTH>(&N, &g, username, &salt_number, &A, &B, &k);
-    let m2 = calculate_strong_proof_M2::<N_BYTE_LEN>(&A, &m1, &k);
+    let s_host = helper.field_pow(
+        &helper.field_mul(&a_field, &helper.field_pow(&v_field, &u)),
+        &b,
+    );
+    let s_client = helper.field_pow(
+        &helper.field_sub(
+            &b_field,
+            &helper.field_mul(&k_field, &helper.field_pow(&g_field, &x)),
+        ),
+        &helper.exponent_add(&a, &helper.exponent_mul(&u, &x)),
+    );
+    assert_eq!(
+        helper.field_to_bytes(&s_host),
+        helper.field_to_bytes(&s_client),
+        "both sides must derive the same S"
+    );
 
     let mut out = String::new();
-    writeln!(out, "x = {}", hex(&x.to_vec())).expect("writing to a String cannot fail");
-    writeln!(out, "v = {}", hex(&v.to_vec())).expect("writing to a String cannot fail");
-    writeln!(out, "A = {}", hex(&A.to_vec())).expect("writing to a String cannot fail");
-    writeln!(out, "B = {}", hex(&B.to_vec())).expect("writing to a String cannot fail");
-    writeln!(out, "S = {}", hex(&s_host.to_vec())).expect("writing to a String cannot fail");
-    writeln!(out, "K = {}", hex(&k.to_vec())).expect("writing to a String cannot fail");
-    writeln!(out, "M1 = {}", hex(&m1.to_vec())).expect("writing to a String cannot fail");
-    writeln!(out, "M2 = {}", hex(&m2.to_vec())).expect("writing to a String cannot fail");
+    writeln!(out, "x = {}", hex_trimmed(&helper.exponent_to_bytes(&x)))
+        .expect("writing to a String cannot fail");
+    writeln!(out, "v = {}", hex_trimmed(verifier.as_bytes()))
+        .expect("writing to a String cannot fail");
+    writeln!(out, "A = {}", hex_trimmed(proof.A.as_bytes()))
+        .expect("writing to a String cannot fail");
+    writeln!(out, "B = {}", hex_trimmed(handshake.B.as_bytes()))
+        .expect("writing to a String cannot fail");
+    writeln!(out, "S = {}", hex_trimmed(&helper.field_to_bytes(&s_host)))
+        .expect("writing to a String cannot fail");
+    writeln!(out, "K = {}", hex_trimmed(strong_key.as_bytes()))
+        .expect("writing to a String cannot fail");
+    writeln!(out, "M1 = {}", hex_trimmed(proof.M1.as_bytes()))
+        .expect("writing to a String cannot fail");
+    writeln!(out, "M2 = {}", hex_trimmed(m2.as_bytes())).expect("writing to a String cannot fail");
     out
 }
 
@@ -90,7 +120,7 @@ fn salt() -> Salt {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_2048_sha512() -> String {
-    snapshot::<crate::group::Group2048, 256, 256>(
+    snapshot(
         crate::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
@@ -100,7 +130,7 @@ fn vectors_2048_sha512() -> String {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_4096_sha512() -> String {
-    snapshot::<crate::group::Group4096, 512, 512>(
+    snapshot(
         crate::group::Group4096,
         &Username::new("alice").expect("valid username"),
         "password123",
@@ -110,7 +140,7 @@ fn vectors_4096_sha512() -> String {
 
 #[cfg(all(feature = "hash-sha1", not(feature = "wow-1-12-1")))]
 fn vectors_2048_sha1() -> String {
-    snapshot::<crate::group::Group2048, 256, 256>(
+    snapshot(
         crate::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
@@ -120,7 +150,7 @@ fn vectors_2048_sha1() -> String {
 
 #[cfg(feature = "wow-1-12-1")]
 fn vectors_wow_sha1() -> String {
-    snapshot::<GroupWow, 32, 32>(
+    snapshot(
         GroupWow,
         &Username::new("Thrall").expect("valid username"),
         "thrall",
@@ -176,15 +206,12 @@ fn golden_wow_sha1() {
 #[cfg(not(feature = "hash-sha1"))]
 #[test]
 fn interleave_pads_a_session_key_with_a_zero_low_byte() {
-    let s = SessionKey::try_from_hex(
-        "00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788",
-    )
-    .expect("valid hex");
+    let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
 
-    let k = calculate_session_key_hash_interleave_K::<32>(&s);
+    let k = steps::strong_session_key_bytes(&s);
 
     assert_eq!(
-        hex(&k.to_vec()),
+        hex_trimmed(k.as_bytes()),
         include_str!("../tests/golden/interleave-zero-low-byte-sha512.txt").trim()
     );
 }
@@ -192,34 +219,14 @@ fn interleave_pads_a_session_key_with_a_zero_low_byte() {
 #[cfg(feature = "hash-sha1")]
 #[test]
 fn interleave_pads_a_session_key_with_a_zero_low_byte() {
-    let s = SessionKey::try_from_hex(
-        "00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788",
-    )
-    .expect("valid hex");
+    let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
 
-    let k = calculate_session_key_hash_interleave_K::<32>(&s);
+    let k = steps::strong_session_key_bytes(&s);
 
     assert_eq!(
-        hex(&k.to_vec()),
+        hex_trimmed(k.as_bytes()),
         include_str!("../tests/golden/interleave-zero-low-byte-sha1.txt").trim()
     );
-}
-
-/// The text formats the migration must keep: blocked hex, JSON, and the
-/// zero-padded array.
-#[test]
-fn text_and_byte_formats_do_not_move() {
-    let value = BigNumber::try_from_hex("BEB25379 D1A8581E B5A72767 3A2441EE").unwrap();
-    let salt = Salt::try_from_hex("BEB25379D1A8581EB5A727673A2441EE").unwrap();
-    assert_eq!(value.to_vec().as_slice(), salt.as_bytes());
-    let padded = value.to_array_pad_zero_len(32);
-    assert_eq!(padded.len(), 32);
-    assert_eq!(&padded[..16], &[0_u8; 16]);
-    assert_eq!(&padded[16..], value.to_vec().as_slice());
-
-    let json = serde_json::to_string(&value).unwrap();
-    let back: BigNumber = serde_json::from_str(&json).unwrap();
-    assert_eq!(value, back);
 }
 
 #[test]
@@ -232,26 +239,22 @@ fn regenerate_golden() {
         std::fs::write(format!("{dir}/2048-sha512.txt"), vectors_2048_sha512()).unwrap();
         std::fs::write(format!("{dir}/4096-sha512.txt"), vectors_4096_sha512()).unwrap();
 
-        let s = SessionKey::try_from_hex(
-            "00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788",
-        )
-        .unwrap();
+        let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
+        let k = steps::strong_session_key_bytes(&s);
         std::fs::write(
             format!("{dir}/interleave-zero-low-byte-sha512.txt"),
-            hex(&calculate_session_key_hash_interleave_K::<32>(&s).to_vec()),
+            hex_trimmed(k.as_bytes()),
         )
         .unwrap();
     }
 
     #[cfg(feature = "hash-sha1")]
     {
-        let s = SessionKey::try_from_hex(
-            "00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788",
-        )
-        .unwrap();
+        let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
+        let k = steps::strong_session_key_bytes(&s);
         std::fs::write(
             format!("{dir}/interleave-zero-low-byte-sha1.txt"),
-            hex(&calculate_session_key_hash_interleave_K::<32>(&s).to_vec()),
+            hex_trimmed(k.as_bytes()),
         )
         .unwrap();
     }

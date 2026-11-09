@@ -101,6 +101,8 @@ pub trait GroupOps: Group {
     fn field_pow(&self, base: &Self::Field, exp: &Self::Exponent) -> Self::Field;
 
     fn random_exponent(&self) -> Self::Exponent;
+    fn exponent_from_bytes(&self, bytes: &[u8]) -> Self::Exponent;
+    fn exponent_to_bytes(&self, value: &Self::Exponent) -> Vec<u8>;
     fn exponent_from_hash(&self, hash: &[u8]) -> Self::Exponent;
     fn exponent_add(&self, a: &Self::Exponent, b: &Self::Exponent) -> Self::Exponent;
     fn exponent_mul(&self, a: &Self::Exponent, b: &Self::Exponent) -> Self::Exponent;
@@ -202,16 +204,23 @@ macro_rules! closed_group {
                 <$exp>::from_be_slice(&bytes)
             }
 
-            fn exponent_from_hash(&self, hash: &[u8]) -> Self::Exponent {
-                let raw = hash;
+            fn exponent_from_bytes(&self, bytes: &[u8]) -> Self::Exponent {
                 let width = <$exp>::BITS as usize / 8;
                 let mut padded = vec![0_u8; width];
-                if raw.len() > width {
-                    padded.copy_from_slice(&raw[raw.len() - width..]);
+                if bytes.len() > width {
+                    padded.copy_from_slice(&bytes[bytes.len() - width..]);
                 } else {
-                    padded[width - raw.len()..].copy_from_slice(&raw);
+                    padded[width - bytes.len()..].copy_from_slice(bytes);
                 }
                 <$exp>::from_be_slice(&padded)
+            }
+
+            fn exponent_to_bytes(&self, value: &Self::Exponent) -> Vec<u8> {
+                value.to_be_bytes().to_vec()
+            }
+
+            fn exponent_from_hash(&self, hash: &[u8]) -> Self::Exponent {
+                self.exponent_from_bytes(hash)
             }
 
             fn exponent_add(&self, a: &Self::Exponent, b: &Self::Exponent) -> Self::Exponent {
@@ -240,8 +249,22 @@ closed_group!(GroupWow, FieldWow, U256, U384, NWOW, 7, 32, 32, Some(3));
 mod tests {
     use super::*;
     use crate::credentials::Username;
-    use crate::primitives::*;
-    use crate::typed::FromHexString;
+    use crate::typed::{steps, FromHexString, Salt};
+    use crypto_bigint::{
+        modular::{BoxedMontyForm, BoxedMontyParams},
+        BoxedUint, Odd,
+    };
+
+    #[test]
+    fn exponent_bytes_round_trip() {
+        let group = Group1024;
+        let bytes = [0x01, 0x02, 0x03];
+
+        let exponent = group.exponent_from_bytes(&bytes);
+        let encoded = group.exponent_to_bytes(&exponent);
+
+        assert_eq!(&encoded[encoded.len() - bytes.len()..], bytes.as_slice());
+    }
 
     /// The const field must reproduce the dynamic verifier for the same x.
     macro_rules! const_group_matches_dynamic {
@@ -249,29 +272,42 @@ mod tests {
             #[test]
             fn $name() {
                 let group = $group;
-                let n = PrimeModulus::from_bytes_be(&group.modulus_bytes());
-                let g = Generator::from_bytes_be(&group.generator_bytes());
                 let salt =
                     Salt::try_from_hex("BEB25379D1A8581EB5A727673A2441EE").expect("valid hex");
                 let username = Username::new("alice").expect("valid username");
-                let x = calculate_private_key_x(&username, "password123", &salt);
+                let x = steps::private_key_x(&group, &username, "password123", &salt);
 
                 let n_bytes = (<$uint>::BITS / 8) as usize;
-                let x_bytes = x.to_vec();
+                let x_bytes = group.exponent_to_bytes(&x);
+                let first = x_bytes
+                    .iter()
+                    .position(|byte| *byte != 0)
+                    .unwrap_or(x_bytes.len().saturating_sub(1));
+                let x_bytes = &x_bytes[first..];
                 assert!(x_bytes.len() <= n_bytes);
                 let mut padded = vec![0_u8; n_bytes];
-                padded[n_bytes - x_bytes.len()..].copy_from_slice(&x_bytes);
+                padded[n_bytes - x_bytes.len()..].copy_from_slice(x_bytes);
                 let exponent = <$uint>::from_be_slice(&padded);
 
                 let generator = <$uint>::from_u8($g);
                 let verifier = $field::new(&generator).pow(&exponent).retrieve();
 
-                let expected = calculate_password_verifier_v(&n, &g, &x).to_vec();
+                let modulus = BoxedUint::from_be_slice(&group.modulus_bytes(), <$uint>::BITS)
+                    .expect("the modulus fits");
+                let params = BoxedMontyParams::new(Odd::new(modulus).into_option().expect("odd N"));
+                let generator = BoxedUint::from_be_slice(&[$g as u8], <$uint>::BITS)
+                    .expect("the generator fits");
+                let dynamic = BoxedMontyForm::new(generator, &params)
+                    .pow(
+                        &BoxedUint::from_be_slice(&padded, <$uint>::BITS)
+                            .expect("the exponent fits"),
+                    )
+                    .retrieve()
+                    .to_be_bytes_trimmed_vartime()
+                    .to_vec();
+
                 let actual = verifier.to_be_bytes();
-                assert_eq!(
-                    &actual[actual.len() - expected.len()..],
-                    expected.as_slice()
-                );
+                assert_eq!(&actual[actual.len() - dynamic.len()..], dynamic.as_slice());
             }
         };
     }

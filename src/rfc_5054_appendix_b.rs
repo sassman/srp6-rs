@@ -1,132 +1,110 @@
-use crate::big_number::BigNumber;
-use crate::credentials::{ClearTextPassword, Username};
-use crate::group::{Group as _, Group1024};
-use crate::hash::HASH_LENGTH;
-use crate::primitives::*;
-use crate::typed::FromHexString;
+use std::fmt::Write as _;
 
-/// This test is based on the test vectors from [RFC5054 Appendix B](https://datatracker.ietf.org/doc/html/rfc5054#appendix-B)
+use crate::credentials::{ClearTextPassword, Username};
+use crate::group::{Group1024, GroupOps};
+use crate::hash::HASH_LENGTH;
+use crate::typed::{steps, FromHexString, Salt, Srp6};
+
+fn hex_to_bytes(hex: &str) -> Vec<u8> {
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("valid hex"))
+        .collect()
+}
+
+fn hex_trimmed(bytes: &[u8]) -> String {
+    let start = bytes
+        .iter()
+        .position(|byte| *byte != 0)
+        .unwrap_or(bytes.len().saturating_sub(1));
+    let mut out = String::with_capacity((bytes.len() - start) * 2);
+    for byte in &bytes[start..] {
+        write!(out, "{byte:02X}").expect("writing to a String cannot fail");
+    }
+    out
+}
+
+/// The test vectors from RFC 5054 appendix B.
 #[allow(non_snake_case)]
 #[test]
 fn test_appendix_b_srp_test_vectors() {
-    /// this is all based on sha1, that is why the length is 32
-    const N_BYTE_LEN: usize = 1024 / 8;
+    let username = Username::new("alice").expect("valid username");
+    let password = ClearTextPassword::from("password123");
+    let salt = Salt::try_from_hex("BEB25379 D1A8581E B5A72767 3A2441EE").unwrap();
 
-    let I = Username::new("alice").expect("valid username");
-    let P = ClearTextPassword::from("password123");
-    let s = Salt::try_from_hex("BEB25379 D1A8581E B5A72767 3A2441EE").unwrap();
-    const SALT_LENGTH: usize = 16;
-    assert_eq!(SALT_LENGTH, s.num_bytes(), "Salt length is not correct");
+    let group = Group1024;
+    let helper = Group1024;
+    let a = group.exponent_from_bytes(&hex_to_bytes(
+        "60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393",
+    ));
+    let b = group.exponent_from_bytes(&hex_to_bytes(
+        "E487CB59D31AC550471E81F00F6928E01DDA08E974A004F49E61F5D105284D20",
+    ));
 
-    let N = PrimeModulus::from_bytes_be(&Group1024.modulus_bytes());
-    let g = Generator::from_bytes_be(&Group1024.generator_bytes());
+    let srp = Srp6::new(group);
+    let (salt, verifier) =
+        srp.generate_new_user_secrets_with_fixed_salt(&username, &password, salt);
+    let (handshake, server) =
+        srp.start_handshake_with_fixed_b(&username, salt.clone(), verifier.clone(), b.clone());
+    let (proof, client) = srp
+        .calculate_proof_with_fixed_a(&handshake, &username, &password, a.clone())
+        .expect("the client can prove");
+    let m2 = srp
+        .verify_proof(&server, &proof)
+        .expect("the proof verifies");
+    let k = srp
+        .verify_strong_proof(&client, &m2)
+        .expect("the strong proof verifies");
 
-    let k =
-        MultiplierParameter::try_from_hex("7556AA04 5AEF2CDD 07ABAF0F 665C3E81 8913186F").unwrap();
-    let x = PrivateKey::try_from_hex("94B7555A ABE9127C C58CCF49 93DB6CF8 4D16C124").unwrap();
-    let v = PasswordVerifier::try_from_hex(
-        "7E273DE8 696FFC4F 4E337D05 B4B375BE B0DDE156 9E8FA00A 9886D812
-         9BADA1F1 822223CA 1A605B53 0E379BA4 729FDC59 F105B478 7E5186F5
-         C671085A 1447B52A 48CF1970 B4FB6F84 00BBF4CE BFBB1681 52E08AB5
-         EA53D15C 1AFF87B2 B9DA6E04 E058AD51 CC72BFC9 033B564E 26480D78
-         E955A5E2 9E7AB245 DB2BE315 E2099AFB",
-    )
-    .unwrap();
-
+    let x = steps::private_key_x(&helper, &username, &password, &salt);
     assert_eq!(
-        calculate_private_key_x(&I, &P, &s),
-        x,
-        "Private key x was not calculated correctly"
+        hex_trimmed(&helper.exponent_to_bytes(&x)),
+        "94B7555AABE9127CC58CCF4993DB6CF84D16C124",
+        "private key x"
     );
 
     assert_eq!(
-        calculate_password_verifier_v(&N, &g, &x),
-        v,
-        "Password verifiert v was not calculated correctly"
+        hex_trimmed(verifier.as_bytes()),
+        "7E273DE8696FFC4F4E337D05B4B375BEB0DDE1569E8FA00A9886D8129BADA1F1822223CA1A605B530E379BA4729FDC59F105B4787E5186F5C671085A1447B52A48CF1970B4FB6F8400BBF4CEBFBB168152E08AB5EA53D15C1AFF87B2B9DA6E04E058AD51CC72BFC9033B564E26480D78E955A5E29E7AB245DB2BE315E2099AFB",
+        "password verifier v"
     );
-
-    let a = PrivateKey::try_from_hex(
-        "60975527 035CF2AD 1989806F 0407210B C81EDC04 E2762A56 AFD529DD
-         DA2D4393",
-    )
-    .unwrap();
-
-    let A = PublicKey::new(
-        BigNumber::try_from_hex(
-            "61D5E490 F6F1B795 47B0704C 436F523D D0E560F0 C64115BB 72557EC4
-         4352E890 3211C046 92272D8B 2D1A5358 A2CF1B6E 0BFCF99F 921530EC
-         8E393561 79EAE45E 42BA92AE ACED8251 71E1E8B9 AF6D9C03 E1327F44
-         BE087EF0 6530E69F 66615261 EEF54073 CA11CF58 58F0EDFD FE15EFEA
-         B349EF5D 76988A36 72FAC47B 0769447B",
-        )
-        .unwrap(),
-        &N,
-    )
-    .unwrap();
 
     assert_eq!(
-        calculate_pubkey_A(&N, &g, &a).unwrap(),
-        A,
-        "Public key A was not calculated correctly"
+        hex_trimmed(proof.A.as_bytes()),
+        "61D5E490F6F1B79547B0704C436F523DD0E560F0C64115BB72557EC44352E8903211C04692272D8B2D1A5358A2CF1B6E0BFCF99F921530EC8E39356179EAE45E42BA92AEACED825171E1E8B9AF6D9C03E1327F44BE087EF06530E69F66615261EEF54073CA11CF5858F0EDFDFE15EFEAB349EF5D76988A3672FAC47B0769447B",
+        "public key A"
     );
-
-    let b = PrivateKey::try_from_hex(
-        "E487CB59 D31AC550 471E81F0 0F6928E0 1DDA08E9 74A004F4 9E61F5D1
-         05284D20",
-    )
-    .unwrap();
-
-    let B = PublicKey::new(
-        BigNumber::try_from_hex(
-            "BD0C6151 2C692C0C B6D041FA 01BB152D 4916A1E7 7AF46AE1 05393011
-         BAF38964 DC46A067 0DD125B9 5A981652 236F99D9 B681CBF8 7837EC99
-         6C6DA044 53728610 D0C6DDB5 8B318885 D7D82C7F 8DEB75CE 7BD4FBAA
-         37089E6F 9C6059F3 88838E7A 00030B33 1EB76840 910440B1 B27AAEAE
-         EB4012B7 D7665238 A8E3FB00 4B117B58",
-        )
-        .unwrap(),
-        &N,
-    )
-    .unwrap();
 
     assert_eq!(
-        calculate_pubkey_B(&N, &k, &g, &v, &b).unwrap(),
-        B,
-        "Public key B was not calculated correctly"
+        hex_trimmed(handshake.B.as_bytes()),
+        "BD0C61512C692C0CB6D041FA01BB152D4916A1E77AF46AE105393011BAF38964DC46A0670DD125B95A981652236F99D9B681CBF87837EC996C6DA04453728610D0C6DDB58B318885D7D82C7F8DEB75CE7BD4FBAA37089E6F9C6059F388838E7A00030B331EB76840910440B1B27AAEAEEB4012B7D7665238A8E3FB004B117B58",
+        "public key B"
     );
 
-    let u = hex_literal::hex!("CE38B959 3487DA98 554ED47D 70A7AE5F 462EF019");
+    let u = steps::scrambler_u(&helper, &proof.A, &handshake.B);
+    assert_eq!(
+        hex_trimmed(&helper.exponent_to_bytes(&u)),
+        "CE38B9593487DA98554ED47D70A7AE5F462EF019",
+        "scrambler u"
+    );
+
+    let v_field = verifier.to_field(&helper);
+    let a_field = proof.A.to_field(&helper);
+    let s_host = helper.field_pow(
+        &helper.field_mul(&a_field, &helper.field_pow(&v_field, &u)),
+        &b,
+    );
+    assert_eq!(
+        hex_trimmed(&helper.field_to_bytes(&s_host)),
+        "B0DC82BABCF30674AE450C0287745E7990A3381F63B387AAF271A10D233861E359B48220F7C4693C9AE12B0A6F67809F0876E2D013800D6C41BB59B6D5979B5C00A172B4A2A5903A0BDCAF8A709585EB2AFAFA8F3499B200210DCC1F10EB33943CD67FC88A2F39A4BE5BEC4EC0A3212DC346D7E474B29EDE8A469FFECA686E5A",
+        "session key S"
+    );
 
     assert_eq!(
-        calculate_u::<N_BYTE_LEN>(&A, &B).to_vec(),
-        u,
-        "u was not calculated correctly"
+        proof.M1.as_bytes().len(),
+        HASH_LENGTH,
+        "M1 is one hash long"
     );
-
-    let premaster_secret = BigNumber::try_from_hex(
-        "B0DC82BA BCF30674 AE450C02 87745E79 90A3381F 63B387AA F271A10D
-         233861E3 59B48220 F7C4693C 9AE12B0A 6F67809F 0876E2D0 13800D6C
-         41BB59B6 D5979B5C 00A172B4 A2A5903A 0BDCAF8A 709585EB 2AFAFA8F
-         3499B200 210DCC1F 10EB3394 3CD67FC8 8A2F39A4 BE5BEC4E C0A3212D
-         C346D7E4 74B29EDE 8A469FFE CA686E5A",
-    )
-    .unwrap();
-
-    let session_key_host =
-        calculate_session_key_S_for_host::<N_BYTE_LEN>(&N, &A, &B, &b, &v).unwrap();
-    assert_eq!(
-        session_key_host, premaster_secret,
-        "Session key host is not correct"
-    );
-
-    let session_key_client =
-        calculate_session_key_S_for_client::<N_BYTE_LEN>(&N, &k, &g, &B, &A, &a, &x).unwrap();
-    assert_eq!(
-        session_key_client, premaster_secret,
-        "Session key client is not correct"
-    );
-
-    let k_session = calculate_session_key_hash_interleave_K_len(&premaster_secret, N_BYTE_LEN);
-    let m1 = calculate_proof_M_len(&N, &g, &I, &s, &A, &B, &k_session, N_BYTE_LEN, SALT_LENGTH);
-    assert_eq!(m1.num_bytes(), HASH_LENGTH, "M1 is one hash long");
+    assert_eq!(m2.as_bytes().len(), HASH_LENGTH, "M2 is one hash long");
+    assert_eq!(k.as_bytes().len(), 2 * HASH_LENGTH, "K is two hashes long");
 }

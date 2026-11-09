@@ -1,8 +1,5 @@
-use std::convert::TryFrom;
-
 use std::fmt;
 
-use crate::big_number::BigNumber;
 use crate::{error::Srp6Error, Result};
 
 pub(crate) fn write_hex(f: &mut fmt::Formatter<'_>, bytes: &[u8]) -> fmt::Result {
@@ -37,10 +34,4 @@ pub(crate) fn decode_hex(hex: &str) -> Result<Vec<u8>> {
     }
 
     Ok(bytes)
-}
-
-impl FromHexString for BigNumber {
-    fn try_from_hex(hex: &str) -> Result<Self> {
-        BigNumber::try_from(hex).map_err(|_| Srp6Error::InvalidHexString)
-    }
 }
