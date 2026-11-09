@@ -13,12 +13,12 @@
 
 use std::fmt::Write as _;
 
-use srp6::group::Group;
+use crate::big_number::BigNumber;
+use crate::credentials::Username;
+use crate::group::Group;
 #[cfg(feature = "wow-1-12-1")]
-use srp6::group::GroupWow;
-use srp6::prelude::BigNumber;
-use srp6::primitives::*;
-use srp6::Username;
+use crate::group::GroupWow;
+use crate::primitives::*;
 
 /// The RFC 5054 appendix B salt, reused here so the vectors have one fixed input.
 const SALT_HEX: &str = "BEB25379D1A8581EB5A727673A2441EE";
@@ -82,8 +82,8 @@ fn salt() -> Salt {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_2048_sha512() -> String {
-    snapshot::<srp6::group::Group2048, 256, 256>(
-        srp6::group::Group2048,
+    snapshot::<crate::group::Group2048, 256, 256>(
+        crate::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
         &salt(),
@@ -92,8 +92,8 @@ fn vectors_2048_sha512() -> String {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_4096_sha512() -> String {
-    snapshot::<srp6::group::Group4096, 512, 512>(
-        srp6::group::Group4096,
+    snapshot::<crate::group::Group4096, 512, 512>(
+        crate::group::Group4096,
         &Username::new("alice").expect("valid username"),
         "password123",
         &salt(),
@@ -102,8 +102,8 @@ fn vectors_4096_sha512() -> String {
 
 #[cfg(all(feature = "hash-sha1", not(feature = "wow-1-12-1")))]
 fn vectors_2048_sha1() -> String {
-    snapshot::<srp6::group::Group2048, 256, 256>(
-        srp6::group::Group2048,
+    snapshot::<crate::group::Group2048, 256, 256>(
+        crate::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
         &salt(),
@@ -130,7 +130,7 @@ fn check(expected: &str, actual: &str) {
 #[test]
 fn golden_2048_sha512() {
     check(
-        include_str!("golden/2048-sha512.txt"),
+        include_str!("../tests/golden/2048-sha512.txt"),
         &vectors_2048_sha512(),
     );
 }
@@ -139,7 +139,7 @@ fn golden_2048_sha512() {
 #[test]
 fn golden_4096_sha512() {
     check(
-        include_str!("golden/4096-sha512.txt"),
+        include_str!("../tests/golden/4096-sha512.txt"),
         &vectors_4096_sha512(),
     );
 }
@@ -147,13 +147,19 @@ fn golden_4096_sha512() {
 #[cfg(all(feature = "hash-sha1", not(feature = "wow-1-12-1")))]
 #[test]
 fn golden_2048_sha1() {
-    check(include_str!("golden/2048-sha1.txt"), &vectors_2048_sha1());
+    check(
+        include_str!("../tests/golden/2048-sha1.txt"),
+        &vectors_2048_sha1(),
+    );
 }
 
 #[cfg(feature = "wow-1-12-1")]
 #[test]
 fn golden_wow_sha1() {
-    check(include_str!("golden/wow-sha1.txt"), &vectors_wow_sha1());
+    check(
+        include_str!("../tests/golden/wow-sha1.txt"),
+        &vectors_wow_sha1(),
+    );
 }
 
 /// A session key whose least significant byte is zero must still interleave
@@ -171,7 +177,7 @@ fn interleave_pads_a_session_key_with_a_zero_low_byte() {
 
     assert_eq!(
         hex(&k.to_vec()),
-        include_str!("golden/interleave-zero-low-byte-sha512.txt").trim()
+        include_str!("../tests/golden/interleave-zero-low-byte-sha512.txt").trim()
     );
 }
 
@@ -187,7 +193,7 @@ fn interleave_pads_a_session_key_with_a_zero_low_byte() {
 
     assert_eq!(
         hex(&k.to_vec()),
-        include_str!("golden/interleave-zero-low-byte-sha1.txt").trim()
+        include_str!("../tests/golden/interleave-zero-low-byte-sha1.txt").trim()
     );
 }
 

@@ -74,6 +74,8 @@ pub mod prelude {
     pub use crate::typed::*;
     pub use std::convert::TryInto;
 }
+#[cfg(test)]
+mod golden_vectors;
 pub mod group;
 pub mod primitives;
 pub mod rfc_5054_appendix_a;
