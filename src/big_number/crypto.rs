@@ -46,16 +46,6 @@ impl Inner {
         }
     }
 
-    /// `raw` is expected to be little endian.
-    pub(super) fn from_bytes_le(raw: &[u8]) -> Self {
-        if raw.is_empty() {
-            return Self::zero();
-        }
-        Self {
-            magnitude: BoxedUint::from_le_slice_vartime(raw),
-        }
-    }
-
     pub(super) fn from_u32(n: u32) -> Self {
         Self {
             magnitude: BoxedUint::from(n),

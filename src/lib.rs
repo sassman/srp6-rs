@@ -42,8 +42,8 @@
 //! assert_eq!(session_key, strong_proof_verifier.K);
 //! ```
 //!
-//! The const-generic primitives behind this live in [`primitives`], for callers
-//! that pin the lengths at compile time.
+//! Group arithmetic and the const-generic calculus stay crate-private; the
+//! handshake is the only door into them.
 //!
 //! ## Note on key length
 //!
@@ -65,7 +65,6 @@ pub mod hash;
 pub mod protocol_details;
 pub mod rfc_lingo;
 pub mod prelude {
-    pub use crate::big_number::BigNumber;
     pub use crate::credentials::*;
     pub use crate::defaults::*;
     pub use crate::error::Srp6Error;
@@ -77,7 +76,7 @@ pub mod prelude {
 #[cfg(test)]
 mod golden_vectors;
 pub mod group;
-pub mod primitives;
+mod primitives;
 pub mod rfc_5054_appendix_a;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;

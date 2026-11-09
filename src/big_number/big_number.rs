@@ -1,7 +1,6 @@
 use crate::hash::*;
 
 use crypto_bigint::BoxedUint;
-use rand::{rng, RngExt};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
 use std::fmt::{Debug, Display, Formatter};
@@ -30,10 +29,10 @@ impl<'de> Deserialize<'de> for BigNumber {
 
 /// [`BigNumber`] helps to work with big numbers as in openssl used.
 #[derive(PartialEq, Clone)]
-pub struct BigNumber(Inner);
+pub(crate) struct BigNumber(Inner);
 
 #[derive(Error, Debug)]
-pub enum BigNumberError {
+pub(crate) enum BigNumberError {
     #[error("Invalid hex string.")]
     InvalidHexStr,
 }
@@ -46,21 +45,9 @@ impl Default for BigNumber {
 }
 
 impl BigNumber {
-    /// new random initialized big number
-    pub fn new_rand(n_bytes: usize) -> Self {
-        let rng = rng();
-        let bytes: Vec<u8> = rng.random_iter().take(n_bytes).collect();
-        Self::from_bytes_be(&bytes)
-    }
-
     /// `raw` is expected to be big endian
     pub fn from_bytes_be(raw: &[u8]) -> Self {
         Self(Inner::from_bytes_be(raw))
-    }
-
-    /// `raw` is expected to be big endian
-    pub fn from_bytes_le(raw: &[u8]) -> Self {
-        Self(Inner::from_bytes_le(raw))
     }
 
     /// from hex string, hex strings are always big endian:
@@ -109,11 +96,6 @@ impl BigNumber {
     /// the counter part of `::to_vec()`
     pub fn from_vec(data: &[u8]) -> Self {
         Self::from_bytes_be(data)
-    }
-
-    /// returns the byte vec in little endian byte order, padded by 0 for `len` bytes
-    pub fn to_array_pad_zero<const N: usize>(&self) -> Vec<u8> {
-        self.to_array_pad_zero_len(N)
     }
 
     /// The runtime-length form of [`BigNumber::to_array_pad_zero`].
@@ -248,17 +230,11 @@ fn should_to_vec() {
 }
 
 #[test]
-fn should_random_initialize() {
-    let x = BigNumber::new_rand(10);
-    assert_ne!(x, BigNumber::default());
-}
-
-#[test]
 fn should_pad_0() {
     let x = BigNumber::from_bytes_be(&[0x11, 0xcd]);
-    assert_eq!(x.to_array_pad_zero::<3>(), [0, 0x11, 0xcd]);
+    assert_eq!(x.to_array_pad_zero_len(3), [0, 0x11, 0xcd]);
 
-    assert_eq!(x.to_array_pad_zero::<1>(), [0x11, 0xcd]);
+    assert_eq!(x.to_array_pad_zero_len(1), [0x11, 0xcd]);
 }
 
 #[test]
@@ -321,7 +297,7 @@ fn test_network_endianess() {
         "we trust the hex_literal crate"
     );
     let b = BigNumber::try_from("AB 11 CD").unwrap();
-    assert_eq!(b.to_array_pad_zero::<3>(), [0xAB, 0x11, 0xCD]);
+    assert_eq!(b.to_array_pad_zero_len(3), [0xAB, 0x11, 0xCD]);
     assert_eq!(b.to_vec(), [0xAB, 0x11, 0xCD]);
     assert_eq!(b.to_string(), "AB11CD");
 }

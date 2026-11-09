@@ -6,7 +6,7 @@ use std::convert::TryFrom;
 use thiserror::Error;
 
 /// Username `I`, validated so it can never contain the `:` separator
-/// used by [`calculate_p_hash`], a NUL byte, or be empty.
+/// used by the private key derivation, a NUL byte, or be empty.
 ///
 /// The colon rule matters because the private key derivation formula
 /// `x = H(s | H(I ":" p))` joins the username and password with a

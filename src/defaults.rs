@@ -16,20 +16,19 @@
 
 use crate::group::{Group2048, Group3072, Group4096, Group6144, Group8192};
 
-/// The 2048-bit group: [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and
-/// [`Salt`][crate::primitives::Salt] `s` are both 2048 bit / 256 byte.
+/// The 2048-bit group: `N_BYTES` and `SALT_BYTES` are both 2048 bit / 256 byte.
 pub type Srp6_2048 = crate::Srp6<Group2048>;
 
-/// The 3072-bit group: `N` and `s` are both 3072 bit / 384 byte.
+/// The 3072-bit group: `N_BYTES` and `SALT_BYTES` are both 3072 bit / 384 byte.
 pub type Srp6_3072 = crate::Srp6<Group3072>;
 
-/// The 4096-bit group: `N` and `s` are both 4096 bit / 512 byte.
+/// The 4096-bit group: `N_BYTES` and `SALT_BYTES` are both 4096 bit / 512 byte.
 pub type Srp6_4096 = crate::Srp6<Group4096>;
 
-/// The 6144-bit group: `N` and `s` are both 6144 bit / 768 byte.
+/// The 6144-bit group: `N_BYTES` and `SALT_BYTES` are both 6144 bit / 768 byte.
 pub type Srp6_6144 = crate::Srp6<Group6144>;
 
-/// The 8192-bit group: `N` and `s` are both 8192 bit / 1024 byte.
+/// The 8192-bit group: `N_BYTES` and `SALT_BYTES` are both 8192 bit / 1024 byte.
 pub type Srp6_8192 = crate::Srp6<Group8192>;
 
 #[cfg(test)]

@@ -4,4 +4,4 @@
 pub(crate) mod big_number;
 pub(crate) mod crypto;
 
-pub use big_number::*;
+pub(crate) use big_number::*;

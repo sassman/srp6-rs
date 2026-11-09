@@ -212,7 +212,7 @@ fn text_and_byte_formats_do_not_move() {
     let value = BigNumber::try_from_hex("BEB25379 D1A8581E B5A72767 3A2441EE").unwrap();
     let salt = Salt::try_from_hex("BEB25379D1A8581EB5A727673A2441EE").unwrap();
     assert_eq!(value.to_vec().as_slice(), salt.as_bytes());
-    let padded = value.to_array_pad_zero::<32>();
+    let padded = value.to_array_pad_zero_len(32);
     assert_eq!(padded.len(), 32);
     assert_eq!(&padded[..16], &[0_u8; 16]);
     assert_eq!(&padded[16..], value.to_vec().as_slice());

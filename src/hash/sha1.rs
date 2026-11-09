@@ -7,12 +7,7 @@ pub type HashFunc = sha1::Sha1;
 
 /// sha1 hash function
 /// Caution: sha1 is cryptographically broken and should not be used for secure applications
-pub fn hash_w_pad<const PAD: usize>(a: &BigNumber, b: &BigNumber) -> BigNumber {
-    hash_w_pad_len(a, b, PAD)
-}
-
-/// The runtime-length form of [`hash_w_pad`].
-pub fn hash_w_pad_len(a: &BigNumber, b: &BigNumber, pad: usize) -> BigNumber {
+pub(crate) fn hash_w_pad_len(a: &BigNumber, b: &BigNumber, pad: usize) -> BigNumber {
     BigNumber::from_bytes_be(
         HashFunc::new()
             .chain(a.to_array_pad_zero_len(pad))
@@ -28,7 +23,7 @@ mod tests {
     use std::convert::TryFrom;
 
     use super::*;
-    use crate::prelude::BigNumber;
+    use crate::big_number::BigNumber;
 
     #[test]
     #[allow(non_snake_case)]
@@ -53,7 +48,7 @@ mod tests {
         .unwrap();
 
         // 128 bytes from the 1024 bit N section of appendix A
-        let u = hash_w_pad::<128>(&A, &B);
+        let u = hash_w_pad_len(&A, &B, 128);
         let exp_hash = hex!("CE38B959 3487DA98 554ED47D 70A7AE5F 462EF019");
 
         assert_eq!(u.to_vec(), exp_hash);

@@ -13,7 +13,6 @@ use crypto_bigint::{
 };
 use rand::{rng, RngExt};
 
-use crate::big_number::BigNumber;
 use crate::hash::{Digest, HashFunc, Update};
 
 #[cfg(feature = "wow-1-12-1")]
@@ -102,7 +101,7 @@ pub trait GroupOps: Group {
     fn field_pow(&self, base: &Self::Field, exp: &Self::Exponent) -> Self::Field;
 
     fn random_exponent(&self) -> Self::Exponent;
-    fn exponent_from_hash(&self, hash: &BigNumber) -> Self::Exponent;
+    fn exponent_from_hash(&self, hash: &[u8]) -> Self::Exponent;
     fn exponent_add(&self, a: &Self::Exponent, b: &Self::Exponent) -> Self::Exponent;
     fn exponent_mul(&self, a: &Self::Exponent, b: &Self::Exponent) -> Self::Exponent;
 }
@@ -203,8 +202,8 @@ macro_rules! closed_group {
                 <$exp>::from_be_slice(&bytes)
             }
 
-            fn exponent_from_hash(&self, hash: &BigNumber) -> Self::Exponent {
-                let raw = hash.to_vec();
+            fn exponent_from_hash(&self, hash: &[u8]) -> Self::Exponent {
+                let raw = hash;
                 let width = <$exp>::BITS as usize / 8;
                 let mut padded = vec![0_u8; width];
                 if raw.len() > width {

@@ -15,6 +15,5 @@ pub use crate::group::GroupWow;
 /// The 1.12.1 client's handshake: `g = 7` and a 256-bit `N`, as
 /// `CMD_AUTH_LOGON_CHALLENGE_Server` sends them.
 ///
-/// [`PrimeModulus`][crate::primitives::PrimeModulus] `N` and
-/// [`Salt`][crate::primitives::Salt] `s` are both 256 bit / 32 byte.
+/// `N_BYTES` and `SALT_BYTES` are both 256 bit / 32 byte.
 pub type Srp6_256 = crate::Srp6<GroupWow>;

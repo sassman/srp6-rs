@@ -13,6 +13,9 @@ This scheme is applied for all variables used in the calculus.
 
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 */
+// The non-len calculus is the golden and appendix-B oracle; the handshake calls the _len forms.
+#![allow(dead_code)]
+
 use crypto_bigint::{
     modular::{BoxedMontyForm, BoxedMontyParams},
     BoxedUint, ConcatenatingMul, NonZero, Odd,
@@ -64,13 +67,7 @@ impl PublicKey {
         Ok(Self(value))
     }
 
-    /// Big-endian bytes, zero-padded to at least `N` bytes.
-    /// See [`BigNumber::to_array_pad_zero`].
-    pub fn to_array_pad_zero<const N: usize>(&self) -> Vec<u8> {
-        self.0.to_array_pad_zero::<N>()
-    }
-
-    /// The runtime-length form of [`PublicKey::to_array_pad_zero`].
+    /// The runtime-length form of [`BigNumber::to_array_pad_zero`].
     pub(crate) fn to_array_pad_zero_len(&self, len: usize) -> Vec<u8> {
         self.0.to_array_pad_zero_len(len)
     }
@@ -78,12 +75,6 @@ impl PublicKey {
     /// Big-endian bytes. See [`BigNumber::to_vec`].
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
-    }
-
-    /// Length of the big-endian encoding, without leading zeroes.
-    /// See [`BigNumber::num_bytes`].
-    pub fn num_bytes(&self) -> usize {
-        self.0.num_bytes()
     }
 
     /// Access to the inner [`BigNumber`] for arithmetic. Deliberately not a
@@ -500,7 +491,7 @@ pub fn calculate_k<const KEY_LENGTH: usize>(
 ) -> MultiplierParameter {
     HashFunc::new()
         .chain(N.to_vec().as_slice())
-        .chain(g.to_array_pad_zero::<KEY_LENGTH>())
+        .chain(g.to_array_pad_zero_len(KEY_LENGTH))
         .into()
 }
 
@@ -511,9 +502,4 @@ pub fn calculate_k<const KEY_LENGTH: usize>(
     _: &Generator,
 ) -> MultiplierParameter {
     MultiplierParameter::from(3)
-}
-
-/// [`PrivateKey`] `a` or `b` is in fact just a big (positive) random number
-pub fn generate_private_key<const KEY_LENGTH: usize>() -> PrivateKey {
-    PrivateKey::new_rand(KEY_LENGTH)
 }

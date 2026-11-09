@@ -462,7 +462,7 @@ impl<G: GroupOps> Srp6<G> {
     ) -> (Salt, Verifier<G>) {
         let salt: Vec<u8> = rng().random_iter().take(G::SALT_BYTES).collect();
         let x = calculate_private_key_x(username, password, &BigNumber::from_bytes_be(&salt));
-        let x = self.group.exponent_from_hash(&x);
+        let x = self.group.exponent_from_hash(&x.to_vec());
         let verifier = self.group.field_pow(&self.group.generator(), &x);
 
         (
@@ -522,7 +522,7 @@ impl<G: GroupOps> Srp6<G> {
             .map_err(|_| Srp6Error::InvalidPublicKey(b_bytes))?;
 
         let u = calculate_u_len(&a, &b, G::N_BYTES);
-        let u = self.group.exponent_from_hash(&u);
+        let u = self.group.exponent_from_hash(&u.to_vec());
         let verifier_field = verifier.user.verifier.to_field(&self.group);
         let v_u = self.group.field_pow(&verifier_field, &u);
         let a_vu = self.group.field_mul(&a_field, &v_u);
@@ -580,13 +580,13 @@ impl<G: GroupOps> Srp6<G> {
             .map_err(|_| Srp6Error::InvalidPublicKey(b_bytes))?;
 
         let u = calculate_u_len(&a_key, &b_key, G::N_BYTES);
-        let u = self.group.exponent_from_hash(&u);
+        let u = self.group.exponent_from_hash(&u.to_vec());
         let x = calculate_private_key_x(
             username,
             password,
             &BigNumber::from_bytes_be(handshake.s.as_bytes()),
         );
-        let x = self.group.exponent_from_hash(&x);
+        let x = self.group.exponent_from_hash(&x.to_vec());
         let ux = self.group.exponent_mul(&u, &x);
         let exp = self.group.exponent_add(&a_exp, &ux);
 
