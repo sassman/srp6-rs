@@ -28,4 +28,8 @@ pub enum Srp6Error {
     /// The bytes did not decode to a non-zero element modulo the group's `N`.
     #[error("The provided bytes are not a valid field element of the group")]
     InvalidFieldElement,
+
+    /// The string was not an even-length run of hex digits.
+    #[error("The provided string is not an even-length hex string")]
+    InvalidHexString,
 }

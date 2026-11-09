@@ -17,8 +17,8 @@ use crate::group::{Group, GroupOps};
 use crate::hash::HASH_LENGTH;
 use crate::primitives::{
     calculate_private_key_x, calculate_proof_M_len, calculate_session_key_hash_interleave_K_len,
-    calculate_strong_proof_M2_len, calculate_u_len, PublicKey as BigPublicKey, RawPublicKey,
-    Username,
+    calculate_strong_proof_M2_len, calculate_u_len, ClearTextPasswordRef,
+    PublicKey as BigPublicKey, RawPublicKey, Username,
 };
 use crate::{error::Srp6Error, Result};
 
@@ -27,6 +27,32 @@ fn write_hex(f: &mut fmt::Formatter<'_>, bytes: &[u8]) -> fmt::Result {
         write!(f, "{byte:02X}")?;
     }
     Ok(())
+}
+
+/// Creates a boundary value from the hex form its `Display` prints.
+pub trait FromHexString: Sized {
+    /// Decodes `hex`; ASCII whitespace between the digits is ignored.
+    fn try_from_hex(hex: &str) -> Result<Self>;
+}
+
+/// Decodes base-16 into bytes, preserving leading zero bytes.
+fn decode_hex(hex: &str) -> Result<Vec<u8>> {
+    let compact: String = hex.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+
+    // Reject non-ASCII before slicing: byte indexing into a multibyte char
+    // would panic instead of reporting bad hex.
+    if !compact.is_ascii() || !compact.len().is_multiple_of(2) {
+        return Err(Srp6Error::InvalidHexString);
+    }
+
+    let mut bytes = Vec::with_capacity(compact.len() / 2);
+    for i in (0..compact.len()).step_by(2) {
+        let byte =
+            u8::from_str_radix(&compact[i..i + 2], 16).map_err(|_| Srp6Error::InvalidHexString)?;
+        bytes.push(byte);
+    }
+
+    Ok(bytes)
 }
 
 /// A salt, as generated, stored and sent to the client.
@@ -89,6 +115,12 @@ impl fmt::Debug for Salt {
 impl Serialize for Salt {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
         serializer.serialize_bytes(&self.0)
+    }
+}
+
+impl FromHexString for Salt {
+    fn try_from_hex(hex: &str) -> Result<Self> {
+        Ok(Self::from(decode_hex(hex)?))
     }
 }
 
@@ -201,6 +233,12 @@ impl<G: GroupOps> TryFrom<&[u8]> for FieldElement<G> {
     }
 }
 
+impl<G: GroupOps> FromHexString for FieldElement<G> {
+    fn try_from_hex(hex: &str) -> Result<Self> {
+        Self::from_bytes(&decode_hex(hex)?)
+    }
+}
+
 impl<G: Group> fmt::Display for FieldElement<G> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write_hex(f, &self.bytes)
@@ -277,6 +315,12 @@ impl fmt::Debug for Proof {
 impl Serialize for Proof {
     fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
         serializer.serialize_bytes(&self.0)
+    }
+}
+
+impl FromHexString for Proof {
+    fn try_from_hex(hex: &str) -> Result<Self> {
+        Self::from_bytes(&decode_hex(hex)?)
     }
 }
 
@@ -359,7 +403,7 @@ impl<G: GroupOps> Srp6<G> {
     pub fn generate_new_user_secrets(
         &self,
         username: &Username,
-        password: &str,
+        password: ClearTextPasswordRef,
     ) -> (Salt, Verifier<G>) {
         let salt: Vec<u8> = rng().random_iter().take(G::SALT_BYTES).collect();
         let x = calculate_private_key_x(username, password, &BigNumber::from_bytes_be(&salt));
@@ -626,5 +670,33 @@ mod tests {
         assert!(Verifier::<Group2048>::from_bytes(&[0_u8; 256]).is_err());
         assert!(Verifier::<Group2048>::from_bytes(&[0_u8; 257]).is_err());
         assert!(Proof::from_bytes(&[0_u8; HASH_LENGTH - 1]).is_err());
+    }
+
+    #[test]
+    fn hex_round_trips_through_the_boundary_types() {
+        let srp = Srp6::new(Group2048);
+        let username = Username::new("alice").expect("valid username");
+        let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+
+        let salt = Salt::try_from_hex(&salt.to_string()).expect("the salt hex decodes");
+        let verifier = Verifier::<Group2048>::try_from_hex(&verifier.to_string())
+            .expect("the verifier hex decodes");
+        srp.start_handshake(&username, salt, verifier);
+    }
+
+    #[test]
+    fn hex_decoding_preserves_leading_zero_bytes() {
+        let salt = Salt::try_from_hex("00ab").expect("valid hex");
+        assert_eq!(salt.as_bytes(), &[0x00, 0xAB]);
+        assert_eq!(salt.to_string(), "00AB");
+    }
+
+    #[test]
+    fn invalid_hex_is_refused() {
+        assert!(Salt::try_from_hex("ABC").is_err());
+        assert!(Salt::try_from_hex("zz").is_err());
+        assert!(Salt::try_from_hex("é0").is_err());
+        assert!(Proof::try_from_hex("00").is_err());
+        assert!(Verifier::<Group2048>::try_from_hex("00").is_err());
     }
 }
