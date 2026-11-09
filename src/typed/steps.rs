@@ -82,7 +82,7 @@ pub(crate) fn strong_session_key_bytes(s: &[u8]) -> StrongSessionKey {
         key[i * 2 + 1] = *odd;
     }
 
-    StrongSessionKey::from_bytes(&key).expect("the interleaved key is two hashes wide")
+    StrongSessionKey::from_key(key)
 }
 
 pub(crate) fn proof_m1<G: GroupOps>(
@@ -94,26 +94,28 @@ pub(crate) fn proof_m1<G: GroupOps>(
     k: &StrongSessionKey,
 ) -> Proof {
     let salt = pad_left(salt.as_bytes(), G::SALT_BYTES);
-    let digest = HashFunc::new()
+    let digest: Hash = HashFunc::new()
         .chain(hash_n_xor_g(group))
         .chain(HashFunc::new().chain(username.as_bytes()).finalize())
         .chain(salt)
         .chain(a.as_bytes())
         .chain(b.as_bytes())
         .chain(k.as_bytes())
-        .finalize();
+        .finalize()
+        .into();
 
-    Proof::from_bytes(digest.as_slice()).expect("a proof is exactly one hash")
+    Proof::from_hash(digest)
 }
 
 pub(crate) fn proof_m2<G: GroupOps>(a: &PublicKey<G>, m1: &Proof, k: &StrongSessionKey) -> Proof {
-    let digest = HashFunc::new()
+    let digest: Hash = HashFunc::new()
         .chain(a.as_bytes())
         .chain(m1.as_bytes())
         .chain(k.as_bytes())
-        .finalize();
+        .finalize()
+        .into();
 
-    Proof::from_bytes(digest.as_slice()).expect("a proof is exactly one hash")
+    Proof::from_hash(digest)
 }
 
 fn hash_n_xor_g<G: GroupOps>(group: &G) -> Hash {

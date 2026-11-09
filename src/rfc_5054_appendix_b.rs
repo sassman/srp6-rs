@@ -52,8 +52,9 @@ fn test_appendix_b_srp_test_vectors() {
     let srp = Srp6::new(group);
     let (salt, verifier) =
         srp.generate_new_user_secrets_with_fixed_salt(&username, &password, salt);
-    let (handshake, server) =
-        srp.start_handshake_with_fixed_b(&username, salt.clone(), verifier.clone(), b.clone());
+    let (handshake, server) = srp
+        .start_handshake_with_fixed_b(&username, salt.clone(), verifier.clone(), b.clone())
+        .expect("the handshake starts");
     let (proof, client) = srp
         .calculate_proof_with_fixed_a(&handshake, &username, &password, a.clone())
         .expect("the client can prove");
@@ -96,8 +97,13 @@ fn test_appendix_b_srp_test_vectors() {
         "scrambler u"
     );
 
-    let v_field = verifier.to_field(&helper);
-    let a_field = proof.A.to_field(&helper);
+    let v_field = verifier
+        .to_field(&helper)
+        .expect("a validated field element");
+    let a_field = proof
+        .A
+        .to_field(&helper)
+        .expect("a validated field element");
     let s_host = helper.field_pow(
         &helper.field_mul(&a_field, &helper.field_pow(&v_field, &u)),
         &b,

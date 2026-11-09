@@ -23,7 +23,9 @@
 //! assert_eq!(verifier.as_bytes().len(), 512);
 //!
 //! // login: the server opens the handshake from the stored secrets
-//! let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
+//! let (handshake, proof_verifier) = srp
+//!     .start_handshake(&username, salt, verifier)
+//!     .expect("the handshake starts");
 //!
 //! // the client sends its proof
 //! let (proof, strong_proof_verifier) = srp

@@ -70,12 +70,16 @@ impl<G: GroupOps> Srp6<G> {
     }
 
     /// Starts the handshake for an existing user.
+    ///
+    /// # Errors
+    /// Returns [`Srp6Error::InvalidFieldElement`] if the stored verifier or the
+    /// group multiplier does not decode to a non-zero field element.
     pub fn start_handshake(
         &self,
         username: &Username,
         salt: Salt,
         verifier: Verifier<G>,
-    ) -> (Handshake<G>, HandshakeProofVerifier<G>) {
+    ) -> Result<(Handshake<G>, HandshakeProofVerifier<G>)> {
         let b = self.group.random_exponent();
         self.start_handshake_with_b(username, salt, verifier, b)
     }
@@ -86,10 +90,10 @@ impl<G: GroupOps> Srp6<G> {
         salt: Salt,
         verifier: Verifier<G>,
         b: G::Exponent,
-    ) -> (Handshake<G>, HandshakeProofVerifier<G>) {
-        let verifier_field = verifier.to_field(&self.group);
+    ) -> Result<(Handshake<G>, HandshakeProofVerifier<G>)> {
+        let verifier_field = verifier.to_field(&self.group)?;
         let g = self.group.generator();
-        let k = self.group.multiplier();
+        let k = self.group.multiplier()?;
         let g_b = self.group.field_pow(&g, &b);
         let k_v = self.group.field_mul(&k, &verifier_field);
         let b_pub = self.group.field_add(&k_v, &g_b);
@@ -111,7 +115,7 @@ impl<G: GroupOps> Srp6<G> {
             },
         };
 
-        (handshake, verifier)
+        Ok((handshake, verifier))
     }
 
     #[cfg(test)]
@@ -121,7 +125,7 @@ impl<G: GroupOps> Srp6<G> {
         salt: Salt,
         verifier: Verifier<G>,
         b: G::Exponent,
-    ) -> (Handshake<G>, HandshakeProofVerifier<G>) {
+    ) -> Result<(Handshake<G>, HandshakeProofVerifier<G>)> {
         self.start_handshake_with_b(username, salt, verifier, b)
     }
 
@@ -131,8 +135,8 @@ impl<G: GroupOps> Srp6<G> {
         verifier: &HandshakeProofVerifier<G>,
         proof: &HandshakeProof<G>,
     ) -> Result<Proof> {
-        let a_field = proof.A.to_field(&self.group);
-        let verifier_field = verifier.user.verifier.to_field(&self.group);
+        let a_field = proof.A.to_field(&self.group)?;
+        let verifier_field = verifier.user.verifier.to_field(&self.group)?;
 
         let u = steps::scrambler_u(&self.group, &proof.A, &verifier.B);
         let v_u = self.group.field_pow(&verifier_field, &u);
@@ -174,9 +178,9 @@ impl<G: GroupOps> Srp6<G> {
         password: &str,
         a_exp: G::Exponent,
     ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
-        let b_field = handshake.B.to_field(&self.group);
-        let g_field = handshake.g.to_field(&self.group);
-        let k_field = handshake.k.to_field(&self.group);
+        let b_field = handshake.B.to_field(&self.group)?;
+        let g_field = handshake.g.to_field(&self.group)?;
+        let k_field = handshake.k.to_field(&self.group)?;
 
         let a_field = self.group.field_pow(&self.group.generator(), &a_exp);
         let a_public = PublicKey::from_field(&self.group, &a_field);

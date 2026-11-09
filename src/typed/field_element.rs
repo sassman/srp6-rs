@@ -56,10 +56,10 @@ impl<G: GroupOps> FieldElement<G> {
         }
     }
 
-    pub(crate) fn to_field(&self, group: &G) -> G::Field {
+    pub(crate) fn to_field(&self, group: &G) -> Result<G::Field> {
         group
             .field_from_bytes(&self.bytes)
-            .expect("the bytes were validated when the value was built")
+            .ok_or(Srp6Error::InvalidFieldElement)
     }
 }
 

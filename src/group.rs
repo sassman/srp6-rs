@@ -89,7 +89,7 @@ pub trait GroupOps: Group {
     type Exponent: Clone;
 
     fn generator(&self) -> Self::Field;
-    fn multiplier(&self) -> Self::Field;
+    fn multiplier(&self) -> crate::Result<Self::Field>;
 
     /// Decodes a big-endian value, refusing one that is 0 modulo N.
     fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field>;
@@ -157,9 +157,9 @@ macro_rules! closed_group {
                 $field::new(&<$uint>::from_u8($g))
             }
 
-            fn multiplier(&self) -> Self::Field {
+            fn multiplier(&self) -> crate::Result<Self::Field> {
                 self.field_from_bytes(&self.multiplier_bytes())
-                    .expect("the multiplier is not 0 mod N")
+                    .ok_or(crate::error::Srp6Error::InvalidFieldElement)
             }
 
             fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field> {

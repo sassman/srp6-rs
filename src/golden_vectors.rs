@@ -64,8 +64,9 @@ fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &S
     let srp = Srp6::new(group);
     let (salt, verifier) =
         srp.generate_new_user_secrets_with_fixed_salt(username, password, salt.clone());
-    let (handshake, server) =
-        srp.start_handshake_with_fixed_b(username, salt.clone(), verifier.clone(), b.clone());
+    let (handshake, server) = srp
+        .start_handshake_with_fixed_b(username, salt.clone(), verifier.clone(), b.clone())
+        .expect("the handshake starts");
     let (proof, client) = srp
         .calculate_proof_with_fixed_a(&handshake, username, password, a.clone())
         .expect("the client can prove");
@@ -80,11 +81,25 @@ fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &S
     let helper = G::default();
     let x = steps::private_key_x(&helper, username, password, &salt);
     let u = steps::scrambler_u(&helper, &proof.A, &handshake.B);
-    let v_field = verifier.to_field(&helper);
-    let a_field = proof.A.to_field(&helper);
-    let b_field = handshake.B.to_field(&helper);
-    let g_field = handshake.g.to_field(&helper);
-    let k_field = handshake.k.to_field(&helper);
+    let v_field = verifier
+        .to_field(&helper)
+        .expect("a validated field element");
+    let a_field = proof
+        .A
+        .to_field(&helper)
+        .expect("a validated field element");
+    let b_field = handshake
+        .B
+        .to_field(&helper)
+        .expect("a validated field element");
+    let g_field = handshake
+        .g
+        .to_field(&helper)
+        .expect("a validated field element");
+    let k_field = handshake
+        .k
+        .to_field(&helper)
+        .expect("a validated field element");
 
     let s_host = helper.field_pow(
         &helper.field_mul(&a_field, &helper.field_pow(&v_field, &u)),

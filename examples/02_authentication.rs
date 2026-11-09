@@ -22,8 +22,9 @@ fn main() {
     let user = mocked::lookup_user_details(&srp, &alice);
 
     // the server creates a handshake
-    let (handshake, proof_verifier) =
-        srp.start_handshake(&user.username, user.salt.clone(), user.verifier.clone());
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&user.username, user.salt.clone(), user.verifier.clone())
+        .expect("the handshake starts");
     println!(
         "## Simulating a Server and {} is our client.",
         user.username

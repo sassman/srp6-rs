@@ -10,7 +10,9 @@ fn round_trip<G: GroupOps>(group: G) {
     let srp = Srp6::new(group);
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-    let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
@@ -42,7 +44,9 @@ fn a_wrong_password_is_refused() {
     let srp = Srp6::new(Group2048);
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-    let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
     let (proof, _) = srp
         .calculate_proof(&handshake, &username, "wrong")
         .expect("the client can prove");
@@ -58,7 +62,8 @@ fn a_verifier_round_trips_through_its_bytes() {
     let salt = Salt::from(salt.to_vec());
     let verifier = Verifier::<Group2048>::from_bytes(&verifier.to_bytes())
         .expect("the verifier is a field element");
-    srp.start_handshake(&username, salt, verifier);
+    srp.start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
 }
 
 #[test]
@@ -90,7 +95,8 @@ fn hex_round_trips_through_the_boundary_types() {
     let salt = Salt::try_from_hex(&salt.to_string()).expect("the salt hex decodes");
     let verifier = Verifier::<Group2048>::try_from_hex(&verifier.to_string())
         .expect("the verifier hex decodes");
-    srp.start_handshake(&username, salt, verifier);
+    srp.start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
 }
 
 #[test]
@@ -141,7 +147,9 @@ fn the_strong_session_key_round_trips_through_hex() {
     let srp = Srp6::new(Group2048);
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-    let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
@@ -161,7 +169,9 @@ fn the_strong_session_key_is_two_hashes_wide() {
     let srp = Srp6::new(Group2048);
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-    let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");

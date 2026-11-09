@@ -14,7 +14,9 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
     assert_eq!(salt.as_bytes().len(), 256);
     assert_eq!(verifier.as_bytes().len(), 256);
 
-    let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
     assert_eq!(handshake.s.as_bytes().len(), 256);
 
     let (proof, strong_verifier) = srp

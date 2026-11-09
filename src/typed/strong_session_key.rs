@@ -26,6 +26,10 @@ impl StrongSessionKey {
         &self.0
     }
 
+    pub(crate) fn from_key(key: [u8; STRONG_SESSION_KEY_LENGTH]) -> Self {
+        Self(key)
+    }
+
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
     }

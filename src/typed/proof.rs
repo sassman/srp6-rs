@@ -5,7 +5,7 @@ use std::fmt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::hex::{decode_hex, write_hex, FromHexString};
-use crate::hash::HASH_LENGTH;
+use crate::hash::{Hash, HASH_LENGTH};
 use crate::{error::Srp6Error, Result};
 use subtle::ConstantTimeEq;
 
@@ -28,6 +28,10 @@ impl Proof {
 
     pub fn as_bytes(&self) -> &[u8; HASH_LENGTH] {
         &self.0
+    }
+
+    pub(crate) fn from_hash(hash: Hash) -> Self {
+        Self(hash)
     }
 
     pub fn to_vec(&self) -> Vec<u8> {

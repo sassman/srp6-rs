@@ -34,7 +34,7 @@ impl<G: GroupOps> PublicKey<G> {
         Self(FieldElement::from_field(group, value))
     }
 
-    pub(crate) fn to_field(&self, group: &G) -> G::Field {
+    pub(crate) fn to_field(&self, group: &G) -> Result<G::Field> {
         self.0.to_field(group)
     }
 }
