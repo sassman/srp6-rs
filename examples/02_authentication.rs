@@ -19,41 +19,45 @@ fn main() {
 
     // the server creates a handshake
     let (handshake, proof_verifier) = srp
-        .start_handshake(&user.username, user.salt.clone(), user.verifier.clone())
+        .start_handshake(
+            user.username(),
+            user.salt().clone(),
+            user.verifier().clone(),
+        )
         .expect("the handshake starts");
     println!(
         "## Simulating a Server and {} is our client.",
-        user.username
+        user.username()
     );
     println!("server secrets are:");
     printkeyln!("public key  [B]", proof_verifier.public_key());
     println!();
-    println!("## {}'s secrets", user.username);
-    printkeyln!("verifier [v]", user.verifier);
-    printkeyln!("salt     [s]", user.salt);
+    println!("## {}'s secrets", user.username());
+    printkeyln!("verifier [v]", user.verifier());
+    printkeyln!("salt     [s]", user.salt());
     println!();
-    println!("## {}'s handshake", user.username);
-    printkeyln!("salt               [s]", handshake.s);
+    println!("## {}'s handshake", user.username());
+    printkeyln!("salt               [s]", handshake.salt());
     printkeyln!("server public key  [B]", handshake.public_key());
     printkeyln!("prime modulus      [N]", Group4096.modulus());
-    printkeyln!("generator          [g]", handshake.g);
-    printkeyln!("multiplier         [k]", handshake.k);
+    printkeyln!("generator          [g]", handshake.generator());
+    printkeyln!("multiplier         [k]", handshake.multiplier());
     println!();
 
     // the client provides proof to the server
     let (proof, strong_proof_verifier) = srp
-        .calculate_proof(&handshake, &user.username, USER_PASSWORD)
+        .calculate_proof(&handshake, user.username(), USER_PASSWORD)
         .expect("the client can prove");
     assert_eq!(
-        proof.M1.as_bytes().len(),
+        proof.proof().as_bytes().len(),
         HASH_LENGTH,
         "sha1 or sha-512 hash length expected"
     );
     println!("### Next Step: sending this handshake to the client");
     println!();
-    println!("## Simulating client {}", user.username);
-    println!("### {}'s proof", user.username);
-    printkeyln!("proof      [M1]", proof.M1);
+    println!("## Simulating client {}", user.username());
+    println!("### {}'s proof", user.username());
+    printkeyln!("proof      [M1]", proof.proof());
     printkeyln!("public key  [A]", proof.public_key());
     println!();
 
@@ -65,10 +69,13 @@ fn main() {
     println!();
     println!(
         "## Simulating a Server and {} is our client.",
-        user.username
+        user.username()
     );
     printkeyln!("strong proof         [M2]", strong_proof);
-    printkeyln!("session key (server)  [K]", strong_proof_verifier.K);
+    printkeyln!(
+        "session key (server)  [K]",
+        strong_proof_verifier.session_key()
+    );
     println!();
     println!("[server] 🎉🥳🎊🍾🎈 Proof of the client successfully verified");
 
@@ -78,7 +85,7 @@ fn main() {
         .expect("the strong proof verifies");
     println!("### Next Step: sending this strong proof to the client");
     println!();
-    println!("## Simulating client {}", user.username);
+    println!("## Simulating client {}", user.username());
     printkeyln!("session key (client) [K]", session_key_client);
     println!();
     println!("[client] 🎉🥳🎊🍾🎈 Proof of the server successfully verified");
