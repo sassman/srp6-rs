@@ -74,17 +74,7 @@ pub trait Group: Default + sealed::Sealed {
     /// The prime modulus `N`, big-endian.
     fn modulus(&self) -> crate::Modulus<Self>
     where
-        Self: Sized,
-    {
-        crate::Modulus::from_bytes(self.modulus_bytes())
-    }
-
-    #[doc(hidden)]
-    fn modulus_bytes(&self) -> Vec<u8>;
-    #[doc(hidden)]
-    fn generator_bytes(&self) -> Vec<u8>;
-    #[doc(hidden)]
-    fn multiplier_bytes(&self) -> Vec<u8>;
+        Self: Sized;
 }
 
 /// The typed arithmetic behind [`Group`].
@@ -123,21 +113,18 @@ macro_rules! closed_group {
 
         impl sealed::Sealed for $name {}
 
-        impl Group for $name {
-            const N_BYTES: usize = $n_bytes;
-            const SALT_BYTES: usize = $salt_bytes;
-
-            fn modulus_bytes(&self) -> Vec<u8> {
+        impl $name {
+            pub(crate) fn modulus_bytes(&self) -> Vec<u8> {
                 <$uint>::from_be_hex($hex).to_be_bytes().to_vec()
             }
 
-            fn generator_bytes(&self) -> Vec<u8> {
+            pub(crate) fn generator_bytes(&self) -> Vec<u8> {
                 let mut bytes = vec![0_u8; $n_bytes];
                 bytes[$n_bytes - 1] = $g;
                 bytes
             }
 
-            fn multiplier_bytes(&self) -> Vec<u8> {
+            pub(crate) fn multiplier_bytes(&self) -> Vec<u8> {
                 match $k {
                     Some(k) => {
                         let mut bytes = vec![0_u8; $n_bytes];
@@ -146,14 +133,23 @@ macro_rules! closed_group {
                     }
                     None => {
                         let hash = HashFunc::new()
-                            .chain(&self.modulus_bytes())
-                            .chain(&self.generator_bytes())
+                            .chain(self.modulus_bytes())
+                            .chain(self.generator_bytes())
                             .finalize();
                         let mut bytes = vec![0_u8; $n_bytes];
                         bytes[$n_bytes - hash.len()..].copy_from_slice(&hash);
                         bytes
                     }
                 }
+            }
+        }
+
+        impl Group for $name {
+            const N_BYTES: usize = $n_bytes;
+            const SALT_BYTES: usize = $salt_bytes;
+
+            fn modulus(&self) -> crate::Modulus<Self> {
+                crate::Modulus::from_bytes(self.modulus_bytes())
             }
         }
 

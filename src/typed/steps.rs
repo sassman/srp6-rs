@@ -119,13 +119,14 @@ pub(crate) fn proof_m2<G: GroupOps>(a: &PublicKey<G>, m1: &Proof, k: &StrongSess
 }
 
 fn hash_n_xor_g<G: GroupOps>(group: &G) -> Hash {
-    let mut n_hash: Hash = HashFunc::new()
-        .chain(group.modulus_bytes())
-        .finalize()
-        .into();
+    let modulus = group.modulus();
+    let mut n_hash: Hash = HashFunc::new().chain(modulus.as_bytes()).finalize().into();
+
     // RFC 5054 hashes N at full width and g in its minimal form.
+    let generator = group.generator();
+    let generator_bytes = group.field_to_bytes(&generator);
     let g_hash: Hash = HashFunc::new()
-        .chain(trim_leading_zeroes(&group.generator_bytes()))
+        .chain(trim_leading_zeroes(&generator_bytes))
         .finalize()
         .into();
 
