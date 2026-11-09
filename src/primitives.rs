@@ -191,9 +191,6 @@ fn a_raw_key_round_trips_through_wire_bytes() {
 #[doc(alias("a", "b", "x"))]
 pub type PrivateKey = BigNumber;
 
-/// A pair of [`PublicKey`] B and [`PrivateKey`] b
-pub type KeyPair = (PublicKey, PrivateKey);
-
 /// Password Verifier is the users secret on the server side
 #[doc(alias = "v")]
 pub type PasswordVerifier = BigNumber;
@@ -555,9 +552,4 @@ pub fn calculate_k<const KEY_LENGTH: usize>(
 /// [`PrivateKey`] `a` or `b` is in fact just a big (positive) random number
 pub fn generate_private_key<const KEY_LENGTH: usize>() -> PrivateKey {
     PrivateKey::new_rand(KEY_LENGTH)
-}
-
-/// [`Salt`] `s` is a random number
-pub fn generate_salt<const SALT_LENGTH: usize>() -> Salt {
-    Salt::new_rand(SALT_LENGTH)
 }
