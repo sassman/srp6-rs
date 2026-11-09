@@ -389,7 +389,7 @@ pub fn calculate_password_verifier_v(
     PasswordVerifier::from_bytes_be(&field_bytes(&v))
 }
 
-/// `u` is the hash of host's [`PublicKey`][`crate::rfc_lingo::A`] and client's [`PublicKey`][`crate::rfc_lingo::B`]
+/// `u` is the hash of the host's public key `A` and the client's public key `B`
 /// formula: `H(PAD(A) | PAD(B))`
 /// The Padding is based on the key length, e.g. if N is 1024 bit, the padding is 128 bytes
 #[allow(non_snake_case)]
@@ -403,7 +403,7 @@ pub(crate) fn calculate_u_len(A: &PublicKey, B: &PublicKey, n_bytes: usize) -> B
     hash_w_pad_len(A.as_bignum(), B.as_bignum(), n_bytes)
 }
 
-/// [`A`][`crate::rfc_lingo::A`] is the [`PublicKey`] of the client
+/// `A` is the [`PublicKey`] of the client
 /// formula: `A = g^a % N`
 ///
 /// # Errors
@@ -420,7 +420,7 @@ pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> Re
     PublicKey::new(BigNumber::from_bytes_be(&field_bytes(&public)), N)
 }
 
-/// [`PublicKey`][`crate::rfc_lingo::B`] is the hosts public key
+/// `B` is the host's public key
 /// `B = kv + g^b`
 ///
 /// # Errors

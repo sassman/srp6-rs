@@ -3,42 +3,41 @@
 ///  - `Username` is referred to as `I`
 ///  - `ClearTextPassword` is referred to as `P`
 ///  - `Salt` is referred to as `s`
-use crate::primitives::*;
-use crate::{ClearTextPassword, Username};
+///
+/// Each alias names the typed handshake type; `a`, `b`, `x`, `u` and `S` stay
+/// private, so they have no alias.
+use crate::{
+    ClearTextPassword, FieldElement, Proof, PublicKey, Salt, StrongSessionKey, Username, Verifier,
+};
 
-pub type N = PrimeModulus;
+/// The prime modulus `N` is carried by the group type, not by a number.
+pub type N<G> = G;
+
+/// The generator `g` of the group.
+#[allow(non_camel_case_types)]
+pub type g<G> = FieldElement<G>;
+
+pub type A<G> = PublicKey<G>;
+
+pub type B<G> = PublicKey<G>;
 
 #[allow(non_camel_case_types)]
-pub type g = Generator;
+pub type v<G> = Verifier<G>;
 
-pub type A = PublicKey;
-
-pub type B = PublicKey;
-
+/// The multiplier parameter `k`.
 #[allow(non_camel_case_types)]
-pub type a = PrivateKey;
+pub type k<G> = FieldElement<G>;
 
-#[allow(non_camel_case_types)]
-pub type b = PrivateKey;
-
-#[allow(non_camel_case_types)]
-pub type x = PrivateKey;
-
-#[allow(non_camel_case_types)]
-pub type v = PasswordVerifier;
-
-#[allow(non_camel_case_types)]
-pub type k = MultiplierParameter;
-
-pub type S = SessionKey;
 pub type K = StrongSessionKey;
 
-pub type M1 = Proof;
 pub type M = Proof;
 
-pub type M2 = StrongProof;
+pub type M1 = Proof;
+
+pub type M2 = Proof;
 
 pub type I = Username;
+
 pub type P = ClearTextPassword;
 
 #[allow(non_camel_case_types)]

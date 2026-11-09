@@ -1,8 +1,8 @@
 use crate::big_number::BigNumber;
 use crate::credentials::{ClearTextPassword, Username};
+use crate::group::{Group as _, Group1024};
 use crate::hash::HASH_LENGTH;
 use crate::primitives::*;
-use crate::rfc_5054_appendix_a::group_1024_bit;
 use crate::typed::FromHexString;
 
 /// This test is based on the test vectors from [RFC5054 Appendix B](https://datatracker.ietf.org/doc/html/rfc5054#appendix-B)
@@ -18,8 +18,8 @@ fn test_appendix_b_srp_test_vectors() {
     const SALT_LENGTH: usize = 16;
     assert_eq!(SALT_LENGTH, s.num_bytes(), "Salt length is not correct");
 
-    let N = group_1024_bit::N();
-    let g = group_1024_bit::g();
+    let N = PrimeModulus::from_bytes_be(&Group1024.modulus_bytes());
+    let g = Generator::from_bytes_be(&Group1024.generator_bytes());
 
     let k =
         MultiplierParameter::try_from_hex("7556AA04 5AEF2CDD 07ABAF0F 665C3E81 8913186F").unwrap();
