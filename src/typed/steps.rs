@@ -194,4 +194,9 @@ mod tests {
 
         assert_ne!(with_zero, without_zero);
     }
+
+    #[test]
+    fn trimming_an_all_zero_generator_leaves_one_zero() {
+        assert_eq!(trim_leading_zeroes(&[0, 0, 0]), [0_u8].as_slice());
+    }
 }

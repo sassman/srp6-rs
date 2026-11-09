@@ -153,6 +153,20 @@ impl TryFrom<String> for Username {
 mod username_tests {
     use super::*;
 
+    #[test]
+    fn should_expose_its_text_forms() {
+        let username = Username::new("alice").unwrap();
+
+        #[cfg(feature = "wow-1-12-1")]
+        let expected = "ALICE";
+        #[cfg(not(feature = "wow-1-12-1"))]
+        let expected = "alice";
+
+        assert_eq!(&*username, expected);
+        assert_eq!(username.as_ref(), expected);
+        assert_eq!(username.to_string(), expected);
+    }
+
     /// The WoW flavour uppercases, so it asserts its own form in
     /// `should_uppercase_for_wow` below.
     #[cfg(not(feature = "wow-1-12-1"))]

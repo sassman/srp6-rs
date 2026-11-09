@@ -270,6 +270,20 @@ mod tests {
         assert_eq!(&encoded[encoded.len() - bytes.len()..], bytes.as_slice());
     }
 
+    #[test]
+    fn an_over_width_exponent_keeps_the_low_bytes() {
+        let group = Group1024;
+        let width = group
+            .exponent_to_bytes(&group.exponent_from_bytes(&[]))
+            .len();
+        let mut bytes = vec![0xAA_u8; width + 1];
+        bytes[0] = 0x11;
+
+        let exponent = group.exponent_from_bytes(&bytes);
+
+        assert_eq!(group.exponent_to_bytes(&exponent), bytes[1..].to_vec());
+    }
+
     /// The const field must reproduce the dynamic verifier for the same x.
     macro_rules! const_group_matches_dynamic {
         ($name:ident, $field:ident, $uint:ident, $g:expr, $group:ident) => {

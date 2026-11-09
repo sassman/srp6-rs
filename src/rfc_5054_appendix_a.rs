@@ -36,3 +36,19 @@ appendix_group!(group_3072_bit, Group3072, Srp6_3072);
 appendix_group!(group_4096_bit, Group4096, Srp6_4096);
 appendix_group!(group_6144_bit, Group6144, Srp6_6144);
 appendix_group!(group_8192_bit, Group8192, Srp6_8192);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_historical_group_modules_expose_the_default_handshake() {
+        assert_eq!(group_1024_bit::values().n_bytes(), 128);
+        assert_eq!(group_1536_bit::values().n_bytes(), 192);
+        assert_eq!(group_2048_bit::values().n_bytes(), 256);
+        assert_eq!(group_3072_bit::values().n_bytes(), 384);
+        assert_eq!(group_4096_bit::values().n_bytes(), 512);
+        assert_eq!(group_6144_bit::values().n_bytes(), 768);
+        assert_eq!(group_8192_bit::values().n_bytes(), 1024);
+    }
+}
