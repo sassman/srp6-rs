@@ -27,48 +27,48 @@ mod scrambler;
 mod session_key;
 mod verifier;
 
-pub use multiplier::*;
-pub use private_key::*;
-pub use proof::*;
-pub use public_key::*;
-pub use scrambler::*;
-pub use session_key::*;
-pub use verifier::*;
+pub(crate) use multiplier::*;
+pub(crate) use private_key::*;
+pub(crate) use proof::*;
+pub(crate) use public_key::*;
+pub(crate) use scrambler::*;
+pub(crate) use session_key::*;
+pub(crate) use verifier::*;
 
 /// Refers to a large safe prime called `N` (`N = 2q+1`, where `q` is prime)
 #[doc(alias = "N")]
-pub type PrimeModulus = BigNumber;
+pub(crate) type PrimeModulus = BigNumber;
 
 /// Refers to the modulus generator `g`
 #[doc(alias = "g")]
-pub type Generator = BigNumber;
+pub(crate) type Generator = BigNumber;
 
 /// Refers to a User's salt called `s`
 #[doc(alias = "s")]
-pub type Salt = BigNumber;
+pub(crate) type Salt = BigNumber;
 
 /// Refers to a private secret random number a (user), b (server)
 #[doc(alias("a", "b", "x"))]
-pub type PrivateKey = BigNumber;
+pub(crate) type PrivateKey = BigNumber;
 
 /// Password Verifier is the users secret on the server side
 #[doc(alias = "v")]
-pub type PasswordVerifier = BigNumber;
+pub(crate) type PasswordVerifier = BigNumber;
 
 /// Refers to a multiplier parameter `k` (k = H(N, g) in SRP-6a, k = 3 for legacy SRP-6)
 #[doc(alias = "k")]
-pub type MultiplierParameter = BigNumber;
+pub(crate) type MultiplierParameter = BigNumber;
 
 /// Refers to the SessionKey `S`
 #[doc(alias = "S")]
-pub type SessionKey = BigNumber;
+pub(crate) type SessionKey = BigNumber;
 /// Refers to the StrongSessionKey `K`
 #[doc(alias = "K")]
-pub type StrongSessionKey = BigNumber;
+pub(crate) type StrongSessionKey = BigNumber;
 
 /// Refers to `M` and `M1` Proof of server and client
 #[doc(alias("M", "M1"))]
-pub type Proof = BigNumber;
+pub(crate) type Proof = BigNumber;
 /// Refers to `M2` the hash of Proof
 #[doc(alias = "M2")]
-pub type StrongProof = BigNumber;
+pub(crate) type StrongProof = BigNumber;

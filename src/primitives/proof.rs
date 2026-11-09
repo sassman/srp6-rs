@@ -3,7 +3,7 @@ use crate::credentials::UsernameRef;
 use crate::hash::*;
 
 #[allow(non_snake_case)]
-pub fn calculate_proof_M<const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
+pub(crate) fn calculate_proof_M<const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
     N: &PrimeModulus,
     g: &Generator,
     I: UsernameRef,
@@ -48,7 +48,7 @@ pub(crate) fn calculate_proof_M_len(
 /// todo(verify): check if padding is needed or not
 /// formula: `H(A | M | K)`
 #[allow(non_snake_case)]
-pub fn calculate_strong_proof_M2<const KEY_LENGTH: usize>(
+pub(crate) fn calculate_strong_proof_M2<const KEY_LENGTH: usize>(
     A: &PublicKey,
     M: &Proof,
     K: &StrongSessionKey,
@@ -75,8 +75,8 @@ pub(crate) fn calculate_strong_proof_M2_len(
 ///
 /// ```plain
 /// M = H(H(N) xor H(g), H(I), s, A, B, K)
-///       `````````````
-///                    // this portion is calculated here
+///       ^^^^^^^^^^^^^
+///              \ this portion we are talking about
 /// ```
 #[allow(non_snake_case)]
 fn calculate_hash_N_xor_g_len(N: &PrimeModulus, g: &Generator, key_bytes: usize) -> Hash {

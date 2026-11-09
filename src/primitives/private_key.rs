@@ -4,15 +4,19 @@ use crate::hash::*;
 
 /// `x` is the users private key (only they know)
 ///
-/// I:  Username                (validated, and uppercased for WoW, by [`Username::new`])
-/// p:  Cleartext Password      (is uppercased for WoW)
+/// I:  Username
+/// p:  Cleartext Password
 /// s:  User's salt
 /// x:  Private key             (derived from p and s)
 /// ph = H(I, ':', p)           (':' is a string literal)
 /// x = H(s, ph)                (s is chosen randomly)
 #[allow(non_snake_case)]
 #[allow(dead_code)]
-pub fn calculate_private_key_x(I: UsernameRef, p: ClearTextPasswordRef, s: &Salt) -> PrivateKey {
+pub(crate) fn calculate_private_key_x(
+    I: UsernameRef,
+    p: ClearTextPasswordRef,
+    s: &Salt,
+) -> PrivateKey {
     let ph = calculate_p_hash(I, p);
 
     PrivateKey::from_bytes_be(
@@ -27,7 +31,7 @@ pub fn calculate_private_key_x(I: UsernameRef, p: ClearTextPasswordRef, s: &Salt
 /// hashes the user and the password (used for client private key `x`)
 /// formula: `H(I ":" p)`
 #[allow(non_snake_case)]
-pub fn calculate_p_hash(I: UsernameRef, p: ClearTextPasswordRef) -> Hash {
+pub(crate) fn calculate_p_hash(I: UsernameRef, p: ClearTextPasswordRef) -> Hash {
     // WoW's 1.12.1 client also uppercases the password before hashing.
     // Username normalisation (uppercasing) now happens once, at
     // construction time, in `Username::new`, so it must not be
@@ -37,8 +41,6 @@ pub fn calculate_p_hash(I: UsernameRef, p: ClearTextPasswordRef) -> Hash {
     // uppercasing still has to happen here, at the point of use.
     #[cfg(feature = "wow-1-12-1")]
     let p: String = p.to_uppercase();
-    #[cfg(not(feature = "wow-1-12-1"))]
-    let p: &str = p;
 
     HashFunc::new()
         .chain(I.as_bytes())

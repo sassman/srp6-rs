@@ -14,7 +14,7 @@ use crate::{error::Srp6Error, Result};
 /// of `N`) in a value of this type.
 #[doc(alias("A", "B"))]
 #[derive(Debug, Clone, PartialEq)]
-pub struct PublicKey(BigNumber);
+pub(crate) struct PublicKey(BigNumber);
 
 impl PublicKey {
     /// Validates `value` and wraps it into a [`PublicKey`].
@@ -25,7 +25,7 @@ impl PublicKey {
     /// shared session key to a value it already knows. This constructor is
     /// the only way to obtain a [`PublicKey`], so that guarantee holds for
     /// every value of this type, not just the ones checked right before use.
-    pub fn new(value: BigNumber, n: &PrimeModulus) -> Result<Self> {
+    pub(crate) fn new(value: BigNumber, n: &PrimeModulus) -> Result<Self> {
         if is_zero_mod(&value, n) {
             return Err(Srp6Error::InvalidPublicKey(value.to_vec()));
         }
@@ -39,14 +39,14 @@ impl PublicKey {
     }
 
     /// Big-endian bytes. See [`BigNumber::to_vec`].
-    pub fn to_vec(&self) -> Vec<u8> {
+    pub(crate) fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
     }
 
     /// Access to the inner [`BigNumber`] for arithmetic. Deliberately not a
     /// [`std::ops::Deref`] impl, so the wrapper stays visible wherever the
     /// number is used.
-    pub fn as_bignum(&self) -> &BigNumber {
+    pub(crate) fn as_bignum(&self) -> &BigNumber {
         &self.0
     }
 }
@@ -67,7 +67,11 @@ impl Display for PublicKey {
 /// `N = 4, g = 2, a = 2` the result is 0. Constructing through
 /// [`PublicKey::new`] keeps that a `Result` rather than a panic.
 #[allow(non_snake_case)]
-pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> Result<PublicKey> {
+pub(crate) fn calculate_pubkey_A(
+    N: &PrimeModulus,
+    g: &Generator,
+    a: &PrivateKey,
+) -> Result<PublicKey> {
     let params = monty_params(N);
     let public = field(g, &params).pow(a.as_boxed_uint());
 
@@ -84,7 +88,7 @@ pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> Re
 /// and the client rejects such a `B` on receipt anyway, but the host
 /// should not hand one out: draw a fresh `b` and call again.
 #[allow(non_snake_case)]
-pub fn calculate_pubkey_B(
+pub(crate) fn calculate_pubkey_B(
     N: &PrimeModulus,
     k: &MultiplierParameter,
     g: &Generator,

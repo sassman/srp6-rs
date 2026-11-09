@@ -1,10 +1,10 @@
 use super::{Generator, MultiplierParameter, PrimeModulus};
 use crate::hash::*;
 
-/// `k = H(N | PAD(g))` (k = 3 for legacy SRP-6)
+/// `k = H(N | PAD(g))`
 #[allow(non_snake_case)]
 #[cfg(not(feature = "wow-1-12-1"))]
-pub fn calculate_k<const KEY_LENGTH: usize>(
+pub(crate) fn calculate_k<const KEY_LENGTH: usize>(
     N: &PrimeModulus,
     g: &Generator,
 ) -> MultiplierParameter {
@@ -16,7 +16,7 @@ pub fn calculate_k<const KEY_LENGTH: usize>(
 
 /// `k = H(N | PAD(g))` (k = 3 for legacy SRP-6)
 #[cfg(feature = "wow-1-12-1")]
-pub fn calculate_k<const KEY_LENGTH: usize>(
+pub(crate) fn calculate_k<const KEY_LENGTH: usize>(
     _: &PrimeModulus,
     _: &Generator,
 ) -> MultiplierParameter {

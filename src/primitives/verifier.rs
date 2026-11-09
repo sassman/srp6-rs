@@ -9,7 +9,7 @@ use super::{Generator, PasswordVerifier, PrimeModulus, PrivateKey};
 /// `N`:  A large safe prime (N = 2q+1, where q is prime)
 /// formula: `v = g^x % N`
 #[allow(non_snake_case)]
-pub fn calculate_password_verifier_v(
+pub(crate) fn calculate_password_verifier_v(
     N: &PrimeModulus,
     g: &Generator,
     x: &PrivateKey,

@@ -6,7 +6,7 @@ use crate::hash::*;
 /// formula: `H(PAD(A) | PAD(B))`
 /// The Padding is based on the key length, e.g. if N is 1024 bit, the padding is 128 bytes
 #[allow(non_snake_case)]
-pub fn calculate_u<const N_BYTE_LEN: usize>(A: &PublicKey, B: &PublicKey) -> BigNumber {
+pub(crate) fn calculate_u<const N_BYTE_LEN: usize>(A: &PublicKey, B: &PublicKey) -> BigNumber {
     calculate_u_len(A, B, N_BYTE_LEN)
 }
 

@@ -16,7 +16,7 @@ use crate::{error::Srp6Error, Result};
 /// u = H(A, B)
 /// S = (Av^u) ^ b
 #[allow(non_snake_case)]
-pub fn calculate_session_key_S_for_host<const N_BYTE_LEN: usize>(
+pub(crate) fn calculate_session_key_S_for_host<const N_BYTE_LEN: usize>(
     N: &PrimeModulus,
     A: &PublicKey,
     B: &PublicKey,
@@ -48,7 +48,7 @@ pub fn calculate_session_key_S_for_host<const N_BYTE_LEN: usize>(
 ///   - `S = (B - (k * v)) ^ (a + (u * x)) % N`
 #[allow(non_snake_case)]
 #[allow(clippy::many_single_char_names)]
-pub fn calculate_session_key_S_for_client<const N_BYTE_LEN: usize>(
+pub(crate) fn calculate_session_key_S_for_client<const N_BYTE_LEN: usize>(
     N: &PrimeModulus,
     k: &MultiplierParameter,
     g: &Generator,
@@ -80,7 +80,7 @@ pub fn calculate_session_key_S_for_client<const N_BYTE_LEN: usize>(
 /// S: is the session key of a user
 /// K: is the hash of S, just not that straight
 #[allow(non_snake_case)]
-pub fn calculate_session_key_hash_interleave_K<const N_BYTE_LEN: usize>(
+pub(crate) fn calculate_session_key_hash_interleave_K<const N_BYTE_LEN: usize>(
     S: &SessionKey,
 ) -> StrongSessionKey {
     calculate_session_key_hash_interleave_K_len(S, N_BYTE_LEN)
