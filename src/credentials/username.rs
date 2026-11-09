@@ -1,6 +1,3 @@
-//! The credential types a caller supplies: the username `I` and the
-//! cleartext password `p`. They sit at the boundary, not in the field calculus.
-
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use thiserror::Error;
@@ -151,11 +148,6 @@ impl TryFrom<String> for Username {
         Self::new(s)
     }
 }
-
-/// Clear text password `p` as [`str`]
-#[doc(alias("P", "p"))]
-pub type ClearTextPassword = String;
-pub type ClearTextPasswordRef<'a> = &'a str;
 
 #[cfg(test)]
 mod username_tests {

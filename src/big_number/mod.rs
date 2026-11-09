@@ -1,7 +1,4 @@
-// The facade is named for the type and re-exported below; the nesting never
-// reaches call sites.
-#[allow(clippy::module_inception)]
-pub(crate) mod big_number;
 pub(crate) mod crypto;
+pub(crate) mod value;
 
-pub(crate) use big_number::*;
+pub(crate) use value::*;
