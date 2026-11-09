@@ -46,7 +46,7 @@ impl Default for BigNumber {
 
 impl BigNumber {
     /// `raw` is expected to be big endian
-    pub(crate) fn from_bytes_be(raw: &[u8]) -> Self {
+    pub fn from_bytes_be(raw: &[u8]) -> Self {
         Self(Inner::from_bytes_be(raw))
     }
 
@@ -55,7 +55,7 @@ impl BigNumber {
     ///    -> Low
     ///  "123acab"
     /// This method strips all non alphanumerical, So block formats are also supported.
-    pub(crate) fn from_hex_str_be(str: &str) -> std::result::Result<Self, BigNumberError> {
+    pub fn from_hex_str_be(str: &str) -> std::result::Result<Self, BigNumberError> {
         let str = str
             .chars()
             .filter(|c| c.is_alphanumeric())
@@ -79,27 +79,27 @@ impl BigNumber {
         Ok(Self::from_bytes_be(&bytes_be))
     }
 
-    pub(crate) fn num_bytes(&self) -> usize {
+    pub fn num_bytes(&self) -> usize {
         self.0.num_bytes()
     }
 
     /// The magnitude, for the runtime-modulus math in `primitives`.
-    pub(crate) fn as_boxed_uint(&self) -> &BoxedUint {
+    pub fn as_boxed_uint(&self) -> &BoxedUint {
         self.0.as_boxed_uint()
     }
 
     /// returns the byte vec in little endian byte order
-    pub(crate) fn to_vec(&self) -> Vec<u8> {
+    pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
     }
 
     /// the counter part of `::to_vec()`
-    pub(crate) fn from_vec(data: &[u8]) -> Self {
+    pub fn from_vec(data: &[u8]) -> Self {
         Self::from_bytes_be(data)
     }
 
     /// The runtime-length form of [`BigNumber::to_array_pad_zero`].
-    pub(crate) fn to_array_pad_zero_len(&self, len: usize) -> Vec<u8> {
+    pub fn to_array_pad_zero_len(&self, len: usize) -> Vec<u8> {
         let pad = self.num_bytes().max(len);
 
         let unpadded = self.to_vec();

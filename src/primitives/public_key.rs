@@ -25,7 +25,7 @@ impl PublicKey {
     /// shared session key to a value it already knows. This constructor is
     /// the only way to obtain a [`PublicKey`], so that guarantee holds for
     /// every value of this type, not just the ones checked right before use.
-    pub(crate) fn new(value: BigNumber, n: &PrimeModulus) -> Result<Self> {
+    pub fn new(value: BigNumber, n: &PrimeModulus) -> Result<Self> {
         if is_zero_mod(&value, n) {
             return Err(Srp6Error::InvalidPublicKey(value.to_vec()));
         }
@@ -34,19 +34,19 @@ impl PublicKey {
     }
 
     /// The runtime-length form of [`BigNumber::to_array_pad_zero`].
-    pub(crate) fn to_array_pad_zero_len(&self, len: usize) -> Vec<u8> {
+    pub fn to_array_pad_zero_len(&self, len: usize) -> Vec<u8> {
         self.0.to_array_pad_zero_len(len)
     }
 
     /// Big-endian bytes. See [`BigNumber::to_vec`].
-    pub(crate) fn to_vec(&self) -> Vec<u8> {
+    pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
     }
 
     /// Access to the inner [`BigNumber`] for arithmetic. Deliberately not a
     /// [`std::ops::Deref`] impl, so the wrapper stays visible wherever the
     /// number is used.
-    pub(crate) fn as_bignum(&self) -> &BigNumber {
+    pub fn as_bignum(&self) -> &BigNumber {
         &self.0
     }
 }
