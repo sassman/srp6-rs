@@ -35,7 +35,8 @@ pub trait FromHexString: Sized {
     fn try_from_hex(hex: &str) -> Result<Self>;
 }
 
-/// Decodes base-16 into bytes, preserving leading zero bytes.
+/// Decodes base-16 into bytes, preserving leading zero bytes. ASCII
+/// whitespace, including `\n` and `\r`, is stripped first.
 fn decode_hex(hex: &str) -> Result<Vec<u8>> {
     let compact: String = hex.chars().filter(|c| !c.is_ascii_whitespace()).collect();
 
@@ -689,6 +690,20 @@ mod tests {
         let salt = Salt::try_from_hex("00ab").expect("valid hex");
         assert_eq!(salt.as_bytes(), &[0x00, 0xAB]);
         assert_eq!(salt.to_string(), "00AB");
+    }
+
+    #[test]
+    fn hex_decoding_strips_whitespace_between_octlets() {
+        let contiguous = Salt::try_from_hex("00ABCDEF").expect("valid hex");
+
+        assert_eq!(
+            contiguous,
+            Salt::try_from_hex("00 AB CD EF").expect("spaces between octlets")
+        );
+        assert_eq!(
+            contiguous,
+            Salt::try_from_hex("\r\n00\tAB\r\nCD EF\n").expect("CRLF and tabs")
+        );
     }
 
     #[test]
