@@ -18,7 +18,13 @@ use crate::credentials::Username;
 use crate::group::Group;
 #[cfg(feature = "wow-1-12-1")]
 use crate::group::GroupWow;
-use crate::primitives::*;
+use crate::primitives::{
+    calculate_password_verifier_v, calculate_private_key_x, calculate_proof_M, calculate_pubkey_A,
+    calculate_pubkey_B, calculate_session_key_S_for_client, calculate_session_key_S_for_host,
+    calculate_session_key_hash_interleave_K, calculate_strong_proof_M2, Generator, PrimeModulus,
+    PrivateKey, SessionKey,
+};
+use crate::typed::{FromHexString, Salt};
 
 /// The RFC 5054 appendix B salt, reused here so the vectors have one fixed input.
 const SALT_HEX: &str = "BEB25379D1A8581EB5A727673A2441EE";
@@ -45,10 +51,11 @@ fn snapshot<G: Group, const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
     let g = Generator::from_bytes_be(&group.generator_bytes());
     let k_multiplier = Generator::from_bytes_be(&group.multiplier_bytes());
 
-    let x = calculate_private_key_x(username, password, salt);
+    let salt_number = BigNumber::from_bytes_be(salt.as_bytes());
+    let x = calculate_private_key_x(username, password, &salt_number);
     let v = calculate_password_verifier_v(&N, &g, &x);
-    let a = PrivateKey::from_hex_str_be(PRIVATE_A_HEX).expect("valid hex");
-    let b = PrivateKey::from_hex_str_be(PRIVATE_B_HEX).expect("valid hex");
+    let a = PrivateKey::try_from_hex(PRIVATE_A_HEX).expect("valid hex");
+    let b = PrivateKey::try_from_hex(PRIVATE_B_HEX).expect("valid hex");
 
     let A = calculate_pubkey_A(&N, &g, &a).expect("A is not 0 mod N");
     let B = calculate_pubkey_B(&N, &k_multiplier, &g, &v, &b).expect("B is not 0 mod N");
@@ -61,7 +68,8 @@ fn snapshot<G: Group, const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
     assert_eq!(s_host, s_client, "both sides must derive the same S");
 
     let k = calculate_session_key_hash_interleave_K::<N_BYTE_LEN>(&s_host);
-    let m1 = calculate_proof_M::<N_BYTE_LEN, SALT_LENGTH>(&N, &g, username, salt, &A, &B, &k);
+    let m1 =
+        calculate_proof_M::<N_BYTE_LEN, SALT_LENGTH>(&N, &g, username, &salt_number, &A, &B, &k);
     let m2 = calculate_strong_proof_M2::<N_BYTE_LEN>(&A, &m1, &k);
 
     let mut out = String::new();
@@ -77,7 +85,7 @@ fn snapshot<G: Group, const N_BYTE_LEN: usize, const SALT_LENGTH: usize>(
 }
 
 fn salt() -> Salt {
-    Salt::from_hex_str_be(SALT_HEX).expect("valid hex")
+    Salt::try_from_hex(SALT_HEX).expect("valid hex")
 }
 
 #[cfg(not(feature = "hash-sha1"))]
@@ -168,7 +176,7 @@ fn golden_wow_sha1() {
 #[cfg(not(feature = "hash-sha1"))]
 #[test]
 fn interleave_pads_a_session_key_with_a_zero_low_byte() {
-    let s = SessionKey::from_hex_str_be(
+    let s = SessionKey::try_from_hex(
         "00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788",
     )
     .expect("valid hex");
@@ -184,7 +192,7 @@ fn interleave_pads_a_session_key_with_a_zero_low_byte() {
 #[cfg(feature = "hash-sha1")]
 #[test]
 fn interleave_pads_a_session_key_with_a_zero_low_byte() {
-    let s = SessionKey::from_hex_str_be(
+    let s = SessionKey::try_from_hex(
         "00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788",
     )
     .expect("valid hex");
@@ -201,11 +209,9 @@ fn interleave_pads_a_session_key_with_a_zero_low_byte() {
 /// zero-padded array.
 #[test]
 fn text_and_byte_formats_do_not_move() {
-    let value = BigNumber::from_hex_str_be("BEB25379 D1A8581E B5A72767 3A2441EE").unwrap();
-    assert_eq!(
-        value,
-        Salt::from_hex_str_be("BEB25379D1A8581EB5A727673A2441EE").unwrap()
-    );
+    let value = BigNumber::try_from_hex("BEB25379 D1A8581E B5A72767 3A2441EE").unwrap();
+    let salt = Salt::try_from_hex("BEB25379D1A8581EB5A727673A2441EE").unwrap();
+    assert_eq!(value.to_vec().as_slice(), salt.as_bytes());
     let padded = value.to_array_pad_zero::<32>();
     assert_eq!(padded.len(), 32);
     assert_eq!(&padded[..16], &[0_u8; 16]);
@@ -226,7 +232,7 @@ fn regenerate_golden() {
         std::fs::write(format!("{dir}/2048-sha512.txt"), vectors_2048_sha512()).unwrap();
         std::fs::write(format!("{dir}/4096-sha512.txt"), vectors_4096_sha512()).unwrap();
 
-        let s = SessionKey::from_hex_str_be(
+        let s = SessionKey::try_from_hex(
             "00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788",
         )
         .unwrap();
@@ -239,7 +245,7 @@ fn regenerate_golden() {
 
     #[cfg(feature = "hash-sha1")]
     {
-        let s = SessionKey::from_hex_str_be(
+        let s = SessionKey::try_from_hex(
             "00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788",
         )
         .unwrap();

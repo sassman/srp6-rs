@@ -56,6 +56,12 @@ fn decode_hex(hex: &str) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
+impl FromHexString for BigNumber {
+    fn try_from_hex(hex: &str) -> Result<Self> {
+        BigNumber::try_from(hex).map_err(|_| Srp6Error::InvalidHexString)
+    }
+}
+
 /// A salt, as generated, stored and sent to the client.
 ///
 /// Any byte string is a valid salt; [`Group::SALT_BYTES`] only fixes what
@@ -337,6 +343,17 @@ impl<'de> Deserialize<'de> for Proof {
 pub struct StrongSessionKey([u8; STRONG_SESSION_KEY_LENGTH]);
 
 impl StrongSessionKey {
+    /// Decodes `bytes`, which must be exactly `STRONG_SESSION_KEY_LENGTH` long.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        let bytes: [u8; STRONG_SESSION_KEY_LENGTH] =
+            bytes.try_into().map_err(|_| Srp6Error::KeyLengthMismatch {
+                given: bytes.len(),
+                expected: STRONG_SESSION_KEY_LENGTH,
+            })?;
+
+        Ok(Self(bytes))
+    }
+
     pub fn as_bytes(&self) -> &[u8; STRONG_SESSION_KEY_LENGTH] {
         &self.0
     }
@@ -346,12 +363,14 @@ impl StrongSessionKey {
     }
 
     pub(crate) fn from_big_number(value: &BigNumber) -> Self {
-        let padded = value.to_array_pad_zero_len(STRONG_SESSION_KEY_LENGTH);
-        let bytes: [u8; STRONG_SESSION_KEY_LENGTH] = padded
-            .try_into()
-            .expect("the interleaved key is exactly two hashes wide");
+        Self::from_bytes(&value.to_array_pad_zero_len(STRONG_SESSION_KEY_LENGTH))
+            .expect("the interleaved key is exactly two hashes wide")
+    }
+}
 
-        Self(bytes)
+impl FromHexString for StrongSessionKey {
+    fn try_from_hex(hex: &str) -> Result<Self> {
+        Self::from_bytes(&decode_hex(hex)?)
     }
 }
 
@@ -741,6 +760,33 @@ mod tests {
         assert!(Salt::try_from_hex("é0").is_err());
         assert!(Proof::try_from_hex("00").is_err());
         assert!(Verifier::<Group2048>::try_from_hex("00").is_err());
+    }
+
+    #[test]
+    fn the_strong_session_key_round_trips_through_hex() {
+        let srp = Srp6::new(Group2048);
+        let username = Username::new("alice").expect("valid username");
+        let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+        let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
+        let (proof, strong_verifier) = srp
+            .calculate_proof(&handshake, &username, "password123")
+            .expect("the client can prove");
+        let m2 = srp
+            .verify_proof(&proof_verifier, &proof)
+            .expect("the proof verifies");
+        let k = srp
+            .verify_strong_proof(&strong_verifier, &m2)
+            .expect("the strong proof verifies");
+
+        assert_eq!(StrongSessionKey::try_from_hex(&k.to_string()).unwrap(), k);
+        assert!(StrongSessionKey::try_from_hex("00").is_err());
+    }
+
+    #[test]
+    fn the_numeric_hex_path_round_trips_its_display() {
+        let value = BigNumber::try_from_hex("BEB25379D1A8581EB5A727673A2441EE").unwrap();
+
+        assert_eq!(BigNumber::try_from_hex(&value.to_string()).unwrap(), value);
     }
 
     #[test]

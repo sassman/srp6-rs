@@ -1,10 +1,9 @@
-use std::convert::TryFrom;
-
 use crate::big_number::BigNumber;
 use crate::credentials::{ClearTextPassword, Username};
 use crate::hash::HASH_LENGTH;
 use crate::primitives::*;
 use crate::rfc_5054_appendix_a::group_1024_bit;
+use crate::typed::FromHexString;
 
 /// This test is based on the test vectors from [RFC5054 Appendix B](https://datatracker.ietf.org/doc/html/rfc5054#appendix-B)
 #[allow(non_snake_case)]
@@ -15,17 +14,17 @@ fn test_appendix_b_srp_test_vectors() {
 
     let I = Username::new("alice").expect("valid username");
     let P = ClearTextPassword::from("password123");
-    let s = Salt::from_hex_str_be("BEB25379 D1A8581E B5A72767 3A2441EE").unwrap();
+    let s = Salt::try_from_hex("BEB25379 D1A8581E B5A72767 3A2441EE").unwrap();
     const SALT_LENGTH: usize = 16;
     assert_eq!(SALT_LENGTH, s.num_bytes(), "Salt length is not correct");
 
     let N = group_1024_bit::N();
     let g = group_1024_bit::g();
 
-    let k = MultiplierParameter::from_hex_str_be("7556AA04 5AEF2CDD 07ABAF0F 665C3E81 8913186F")
-        .unwrap();
-    let x = PrivateKey::from_hex_str_be("94B7555A ABE9127C C58CCF49 93DB6CF8 4D16C124").unwrap();
-    let v = PasswordVerifier::from_hex_str_be(
+    let k =
+        MultiplierParameter::try_from_hex("7556AA04 5AEF2CDD 07ABAF0F 665C3E81 8913186F").unwrap();
+    let x = PrivateKey::try_from_hex("94B7555A ABE9127C C58CCF49 93DB6CF8 4D16C124").unwrap();
+    let v = PasswordVerifier::try_from_hex(
         "7E273DE8 696FFC4F 4E337D05 B4B375BE B0DDE156 9E8FA00A 9886D812
          9BADA1F1 822223CA 1A605B53 0E379BA4 729FDC59 F105B478 7E5186F5
          C671085A 1447B52A 48CF1970 B4FB6F84 00BBF4CE BFBB1681 52E08AB5
@@ -46,14 +45,14 @@ fn test_appendix_b_srp_test_vectors() {
         "Password verifiert v was not calculated correctly"
     );
 
-    let a = PrivateKey::try_from(
+    let a = PrivateKey::try_from_hex(
         "60975527 035CF2AD 1989806F 0407210B C81EDC04 E2762A56 AFD529DD
          DA2D4393",
     )
     .unwrap();
 
     let A = PublicKey::new(
-        BigNumber::try_from(
+        BigNumber::try_from_hex(
             "61D5E490 F6F1B795 47B0704C 436F523D D0E560F0 C64115BB 72557EC4
          4352E890 3211C046 92272D8B 2D1A5358 A2CF1B6E 0BFCF99F 921530EC
          8E393561 79EAE45E 42BA92AE ACED8251 71E1E8B9 AF6D9C03 E1327F44
@@ -71,14 +70,14 @@ fn test_appendix_b_srp_test_vectors() {
         "Public key A was not calculated correctly"
     );
 
-    let b = PrivateKey::try_from(
+    let b = PrivateKey::try_from_hex(
         "E487CB59 D31AC550 471E81F0 0F6928E0 1DDA08E9 74A004F4 9E61F5D1
          05284D20",
     )
     .unwrap();
 
     let B = PublicKey::new(
-        BigNumber::try_from(
+        BigNumber::try_from_hex(
             "BD0C6151 2C692C0C B6D041FA 01BB152D 4916A1E7 7AF46AE1 05393011
          BAF38964 DC46A067 0DD125B9 5A981652 236F99D9 B681CBF8 7837EC99
          6C6DA044 53728610 D0C6DDB5 8B318885 D7D82C7F 8DEB75CE 7BD4FBAA
@@ -104,7 +103,7 @@ fn test_appendix_b_srp_test_vectors() {
         "u was not calculated correctly"
     );
 
-    let premaster_secret = BigNumber::try_from(
+    let premaster_secret = BigNumber::try_from_hex(
         "B0DC82BA BCF30674 AE450C02 87745E79 90A3381F 63B387AA F271A10D
          233861E3 59B48220 F7C4693C 9AE12B0A 6F67809F 0876E2D0 13800D6C
          41BB59B6 D5979B5C 00A172B4 A2A5903A 0BDCAF8A 709585EB 2AFAFA8F

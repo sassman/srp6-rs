@@ -242,6 +242,7 @@ mod tests {
     use super::*;
     use crate::credentials::Username;
     use crate::primitives::*;
+    use crate::typed::FromHexString;
 
     /// The const field must reproduce the dynamic verifier for the same x.
     macro_rules! const_group_matches_dynamic {
@@ -252,7 +253,7 @@ mod tests {
                 let n = PrimeModulus::from_bytes_be(&group.modulus_bytes());
                 let g = Generator::from_bytes_be(&group.generator_bytes());
                 let salt =
-                    Salt::from_hex_str_be("BEB25379D1A8581EB5A727673A2441EE").expect("valid hex");
+                    Salt::try_from_hex("BEB25379D1A8581EB5A727673A2441EE").expect("valid hex");
                 let username = Username::new("alice").expect("valid username");
                 let x = calculate_private_key_x(&username, "password123", &salt);
 
