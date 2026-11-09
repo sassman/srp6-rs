@@ -6,9 +6,17 @@ use crate::hash::HASH_LENGTH;
 use crate::typed::{steps, FromHexString, Salt, Srp6};
 
 fn hex_to_bytes(hex: &str) -> Vec<u8> {
-    (0..hex.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("valid hex"))
+    let bytes = hex.as_bytes();
+    assert!(
+        !bytes.is_empty() && bytes.len().is_multiple_of(2),
+        "hex must have an even, non-zero number of digits"
+    );
+    bytes
+        .chunks_exact(2)
+        .map(|pair| {
+            let pair = std::str::from_utf8(pair).expect("hex is ASCII");
+            u8::from_str_radix(pair, 16).expect("valid hex")
+        })
         .collect()
 }
 

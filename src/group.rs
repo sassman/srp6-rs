@@ -327,10 +327,18 @@ mod tests {
             .find(|line| line.starts_with(key) && line[key.len()..].starts_with(" = "))
             .expect("the fixture has the value");
         let hex = line[key.len() + 3..].trim();
+        let bytes = hex.as_bytes();
+        assert!(
+            !bytes.is_empty() && bytes.len().is_multiple_of(2),
+            "the fixture value must be hex"
+        );
 
-        (0..hex.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("valid hex"))
+        bytes
+            .chunks_exact(2)
+            .map(|pair| {
+                let pair = std::str::from_utf8(pair).expect("the fixture is ASCII");
+                u8::from_str_radix(pair, 16).expect("valid hex")
+            })
             .collect()
     }
 
