@@ -18,6 +18,13 @@ pub struct Handshake<G: Group> {
     pub s: Salt,
 }
 
+impl<G: Group> Handshake<G> {
+    /// The server's public key `B`.
+    pub fn public_key(&self) -> &PublicKey<G> {
+        &self.B
+    }
+}
+
 /// What the server keeps to verify the client's proof.
 #[allow(non_snake_case)]
 pub struct HandshakeProofVerifier<G: GroupOps> {
@@ -27,11 +34,25 @@ pub struct HandshakeProofVerifier<G: GroupOps> {
     pub user: UserSecrets<G>,
 }
 
+impl<G: GroupOps> HandshakeProofVerifier<G> {
+    /// The server's public key `B`.
+    pub fn public_key(&self) -> &PublicKey<G> {
+        &self.B
+    }
+}
+
 /// The client's proof.
 #[allow(non_snake_case)]
 pub struct HandshakeProof<G: Group> {
     pub A: PublicKey<G>,
     pub M1: Proof,
+}
+
+impl<G: Group> HandshakeProof<G> {
+    /// The client's public key `A`.
+    pub fn public_key(&self) -> &PublicKey<G> {
+        &self.A
+    }
 }
 
 /// What the client keeps to verify the server's strong proof.
@@ -40,4 +61,11 @@ pub struct StrongProofVerifier<G: Group> {
     pub A: PublicKey<G>,
     pub K: StrongSessionKey,
     pub M1: Proof,
+}
+
+impl<G: Group> StrongProofVerifier<G> {
+    /// The client's public key `A`.
+    pub fn public_key(&self) -> &PublicKey<G> {
+        &self.A
+    }
 }

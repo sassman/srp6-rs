@@ -2,10 +2,6 @@ use srp6::prelude::*;
 
 const USER_PASSWORD: ClearTextPasswordRef = "password123";
 
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
 // a println-like macro, to nicely format the key
 macro_rules! printkeyln {
     ($label:expr, $key:expr) => {
@@ -30,7 +26,7 @@ fn main() {
         user.username
     );
     println!("server secrets are:");
-    printkeyln!("public key  [B]", proof_verifier.B);
+    printkeyln!("public key  [B]", proof_verifier.public_key());
     println!();
     println!("## {}'s secrets", user.username);
     printkeyln!("verifier [v]", user.verifier);
@@ -38,8 +34,8 @@ fn main() {
     println!();
     println!("## {}'s handshake", user.username);
     printkeyln!("salt               [s]", handshake.s);
-    printkeyln!("server public key  [B]", handshake.B);
-    printkeyln!("prime modulus      [N]", hex(&Group4096.modulus_bytes()));
+    printkeyln!("server public key  [B]", handshake.public_key());
+    printkeyln!("prime modulus      [N]", Group4096.modulus());
     printkeyln!("generator          [g]", handshake.g);
     printkeyln!("multiplier         [k]", handshake.k);
     println!();
@@ -58,7 +54,7 @@ fn main() {
     println!("## Simulating client {}", user.username);
     println!("### {}'s proof", user.username);
     printkeyln!("proof      [M1]", proof.M1);
-    printkeyln!("public key  [A]", proof.A);
+    printkeyln!("public key  [A]", proof.public_key());
     println!();
 
     // the server verifies this proof
@@ -72,10 +68,7 @@ fn main() {
         user.username
     );
     printkeyln!("strong proof         [M2]", strong_proof);
-    printkeyln!(
-        "session key (server)  [K]",
-        hex(&strong_proof_verifier.K.to_vec())
-    );
+    printkeyln!("session key (server)  [K]", strong_proof_verifier.K);
     println!();
     println!("[server] 🎉🥳🎊🍾🎈 Proof of the client successfully verified");
 
@@ -86,10 +79,7 @@ fn main() {
     println!("### Next Step: sending this strong proof to the client");
     println!();
     println!("## Simulating client {}", user.username);
-    printkeyln!(
-        "session key (client) [K]",
-        hex(&session_key_client.to_vec())
-    );
+    printkeyln!("session key (client) [K]", session_key_client);
     println!();
     println!("[client] 🎉🥳🎊🍾🎈 Proof of the server successfully verified");
 }

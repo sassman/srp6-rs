@@ -71,11 +71,19 @@ pub trait Group: Default + sealed::Sealed {
     /// The salt width in bytes.
     const SALT_BYTES: usize;
 
-    /// The modulus `N`, big-endian.
+    /// The prime modulus `N`, big-endian.
+    fn modulus(&self) -> crate::Modulus<Self>
+    where
+        Self: Sized,
+    {
+        crate::Modulus::from_bytes(self.modulus_bytes())
+    }
+
+    #[doc(hidden)]
     fn modulus_bytes(&self) -> Vec<u8>;
-    /// The generator `g`, big-endian, `N_BYTES` wide.
+    #[doc(hidden)]
     fn generator_bytes(&self) -> Vec<u8>;
-    /// The multiplier `k`, big-endian, `N_BYTES` wide.
+    #[doc(hidden)]
     fn multiplier_bytes(&self) -> Vec<u8>;
 }
 

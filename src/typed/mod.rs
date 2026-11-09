@@ -8,6 +8,7 @@
 mod field_element;
 mod handshake;
 mod hex;
+mod modulus;
 mod proof;
 mod public_key;
 mod salt;
@@ -23,6 +24,7 @@ pub use handshake::{
     Handshake, HandshakeProof, HandshakeProofVerifier, StrongProofVerifier, UserSecrets,
 };
 pub use hex::FromHexString;
+pub use modulus::Modulus;
 pub use proof::Proof;
 pub use public_key::PublicKey;
 pub use salt::Salt;
