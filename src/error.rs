@@ -1,7 +1,6 @@
 use thiserror::Error;
 
-use crate::big_number::BigNumber;
-use crate::primitives::RawPublicKey;
+use crate::typed::Proof;
 
 #[derive(Error, Debug, PartialEq)]
 pub enum Srp6Error {
@@ -14,16 +13,14 @@ pub enum Srp6Error {
     InvalidProofLength { given: usize, expected: usize },
 
     #[error("The provided proof is invalid")]
-    InvalidProof(BigNumber),
+    InvalidProof(Proof),
 
     #[error("The provided strong proof is invalid")]
-    InvalidStrongProof(BigNumber),
+    InvalidStrongProof(Proof),
 
-    /// Carries the rejected value as a [`RawPublicKey`]: it is by definition an
-    /// unvalidated public key, and a [`PublicKey`][crate::PublicKey] could not
-    /// hold it.
+    /// Carries the bytes that failed the `0 mod N` check.
     #[error("The provided public key is invalid")]
-    InvalidPublicKey(RawPublicKey),
+    InvalidPublicKey(Vec<u8>),
 
     /// The bytes did not decode to a non-zero element modulo the group's `N`.
     #[error("The provided bytes are not a valid field element of the group")]

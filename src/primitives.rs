@@ -13,9 +13,7 @@ This scheme is applied for all variables used in the calculus.
 
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 */
-use serde::{Deserialize, Serialize};
-
-use crate::big_number::{BigNumber, BigNumberError, Zero};
+use crate::big_number::{BigNumber, Zero};
 use crate::credentials::{ClearTextPasswordRef, UsernameRef};
 use crate::hash::*;
 use crate::{error::Srp6Error, Result};
@@ -40,9 +38,6 @@ pub type Salt = BigNumber;
 /// enforces the RFC 5054 §2.5.4 safeguard: "abort if \[the\] value ... is 0 mod N".
 /// This makes it impossible to hold a degenerate key (0, `N`, or any multiple
 /// of `N`) in a value of this type.
-///
-/// See also [`RawPublicKey`], the unvalidated wire counterpart used for
-/// (de)serialization.
 #[doc(alias("A", "B"))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct PublicKey(BigNumber);
@@ -58,7 +53,7 @@ impl PublicKey {
     /// every value of this type, not just the ones checked right before use.
     pub fn new(value: BigNumber, n: &PrimeModulus) -> Result<Self> {
         if (&value % n).is_zero() {
-            return Err(Srp6Error::InvalidPublicKey(RawPublicKey(value)));
+            return Err(Srp6Error::InvalidPublicKey(value.to_vec()));
         }
 
         Ok(Self(value))
@@ -98,93 +93,6 @@ impl Display for PublicKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(&self.0, f)
     }
-}
-
-/// The unvalidated, wire-facing counterpart to [`PublicKey`].
-///
-/// This is the type that appears in structs sent over the network
-/// (e.g. [`crate::HandshakeProof::A`]) and is the only public key type that
-/// derives [`Deserialize`]. A derived `Deserialize` directly on [`PublicKey`]
-/// would construct its inner value without going through [`PublicKey::new`],
-/// letting a hostile payload reintroduce a degenerate key (e.g. `A = 0`) over
-/// the wire. `#[serde(try_from = "..")]` can't fix this either, since
-/// validation needs [`PrimeModulus`] `N`, which isn't part of the payload.
-///
-/// Call [`RawPublicKey::into_validated`] to turn this into a [`PublicKey`]
-/// once `N` is available.
-#[doc(alias("A", "B"))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct RawPublicKey(BigNumber);
-
-impl RawPublicKey {
-    /// Validates this raw value against `n`, see [`PublicKey::new`].
-    pub fn into_validated(self, n: &PrimeModulus) -> Result<PublicKey> {
-        PublicKey::new(self.0, n)
-    }
-
-    /// `raw` is expected to be big endian, see [`BigNumber::from_hex_str_be`].
-    pub fn from_hex_str_be(str: &str) -> std::result::Result<Self, BigNumberError> {
-        BigNumber::from_hex_str_be(str).map(Self)
-    }
-
-    /// The wire carries `A` and `B` little-endian, so this is the constructor
-    /// for bytes received from a peer. See [`BigNumber::from_bytes_le`].
-    pub fn from_bytes_le(raw: &[u8]) -> Self {
-        Self(BigNumber::from_bytes_le(raw))
-    }
-
-    /// The big-endian counterpart of [`RawPublicKey::from_bytes_le`].
-    pub fn from_bytes_be(raw: &[u8]) -> Self {
-        Self(BigNumber::from_bytes_be(raw))
-    }
-
-    /// Big-endian bytes, zero-padded to at least `N` bytes.
-    /// See [`BigNumber::to_array_pad_zero`].
-    pub fn to_array_pad_zero<const N: usize>(&self) -> Vec<u8> {
-        self.0.to_array_pad_zero::<N>()
-    }
-
-    /// Big-endian bytes. See [`BigNumber::to_vec`].
-    pub fn to_vec(&self) -> Vec<u8> {
-        self.0.to_vec()
-    }
-
-    /// Length of the big-endian encoding, without leading zeroes.
-    /// See [`BigNumber::num_bytes`].
-    pub fn num_bytes(&self) -> usize {
-        self.0.num_bytes()
-    }
-
-    /// Access to the inner [`BigNumber`] for arithmetic. Validation stays the
-    /// caller's explicit choice, which is why this is not a
-    /// [`std::ops::Deref`] impl.
-    pub fn as_bignum(&self) -> &BigNumber {
-        &self.0
-    }
-}
-
-impl Display for RawPublicKey {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl From<PublicKey> for RawPublicKey {
-    /// A validated [`PublicKey`] is always representable as a [`RawPublicKey`].
-    fn from(key: PublicKey) -> Self {
-        Self(key.0)
-    }
-}
-
-#[test]
-fn a_raw_key_round_trips_through_wire_bytes() {
-    let bytes_le = [0x01, 0x02, 0x03];
-
-    let key = RawPublicKey::from_bytes_le(&bytes_le);
-
-    assert_eq!(key.as_bignum(), &BigNumber::from_bytes_le(&bytes_le));
-    assert_eq!(key.to_vec(), vec![0x03, 0x02, 0x01]);
-    assert_eq!(key.to_array_pad_zero::<5>(), vec![0, 0, 0x03, 0x02, 0x01]);
 }
 
 /// Refers to a private secret random number a (user), b (server)
@@ -234,7 +142,7 @@ pub fn calculate_session_key_S_for_host<const N_BYTE_LEN: usize>(
     // safeguard A % N == 0 should be checked
     // this is now a second line of defense, PublicKey::new() already rejects this at construction
     if (A.as_bignum() % N).is_zero() {
-        return Err(Srp6Error::InvalidPublicKey(A.clone().into()));
+        return Err(Srp6Error::InvalidPublicKey(A.to_vec()));
     }
 
     let u = &calculate_u::<N_BYTE_LEN>(A, B);
@@ -265,7 +173,7 @@ pub fn calculate_session_key_S_for_client<const N_BYTE_LEN: usize>(
     // safeguard B % N == 0
     // this is now a second line of defense, PublicKey::new() already rejects this at construction
     if (B.as_bignum() % N).is_zero() {
-        return Err(Srp6Error::InvalidPublicKey(B.clone().into()));
+        return Err(Srp6Error::InvalidPublicKey(B.to_vec()));
     }
 
     let u = &calculate_u::<N_BYTE_LEN>(A, B);

@@ -18,7 +18,7 @@ use crate::group::{Group, GroupOps};
 use crate::hash::{HASH_LENGTH, STRONG_SESSION_KEY_LENGTH};
 use crate::primitives::{
     calculate_private_key_x, calculate_proof_M_len, calculate_session_key_hash_interleave_K_len,
-    calculate_strong_proof_M2_len, calculate_u_len, PublicKey as BigPublicKey, RawPublicKey,
+    calculate_strong_proof_M2_len, calculate_u_len, PublicKey as BigPublicKey,
 };
 use crate::{error::Srp6Error, Result};
 
@@ -496,13 +496,11 @@ impl<G: GroupOps> Srp6<G> {
         let a_field = proof.A.to_field(&self.group);
 
         let n = BigNumber::from_bytes_be(&self.group.modulus_bytes());
-        let a =
-            BigPublicKey::new(BigNumber::from_bytes_be(proof.A.as_bytes()), &n).map_err(|_| {
-                Srp6Error::InvalidPublicKey(RawPublicKey::from_bytes_be(proof.A.as_bytes()))
-            })?;
+        let a = BigPublicKey::new(BigNumber::from_bytes_be(proof.A.as_bytes()), &n)
+            .map_err(|_| Srp6Error::InvalidPublicKey(proof.A.as_bytes().to_vec()))?;
         let b_bytes = verifier.B.to_bytes();
         let b = BigPublicKey::new(BigNumber::from_bytes_be(&b_bytes), &n)
-            .map_err(|_| Srp6Error::InvalidPublicKey(RawPublicKey::from_bytes_be(&b_bytes)))?;
+            .map_err(|_| Srp6Error::InvalidPublicKey(b_bytes))?;
 
         let u = calculate_u_len(&a, &b, G::N_BYTES);
         let u = self.group.exponent_from_hash(&u);
@@ -529,7 +527,7 @@ impl<G: GroupOps> Srp6<G> {
             G::SALT_BYTES,
         );
         if !Proof::from_big_number(&m1).ct_eq(&proof.M1) {
-            return Err(Srp6Error::InvalidProof(m1));
+            return Err(Srp6Error::InvalidProof(Proof::from_big_number(&m1)));
         }
 
         Ok(Proof::from_big_number(&calculate_strong_proof_M2_len(
@@ -558,9 +556,9 @@ impl<G: GroupOps> Srp6<G> {
 
         let n = BigNumber::from_bytes_be(&self.group.modulus_bytes());
         let a_key = BigPublicKey::new(BigNumber::from_bytes_be(&a_bytes), &n)
-            .map_err(|_| Srp6Error::InvalidPublicKey(RawPublicKey::from_bytes_be(&a_bytes)))?;
+            .map_err(|_| Srp6Error::InvalidPublicKey(a_bytes))?;
         let b_key = BigPublicKey::new(BigNumber::from_bytes_be(&b_bytes), &n)
-            .map_err(|_| Srp6Error::InvalidPublicKey(RawPublicKey::from_bytes_be(&b_bytes)))?;
+            .map_err(|_| Srp6Error::InvalidPublicKey(b_bytes))?;
 
         let u = calculate_u_len(&a_key, &b_key, G::N_BYTES);
         let u = self.group.exponent_from_hash(&u);
@@ -619,16 +617,14 @@ impl<G: GroupOps> Srp6<G> {
         let a_bytes = verifier.A.to_bytes();
         let n = BigNumber::from_bytes_be(&self.group.modulus_bytes());
         let a = BigPublicKey::new(BigNumber::from_bytes_be(&a_bytes), &n)
-            .map_err(|_| Srp6Error::InvalidPublicKey(RawPublicKey::from_bytes_be(&a_bytes)))?;
+            .map_err(|_| Srp6Error::InvalidPublicKey(a_bytes))?;
 
         let k = BigNumber::from_bytes_be(verifier.K.as_bytes());
         let m1 = BigNumber::from_bytes_be(verifier.M1.as_bytes());
         let expected =
             Proof::from_big_number(&calculate_strong_proof_M2_len(&a, &m1, &k, G::N_BYTES));
         if !expected.ct_eq(m2) {
-            return Err(Srp6Error::InvalidStrongProof(BigNumber::from_bytes_be(
-                m2.as_bytes(),
-            )));
+            return Err(Srp6Error::InvalidStrongProof(*m2));
         }
 
         Ok(verifier.K)
