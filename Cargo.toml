@@ -19,7 +19,6 @@ include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 [dependencies]
 thiserror = "2.0"
 rand = { version = "0.10", default-features = false, features = ["thread_rng"] }
-num-traits = "0.2"
 crypto-bigint = { version = "=0.7.10", default-features = false, features = [
     "alloc",
     "extra-sizes",

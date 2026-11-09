@@ -13,7 +13,12 @@ This scheme is applied for all variables used in the calculus.
 
 [RFC2945]: https://datatracker.ietf.org/doc/html/rfc2945
 */
-use crate::big_number::{BigNumber, Zero};
+use crypto_bigint::{
+    modular::{BoxedMontyForm, BoxedMontyParams},
+    BoxedUint, ConcatenatingMul, NonZero, Odd,
+};
+
+use crate::big_number::BigNumber;
 use crate::credentials::{ClearTextPasswordRef, UsernameRef};
 use crate::hash::*;
 use crate::{error::Srp6Error, Result};
@@ -52,7 +57,7 @@ impl PublicKey {
     /// the only way to obtain a [`PublicKey`], so that guarantee holds for
     /// every value of this type, not just the ones checked right before use.
     pub fn new(value: BigNumber, n: &PrimeModulus) -> Result<Self> {
-        if (&value % n).is_zero() {
+        if is_zero_mod(&value, n) {
             return Err(Srp6Error::InvalidPublicKey(value.to_vec()));
         }
 
@@ -121,6 +126,41 @@ pub type Proof = BigNumber;
 #[doc(alias = "M2")]
 pub type StrongProof = BigNumber;
 
+/// The Montgomery parameters for the group modulus `N`.
+fn monty_params(n: &PrimeModulus) -> BoxedMontyParams {
+    let modulus = Odd::new(n.as_boxed_uint().clone())
+        .into_option()
+        .expect("the SRP modulus is odd");
+
+    BoxedMontyParams::new(modulus)
+}
+
+/// `value mod N`, in Montgomery form.
+fn field(value: &BigNumber, params: &BoxedMontyParams) -> BoxedMontyForm {
+    let reduced = value.as_boxed_uint().rem(params.modulus().as_nz_ref());
+    let padded = BoxedUint::from_be_slice(
+        &reduced.to_be_bytes_trimmed_vartime(),
+        params.bits_precision(),
+    )
+    .expect("the reduced value fits the modulus precision");
+
+    BoxedMontyForm::new(padded, params)
+}
+
+/// The big-endian bytes of a Montgomery-form value.
+fn field_bytes(value: &BoxedMontyForm) -> Vec<u8> {
+    value.retrieve().to_be_bytes_trimmed_vartime().to_vec()
+}
+
+/// `value mod modulus == 0`, the RFC 5054 §2.5.4 safeguard.
+fn is_zero_mod(value: &BigNumber, modulus: &BigNumber) -> bool {
+    let nz = NonZero::new(modulus.as_boxed_uint().clone())
+        .into_option()
+        .expect("the modulus is non-zero");
+
+    value.as_boxed_uint().rem(&nz).is_zero().to_bool()
+}
+
 // u = Hash(A, B)
 // #[doc(alias = "u")]
 // pub type Hash = BigLNumber;
@@ -141,15 +181,18 @@ pub fn calculate_session_key_S_for_host<const N_BYTE_LEN: usize>(
 ) -> Result<SessionKey> {
     // safeguard A % N == 0 should be checked
     // this is now a second line of defense, PublicKey::new() already rejects this at construction
-    if (A.as_bignum() % N).is_zero() {
+    if is_zero_mod(A.as_bignum(), N) {
         return Err(Srp6Error::InvalidPublicKey(A.to_vec()));
     }
 
-    let u = &calculate_u::<N_BYTE_LEN>(A, B);
-    let base = &(A.as_bignum() * &v.modpow(u, N));
-    let S: BigNumber = base.modpow(b, N);
+    let params = monty_params(N);
+    let a = field(A.as_bignum(), &params);
+    let u = calculate_u::<N_BYTE_LEN>(A, B);
+    let s = a
+        .mul(&field(v, &params).pow(u.as_boxed_uint()))
+        .pow(b.as_boxed_uint());
 
-    Ok(S)
+    Ok(SessionKey::from_bytes_be(&field_bytes(&s)))
 }
 
 /// client version of the session key calculation, depends on
@@ -172,17 +215,21 @@ pub fn calculate_session_key_S_for_client<const N_BYTE_LEN: usize>(
 ) -> Result<SessionKey> {
     // safeguard B % N == 0
     // this is now a second line of defense, PublicKey::new() already rejects this at construction
-    if (B.as_bignum() % N).is_zero() {
+    if is_zero_mod(B.as_bignum(), N) {
         return Err(Srp6Error::InvalidPublicKey(B.to_vec()));
     }
 
-    let u = &calculate_u::<N_BYTE_LEN>(A, B);
-    let exp: BigNumber = a + &(u * x);
-    let g_mod_x = &g.modpow(x, N);
-    let base = B.as_bignum() - &(k * g_mod_x);
-    let S = base.modpow(&exp, N);
+    let params = monty_params(N);
+    let b = field(B.as_bignum(), &params);
+    let u = calculate_u::<N_BYTE_LEN>(A, B);
+    let ux = u.as_boxed_uint().concatenating_mul(x.as_boxed_uint());
+    let exp = a.as_boxed_uint().concatenating_add(&ux);
 
-    Ok(S)
+    let g_x = field(g, &params).pow(x.as_boxed_uint());
+    let k_gx = field(k, &params).mul(&g_x);
+    let s = b.sub(&k_gx).pow(&exp);
+
+    Ok(SessionKey::from_bytes_be(&field_bytes(&s)))
 }
 
 /// the hash of a session key `S` that is called `K`
@@ -336,7 +383,10 @@ pub fn calculate_password_verifier_v(
     g: &Generator,
     x: &PrivateKey,
 ) -> PasswordVerifier {
-    g.modpow(x, N)
+    let params = monty_params(N);
+    let v = field(g, &params).pow(x.as_boxed_uint());
+
+    PasswordVerifier::from_bytes_be(&field_bytes(&v))
 }
 
 /// `u` is the hash of host's [`PublicKey`][`crate::rfc_lingo::A`] and client's [`PublicKey`][`crate::rfc_lingo::B`]
@@ -364,7 +414,10 @@ pub(crate) fn calculate_u_len(A: &PublicKey, B: &PublicKey, n_bytes: usize) -> B
 /// [`PublicKey::new`] keeps that a `Result` rather than a panic.
 #[allow(non_snake_case)]
 pub fn calculate_pubkey_A(N: &PrimeModulus, g: &Generator, a: &PrivateKey) -> Result<PublicKey> {
-    PublicKey::new(g.modpow(a, N), N)
+    let params = monty_params(N);
+    let public = field(g, &params).pow(a.as_boxed_uint());
+
+    PublicKey::new(BigNumber::from_bytes_be(&field_bytes(&public)), N)
 }
 
 /// [`PublicKey`][`crate::rfc_lingo::B`] is the hosts public key
@@ -384,9 +437,12 @@ pub fn calculate_pubkey_B(
     v: &PasswordVerifier,
     b: &PrivateKey,
 ) -> Result<PublicKey> {
-    let g_mod_N = g.modpow(b, N);
-    // This is B
-    PublicKey::new(&((k * v) + g_mod_N) % N, N)
+    let params = monty_params(N);
+    let public = field(k, &params)
+        .mul(&field(v, &params))
+        .add(&field(g, &params).pow(b.as_boxed_uint()));
+
+    PublicKey::new(BigNumber::from_bytes_be(&field_bytes(&public)), N)
 }
 
 /// `x` is the users private key (only they know)

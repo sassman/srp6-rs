@@ -1,5 +1,6 @@
 use crate::hash::*;
 
+use crypto_bigint::BoxedUint;
 use rand::{rng, RngExt};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::convert::TryFrom;
@@ -7,10 +8,6 @@ use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 
 use super::crypto::Inner;
-
-/// also exporting the trait here
-pub use num_traits::Zero;
-pub use std::ops::{Add, Mul, Rem, Sub};
 
 impl Serialize for BigNumber {
     fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
@@ -95,12 +92,13 @@ impl BigNumber {
         Ok(Self::from_bytes_be(&bytes_be))
     }
 
-    pub fn modpow(&self, exponent: &Self, modulo: &Self) -> Self {
-        Self(self.0.modpow(&exponent.0, &modulo.0))
-    }
-
     pub fn num_bytes(&self) -> usize {
         self.0.num_bytes()
+    }
+
+    /// The magnitude, for the runtime-modulus math in `primitives`.
+    pub(crate) fn as_boxed_uint(&self) -> &BoxedUint {
+        self.0.as_boxed_uint()
     }
 
     /// returns the byte vec in little endian byte order
@@ -145,31 +143,11 @@ impl ConstantTimeEq for BigNumber {
 }
 
 #[test]
-fn test_mod_exp() {
-    let a = BigNumber::from_hex_str_be("6").unwrap();
-    let p = BigNumber::from_hex_str_be("3").unwrap();
-    let m = BigNumber::from_hex_str_be("7").unwrap();
-    let r = a.modpow(&p, &m);
-
-    assert_eq!(&r, &BigNumber::from(6), "{} is not 6", r);
-    assert_eq!(
-        &a.modpow(&p, &m),
-        &BigNumber::from(6),
-        "{}.modExp(3, 7) is not 6",
-        r
-    );
-}
-
-#[test]
 fn constant_time_equality_matches_value_equality() {
     let seven = BigNumber::from(7);
     assert!(seven.ct_eq(&BigNumber::from(7)));
     assert!(!seven.ct_eq(&BigNumber::from(8)));
     assert!(BigNumber::default().ct_eq(&BigNumber::from(0)));
-
-    let negative = BigNumber::from(1) - BigNumber::from(2);
-    assert!(negative.ct_eq(&(BigNumber::from(1) - BigNumber::from(2))));
-    assert!(!negative.ct_eq(&BigNumber::from(1)));
 }
 
 impl Debug for BigNumber {
@@ -289,100 +267,6 @@ fn should_should_work_with_odd_byte_count() {
 }
 // endregion
 
-// region modulo
-impl Rem for &BigNumber {
-    type Output = BigNumber;
-
-    fn rem(self, rhs: &BigNumber) -> Self::Output {
-        BigNumber(self.0.rem(&rhs.0))
-    }
-}
-#[test]
-fn should_modulo_ref() {
-    let a = &BigNumber::from(10);
-    assert_eq!(a.rem(&BigNumber::from(4)), BigNumber::from(10 % 4));
-}
-impl Rem for BigNumber {
-    type Output = Self;
-
-    fn rem(self, rhs: Self) -> Self::Output {
-        (&self).rem(&rhs)
-    }
-}
-#[test]
-fn should_modulo() {
-    let exp = BigNumber::from(7 % 6);
-    assert_eq!(BigNumber::from(7) % BigNumber::from(6), exp);
-}
-// endregion
-
-// region mul, add, sub
-impl Mul for BigNumber {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        BigNumber(self.0.mul(&rhs.0))
-    }
-}
-
-impl Mul for &BigNumber {
-    type Output = BigNumber;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        BigNumber(self.0.mul(&rhs.0))
-    }
-}
-
-#[test]
-fn test_big_num_mul() {
-    let a = BigNumber::from(4);
-    let b = BigNumber::from(2);
-    let exp = BigNumber::from(8);
-    assert_eq!(a * b, exp);
-}
-
-impl Add for BigNumber {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        BigNumber(self.0.add(&rhs.0))
-    }
-}
-impl<'b> Add<&'b BigNumber> for &BigNumber {
-    type Output = BigNumber;
-
-    fn add(self, rhs: &'b BigNumber) -> Self::Output {
-        BigNumber(self.0.add(&rhs.0))
-    }
-}
-
-impl Sub for BigNumber {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        BigNumber(self.0.sub(&rhs.0))
-    }
-}
-#[test]
-fn should_subtract() {
-    let (a, b) = (BigNumber::from(6), BigNumber::from(1));
-    assert_eq!(a - b, BigNumber::from(5));
-}
-
-impl<'b> Sub<&'b BigNumber> for &BigNumber {
-    type Output = BigNumber;
-
-    fn sub(self, rhs: &'b BigNumber) -> Self::Output {
-        BigNumber(self.0.sub(&rhs.0))
-    }
-}
-#[test]
-fn should_subtract_refs() {
-    let (a, b) = (BigNumber::from(6), BigNumber::from(6));
-    assert_eq!(&a - &b, BigNumber::from(0));
-}
-// endregion
-
 impl Display for BigNumber {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let x: String = self.into();
@@ -427,16 +311,6 @@ fn test_serde_behaviour() {
     let b_str = serde_json::to_string(&b).unwrap();
     let b2 = serde_json::from_str::<BigNumber>(&b_str).unwrap();
     assert_eq!(b, b2);
-}
-
-impl Zero for BigNumber {
-    fn zero() -> Self {
-        Self(Inner::zero())
-    }
-
-    fn is_zero(&self) -> bool {
-        self.0.is_zero()
-    }
 }
 
 #[test]
