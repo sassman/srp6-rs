@@ -1,9 +1,9 @@
 //! The typed SRP6 handshake over the closed groups.
 //!
 //! The boundary is byte-oriented: [`Salt`], [`FieldElement`] (with its
-//! [`Verifier`] and [`PublicKey`] names) and [`Proof`] are the only numeric
-//! values a caller handles. The group arithmetic and its backend stay inside
-//! this module, so no crypto-bigint type reaches the public API.
+//! [`Verifier`] and [`PublicKey`] names), [`Proof`] and [`StrongSessionKey`]
+//! are the only values a caller handles. The group arithmetic and its backend
+//! stay inside this module, so no crypto-bigint type reaches the public API.
 
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
@@ -15,7 +15,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::big_number::{BigNumber, ConstantTimeEq};
 use crate::credentials::{ClearTextPasswordRef, Username};
 use crate::group::{Group, GroupOps};
-use crate::hash::HASH_LENGTH;
+use crate::hash::{HASH_LENGTH, STRONG_SESSION_KEY_LENGTH};
 use crate::primitives::{
     calculate_private_key_x, calculate_proof_M_len, calculate_session_key_hash_interleave_K_len,
     calculate_strong_proof_M2_len, calculate_u_len, PublicKey as BigPublicKey, RawPublicKey,
@@ -332,6 +332,41 @@ impl<'de> Deserialize<'de> for Proof {
     }
 }
 
+/// The strong session key `K`: the interleaved hash of the premaster secret.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct StrongSessionKey([u8; STRONG_SESSION_KEY_LENGTH]);
+
+impl StrongSessionKey {
+    pub fn as_bytes(&self) -> &[u8; STRONG_SESSION_KEY_LENGTH] {
+        &self.0
+    }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+
+    pub(crate) fn from_big_number(value: &BigNumber) -> Self {
+        let padded = value.to_array_pad_zero_len(STRONG_SESSION_KEY_LENGTH);
+        let bytes: [u8; STRONG_SESSION_KEY_LENGTH] = padded
+            .try_into()
+            .expect("the interleaved key is exactly two hashes wide");
+
+        Self(bytes)
+    }
+}
+
+impl fmt::Display for StrongSessionKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write_hex(f, &self.0)
+    }
+}
+
+impl fmt::Debug for StrongSessionKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "StrongSessionKey({self})")
+    }
+}
+
 /// The server's stored view of one user.
 pub struct UserSecrets<G: Group> {
     pub username: Username,
@@ -368,7 +403,7 @@ pub struct HandshakeProof<G: Group> {
 #[allow(non_snake_case)]
 pub struct StrongProofVerifier<G: Group> {
     pub A: PublicKey<G>,
-    pub K: BigNumber,
+    pub K: StrongSessionKey,
     pub M1: Proof,
 }
 
@@ -568,7 +603,7 @@ impl<G: GroupOps> Srp6<G> {
         };
         let verifier = StrongProofVerifier {
             A: a_public,
-            K: k,
+            K: StrongSessionKey::from_big_number(&k),
             M1: Proof::from_big_number(&m1),
         };
 
@@ -580,26 +615,23 @@ impl<G: GroupOps> Srp6<G> {
         &self,
         verifier: &StrongProofVerifier<G>,
         m2: &Proof,
-    ) -> Result<BigNumber> {
+    ) -> Result<StrongSessionKey> {
         let a_bytes = verifier.A.to_bytes();
         let n = BigNumber::from_bytes_be(&self.group.modulus_bytes());
         let a = BigPublicKey::new(BigNumber::from_bytes_be(&a_bytes), &n)
             .map_err(|_| Srp6Error::InvalidPublicKey(RawPublicKey::from_bytes_be(&a_bytes)))?;
 
+        let k = BigNumber::from_bytes_be(verifier.K.as_bytes());
         let m1 = BigNumber::from_bytes_be(verifier.M1.as_bytes());
-        let expected = Proof::from_big_number(&calculate_strong_proof_M2_len(
-            &a,
-            &m1,
-            &verifier.K,
-            G::N_BYTES,
-        ));
+        let expected =
+            Proof::from_big_number(&calculate_strong_proof_M2_len(&a, &m1, &k, G::N_BYTES));
         if !expected.ct_eq(m2) {
             return Err(Srp6Error::InvalidStrongProof(BigNumber::from_bytes_be(
                 m2.as_bytes(),
             )));
         }
 
-        Ok(verifier.K.clone())
+        Ok(verifier.K)
     }
 }
 
@@ -713,5 +745,25 @@ mod tests {
         assert!(Salt::try_from_hex("é0").is_err());
         assert!(Proof::try_from_hex("00").is_err());
         assert!(Verifier::<Group2048>::try_from_hex("00").is_err());
+    }
+
+    #[test]
+    fn the_strong_session_key_is_two_hashes_wide() {
+        let srp = Srp6::new(Group2048);
+        let username = Username::new("alice").expect("valid username");
+        let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+        let (handshake, proof_verifier) = srp.start_handshake(&username, salt, verifier);
+        let (proof, strong_verifier) = srp
+            .calculate_proof(&handshake, &username, "password123")
+            .expect("the client can prove");
+        let m2 = srp
+            .verify_proof(&proof_verifier, &proof)
+            .expect("the proof verifies");
+        let k = srp
+            .verify_strong_proof(&strong_verifier, &m2)
+            .expect("the strong proof verifies");
+
+        assert_eq!(k.as_bytes().len(), 2 * HASH_LENGTH);
+        assert_eq!(k, strong_verifier.K);
     }
 }

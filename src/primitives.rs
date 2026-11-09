@@ -21,8 +21,6 @@ use crate::hash::*;
 use crate::{error::Srp6Error, Result};
 use std::fmt::{Display, Formatter};
 
-const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;
-
 /// Refers to a large safe prime called `N` (`N = 2q+1`, where `q` is prime)
 #[doc(alias = "N")]
 pub type PrimeModulus = BigNumber;

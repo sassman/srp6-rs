@@ -16,3 +16,6 @@ pub use sha512::*;
 
 pub type Hash = [u8; HASH_LENGTH];
 pub use HASH_LENGTH;
+
+/// The interleaved strong session key `K` is two hashes wide.
+pub(crate) const STRONG_SESSION_KEY_LENGTH: usize = HASH_LENGTH * 2;

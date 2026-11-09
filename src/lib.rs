@@ -9,8 +9,8 @@
 //! The example walks one full authentication: the server stores a salt and
 //! verifier per user, opens a handshake, and both sides prove each other. The
 //! values at the boundary are byte-backed newtypes ([`Salt`], [`Verifier`],
-//! [`PublicKey`], [`Proof`]), so no arithmetic detail shows up in the types a
-//! caller handles.
+//! [`PublicKey`], [`Proof`], [`StrongSessionKey`]), so no arithmetic detail
+//! shows up in the types a caller handles.
 //!
 //! ```rust
 //! use srp6::prelude::*;
