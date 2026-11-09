@@ -18,6 +18,7 @@ use srp6::group::Group;
 use srp6::group::GroupWow;
 use srp6::prelude::BigNumber;
 use srp6::primitives::*;
+use srp6::Username;
 
 /// The RFC 5054 appendix B salt, reused here so the vectors have one fixed input.
 const SALT_HEX: &str = "BEB25379D1A8581EB5A727673A2441EE";

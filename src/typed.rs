@@ -13,12 +13,12 @@ use rand::{rng, RngExt};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::big_number::{BigNumber, ConstantTimeEq};
+use crate::credentials::{ClearTextPasswordRef, Username};
 use crate::group::{Group, GroupOps};
 use crate::hash::HASH_LENGTH;
 use crate::primitives::{
     calculate_private_key_x, calculate_proof_M_len, calculate_session_key_hash_interleave_K_len,
-    calculate_strong_proof_M2_len, calculate_u_len, ClearTextPasswordRef,
-    PublicKey as BigPublicKey, RawPublicKey, Username,
+    calculate_strong_proof_M2_len, calculate_u_len, PublicKey as BigPublicKey, RawPublicKey,
 };
 use crate::{error::Srp6Error, Result};
 

@@ -66,13 +66,11 @@ pub mod protocol_details;
 pub mod rfc_lingo;
 pub mod prelude {
     pub use crate::big_number::BigNumber;
+    pub use crate::credentials::*;
     pub use crate::defaults::*;
     pub use crate::error::Srp6Error;
     pub use crate::group::*;
     pub use crate::hash::HASH_LENGTH;
-    pub use crate::primitives::{
-        ClearTextPassword, ClearTextPasswordRef, Username, UsernameError, UsernameRef,
-    };
     pub use crate::typed::*;
     pub use std::convert::TryInto;
 }
@@ -85,10 +83,12 @@ mod typed;
 #[cfg(feature = "wow-1-12-1")]
 pub mod wow;
 
+pub use credentials::*;
 pub use group::*;
 pub use typed::*;
 
 mod big_number;
+mod credentials;
 mod error;
 
 /// encapsulates a [`crate::error::Srp6Error`]

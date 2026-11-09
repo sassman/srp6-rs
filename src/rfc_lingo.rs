@@ -4,6 +4,7 @@
 ///  - `ClearTextPassword` is referred to as `P`
 ///  - `Salt` is referred to as `s`
 use crate::primitives::*;
+use crate::{ClearTextPassword, Username};
 
 pub type N = PrimeModulus;
 
@@ -39,3 +40,6 @@ pub type M2 = StrongProof;
 
 pub type I = Username;
 pub type P = ClearTextPassword;
+
+#[allow(non_camel_case_types)]
+pub type s = Salt;

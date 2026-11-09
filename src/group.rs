@@ -240,6 +240,7 @@ closed_group!(GroupWow, FieldWow, U256, U384, NWOW, 7, 32, 32, Some(3));
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::credentials::Username;
     use crate::primitives::*;
 
     /// The const field must reproduce the dynamic verifier for the same x.

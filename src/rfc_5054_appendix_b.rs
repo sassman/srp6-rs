@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 
 use crate::big_number::BigNumber;
+use crate::credentials::{ClearTextPassword, Username};
 use crate::hash::HASH_LENGTH;
 use crate::primitives::*;
 use crate::rfc_5054_appendix_a::group_1024_bit;
