@@ -98,16 +98,21 @@ impl<G: GroupOps> Srp6<G> {
         let k_v = self.group.field_mul(&k, &verifier_field);
         let b_pub = self.group.field_add(&k_v, &g_b);
 
+        // Encode each boundary value once and share it between the two structs.
+        let b_public = PublicKey::from_field(&self.group, &b_pub);
+        let g = FieldElement::from_field(&self.group, &g);
+        let k = FieldElement::from_field(&self.group, &k);
+
         let handshake = Handshake {
-            B: PublicKey::from_field(&self.group, &b_pub),
-            g: FieldElement::from_field(&self.group, &g),
-            k: FieldElement::from_field(&self.group, &k),
+            B: b_public.clone(),
+            g: g.clone(),
+            k,
             s: salt.clone(),
         };
         let verifier = HandshakeProofVerifier {
             b,
-            B: PublicKey::from_field(&self.group, &b_pub),
-            g: FieldElement::from_field(&self.group, &g),
+            B: b_public,
+            g,
             user: UserSecrets {
                 username: username.clone(),
                 salt,
