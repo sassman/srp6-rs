@@ -17,7 +17,7 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    assert_eq!(handshake.s.as_bytes().len(), 256);
+    assert_eq!(handshake.salt().as_bytes().len(), 256);
 
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
@@ -29,7 +29,7 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
         .verify_strong_proof(&strong_verifier, &m2)
         .expect("the strong proof verifies");
 
-    assert_eq!(k, strong_verifier.K);
+    assert_eq!(k, *strong_verifier.session_key());
 }
 
 #[test]

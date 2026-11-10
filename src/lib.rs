@@ -41,7 +41,7 @@
 //! let session_key = srp
 //!     .verify_strong_proof(&strong_proof_verifier, &strong_proof)
 //!     .expect("the strong proof verifies");
-//! assert_eq!(session_key, strong_proof_verifier.K);
+//! assert_eq!(session_key, *strong_proof_verifier.session_key());
 //! ```
 //!
 //! Group arithmetic and the const-generic calculus stay crate-private; the

@@ -4,12 +4,22 @@ use crate::group::{Group, GroupOps};
 
 /// The server's stored view of one user.
 pub struct UserSecrets<G: Group> {
-    pub username: Username,
-    pub salt: Salt,
-    pub verifier: Verifier<G>,
+    pub(crate) username: Username,
+    pub(crate) salt: Salt,
+    pub(crate) verifier: Verifier<G>,
 }
 
 impl<G: Group> UserSecrets<G> {
+    /// Assembles the stored view of a user, e.g. after loading the salt `s`
+    /// and verifier `v` from a database.
+    pub fn new(username: Username, salt: Salt, verifier: Verifier<G>) -> Self {
+        Self {
+            username,
+            salt,
+            verifier,
+        }
+    }
+
     /// The username `I`.
     #[doc(alias = "I")]
     pub fn username(&self) -> &Username {
@@ -32,10 +42,10 @@ impl<G: Group> UserSecrets<G> {
 /// The server's opening handshake.
 #[allow(non_snake_case)]
 pub struct Handshake<G: Group> {
-    pub B: PublicKey<G>,
-    pub g: FieldElement<G>,
-    pub k: FieldElement<G>,
-    pub s: Salt,
+    pub(crate) B: PublicKey<G>,
+    pub(crate) g: FieldElement<G>,
+    pub(crate) k: FieldElement<G>,
+    pub(crate) s: Salt,
 }
 
 impl<G: Group> Handshake<G> {
@@ -68,9 +78,9 @@ impl<G: Group> Handshake<G> {
 #[allow(non_snake_case)]
 pub struct HandshakeProofVerifier<G: GroupOps> {
     pub(super) b: G::Exponent,
-    pub B: PublicKey<G>,
-    pub g: FieldElement<G>,
-    pub user: UserSecrets<G>,
+    pub(crate) B: PublicKey<G>,
+    pub(crate) g: FieldElement<G>,
+    pub(crate) user: UserSecrets<G>,
 }
 
 impl<G: GroupOps> HandshakeProofVerifier<G> {
@@ -95,8 +105,8 @@ impl<G: GroupOps> HandshakeProofVerifier<G> {
 /// The client's proof.
 #[allow(non_snake_case)]
 pub struct HandshakeProof<G: Group> {
-    pub A: PublicKey<G>,
-    pub M1: Proof,
+    pub(crate) A: PublicKey<G>,
+    pub(crate) M1: Proof,
 }
 
 impl<G: Group> HandshakeProof<G> {
@@ -116,9 +126,9 @@ impl<G: Group> HandshakeProof<G> {
 /// What the client keeps to verify the server's strong proof.
 #[allow(non_snake_case)]
 pub struct StrongProofVerifier<G: Group> {
-    pub A: PublicKey<G>,
-    pub K: StrongSessionKey,
-    pub M1: Proof,
+    pub(crate) A: PublicKey<G>,
+    pub(crate) K: StrongSessionKey,
+    pub(crate) M1: Proof,
 }
 
 impl<G: Group> StrongProofVerifier<G> {
