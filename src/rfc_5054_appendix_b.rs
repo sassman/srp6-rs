@@ -51,12 +51,12 @@ fn test_appendix_b_srp_test_vectors() {
 
     let srp = Srp6::new(group);
     let (salt, verifier) =
-        srp.generate_new_user_secrets_with_fixed_salt(&username, &password, salt);
+        srp.generate_new_user_secrets_with_salt(&username, &password, salt);
     let (handshake, server) = srp
-        .start_handshake_with_fixed_b(&username, salt.clone(), verifier.clone(), b.clone())
+        .start_handshake_with_b(&username, salt.clone(), verifier.clone(), b)
         .expect("the handshake starts");
     let (proof, client) = srp
-        .calculate_proof_with_fixed_a(&handshake, &username, &password, a.clone())
+        .calculate_proof_with_a(&handshake, &username, &password, a)
         .expect("the client can prove");
     let m2 = srp
         .verify_proof(&server, &proof)

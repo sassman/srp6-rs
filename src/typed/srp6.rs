@@ -47,7 +47,7 @@ impl<G: GroupOps> Srp6<G> {
         self.generate_new_user_secrets_with_salt(username, password, Salt::from(salt))
     }
 
-    fn generate_new_user_secrets_with_salt(
+    pub(crate) fn generate_new_user_secrets_with_salt(
         &self,
         username: &Username,
         password: ClearTextPasswordRef,
@@ -57,16 +57,6 @@ impl<G: GroupOps> Srp6<G> {
         let verifier = self.group.field_pow(&self.group.generator(), &x);
 
         (salt, Verifier::from_field(&self.group, &verifier))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn generate_new_user_secrets_with_fixed_salt(
-        &self,
-        username: &Username,
-        password: ClearTextPasswordRef,
-        salt: Salt,
-    ) -> (Salt, Verifier<G>) {
-        self.generate_new_user_secrets_with_salt(username, password, salt)
     }
 
     /// Starts the handshake for an existing user.
@@ -84,7 +74,7 @@ impl<G: GroupOps> Srp6<G> {
         self.start_handshake_with_b(username, salt, verifier, b)
     }
 
-    fn start_handshake_with_b(
+    pub(crate) fn start_handshake_with_b(
         &self,
         username: &Username,
         salt: Salt,
@@ -121,17 +111,6 @@ impl<G: GroupOps> Srp6<G> {
         };
 
         Ok((handshake, verifier))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn start_handshake_with_fixed_b(
-        &self,
-        username: &Username,
-        salt: Salt,
-        verifier: Verifier<G>,
-        b: G::Exponent,
-    ) -> Result<(Handshake<G>, HandshakeProofVerifier<G>)> {
-        self.start_handshake_with_b(username, salt, verifier, b)
     }
 
     /// Verifies the client's proof and returns the strong proof `M2`.
@@ -176,7 +155,7 @@ impl<G: GroupOps> Srp6<G> {
         self.calculate_proof_with_a(handshake, username, password, a_exp)
     }
 
-    fn calculate_proof_with_a(
+    pub(crate) fn calculate_proof_with_a(
         &self,
         handshake: &Handshake<G>,
         username: &Username,
@@ -222,17 +201,6 @@ impl<G: GroupOps> Srp6<G> {
         };
 
         Ok((proof, verifier))
-    }
-
-    #[cfg(test)]
-    pub(crate) fn calculate_proof_with_fixed_a(
-        &self,
-        handshake: &Handshake<G>,
-        username: &Username,
-        password: &str,
-        a: G::Exponent,
-    ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
-        self.calculate_proof_with_a(handshake, username, password, a)
     }
 
     /// Verifies the server's strong proof.

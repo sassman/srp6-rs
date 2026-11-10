@@ -63,12 +63,12 @@ fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &S
 
     let srp = Srp6::new(group);
     let (salt, verifier) =
-        srp.generate_new_user_secrets_with_fixed_salt(username, password, salt.clone());
+        srp.generate_new_user_secrets_with_salt(username, password, salt.clone());
     let (handshake, server) = srp
-        .start_handshake_with_fixed_b(username, salt.clone(), verifier.clone(), b.clone())
+        .start_handshake_with_b(username, salt.clone(), verifier.clone(), b.clone())
         .expect("the handshake starts");
     let (proof, client) = srp
-        .calculate_proof_with_fixed_a(&handshake, username, password, a.clone())
+        .calculate_proof_with_a(&handshake, username, password, a.clone())
         .expect("the client can prove");
     let m2 = srp
         .verify_proof(&server, &proof)
