@@ -12,7 +12,7 @@ pub struct StrongSessionKey([u8; STRONG_SESSION_KEY_LENGTH]);
 
 impl StrongSessionKey {
     /// Decodes `bytes`, which must be exactly `STRONG_SESSION_KEY_LENGTH` long.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
         let bytes: [u8; STRONG_SESSION_KEY_LENGTH] =
             bytes.try_into().map_err(|_| Srp6Error::KeyLengthMismatch {
                 given: bytes.len(),
@@ -43,7 +43,7 @@ impl AsRef<[u8]> for StrongSessionKey {
 
 impl FromHexString for StrongSessionKey {
     fn try_from_hex(hex: &str) -> Result<Self> {
-        Self::from_bytes(&decode_hex(hex)?)
+        Self::try_from_bytes(&decode_hex(hex)?)
     }
 }
 

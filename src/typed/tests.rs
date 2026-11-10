@@ -72,7 +72,7 @@ fn a_wrong_strong_proof_is_refused() {
 
     let mut wrong = *m2.as_bytes();
     wrong[0] ^= 1;
-    let wrong = Proof::from_bytes(&wrong).expect("one proof width");
+    let wrong = Proof::try_from_bytes(&wrong).expect("one proof width");
 
     assert!(srp.verify_strong_proof(&strong_verifier, &wrong).is_err());
 }
@@ -84,7 +84,7 @@ fn a_verifier_round_trips_through_its_bytes() {
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
 
     let salt = Salt::from(salt.to_vec());
-    let verifier = Verifier::<Group2048>::from_bytes(&verifier.to_vec())
+    let verifier = Verifier::<Group2048>::try_from_bytes(&verifier.to_vec())
         .expect("the verifier is a field element");
     srp.start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
@@ -95,19 +95,19 @@ fn a_public_key_is_a_distinct_validated_type() {
     let mut bytes = vec![0_u8; Group2048::N_BYTES];
     bytes[Group2048::N_BYTES - 1] = 2;
 
-    let key = PublicKey::<Group2048>::from_bytes(&bytes).expect("a non-zero key");
+    let key = PublicKey::<Group2048>::try_from_bytes(&bytes).expect("a non-zero key");
     assert_eq!(key.as_bytes(), bytes.as_slice());
     assert!(format!("{key:?}").starts_with("PublicKey("));
 
-    assert!(PublicKey::<Group2048>::from_bytes(&[0_u8; 256]).is_err());
-    assert!(PublicKey::<Group2048>::from_bytes(&vec![0_u8; 257]).is_err());
+    assert!(PublicKey::<Group2048>::try_from_bytes(&[0_u8; 256]).is_err());
+    assert!(PublicKey::<Group2048>::try_from_bytes(&vec![0_u8; 257]).is_err());
 }
 
 #[test]
 fn degenerate_values_are_refused() {
-    assert!(Verifier::<Group2048>::from_bytes(&[0_u8; 256]).is_err());
-    assert!(Verifier::<Group2048>::from_bytes(&[0_u8; 257]).is_err());
-    assert!(Proof::from_bytes(&[0_u8; HASH_LENGTH - 1]).is_err());
+    assert!(Verifier::<Group2048>::try_from_bytes(&[0_u8; 256]).is_err());
+    assert!(Verifier::<Group2048>::try_from_bytes(&[0_u8; 257]).is_err());
+    assert!(Proof::try_from_bytes(&[0_u8; HASH_LENGTH - 1]).is_err());
 }
 
 #[test]
@@ -302,7 +302,7 @@ fn the_verifier_implements_its_byte_contract() {
 fn the_public_key_implements_its_byte_contract() {
     let mut bytes = vec![0_u8; Group2048::N_BYTES];
     bytes[Group2048::N_BYTES - 1] = 2;
-    let key = PublicKey::<Group2048>::from_bytes(&bytes).expect("a non-zero key");
+    let key = PublicKey::<Group2048>::try_from_bytes(&bytes).expect("a non-zero key");
 
     let cloned = key.clone();
     assert_eq!(cloned, key);

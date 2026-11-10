@@ -37,10 +37,10 @@ fn a_public_key_is_constructible_and_checked_at_the_boundary() {
     let mut bytes = vec![0_u8; Group2048::N_BYTES];
     bytes[Group2048::N_BYTES - 1] = 2;
 
-    let key = PublicKey::<Group2048>::from_bytes(&bytes).expect("a non-zero key");
+    let key = PublicKey::<Group2048>::try_from_bytes(&bytes).expect("a non-zero key");
     assert_eq!(key.as_bytes(), bytes.as_slice());
 
-    assert!(PublicKey::<Group2048>::from_bytes(&[0_u8; 256]).is_err());
+    assert!(PublicKey::<Group2048>::try_from_bytes(&[0_u8; 256]).is_err());
 }
 
 #[test]

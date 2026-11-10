@@ -26,8 +26,8 @@ impl<G: Group> PublicKey<G> {
 }
 
 impl<G: GroupOps> PublicKey<G> {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        FieldElement::from_bytes(bytes).map(Self)
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
+        FieldElement::try_from_bytes(bytes).map(Self)
     }
 
     pub(crate) fn from_field(group: &G, value: &G::Field) -> Self {
@@ -69,7 +69,7 @@ impl<G: GroupOps> TryFrom<Vec<u8>> for PublicKey<G> {
     type Error = Srp6Error;
 
     fn try_from(bytes: Vec<u8>) -> Result<Self> {
-        Self::from_bytes(&bytes)
+        Self::try_from_bytes(&bytes)
     }
 }
 
@@ -77,13 +77,13 @@ impl<G: GroupOps> TryFrom<&[u8]> for PublicKey<G> {
     type Error = Srp6Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self> {
-        Self::from_bytes(bytes)
+        Self::try_from_bytes(bytes)
     }
 }
 
 impl<G: GroupOps> FromHexString for PublicKey<G> {
     fn try_from_hex(hex: &str) -> Result<Self> {
-        Self::from_bytes(&decode_hex(hex)?)
+        Self::try_from_bytes(&decode_hex(hex)?)
     }
 }
 
@@ -108,6 +108,6 @@ impl<G: Group> Serialize for PublicKey<G> {
 impl<'de, G: GroupOps> Deserialize<'de> for PublicKey<G> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
         let bytes = Vec::<u8>::deserialize(deserializer)?;
-        Self::from_bytes(&bytes).map_err(serde::de::Error::custom)
+        Self::try_from_bytes(&bytes).map_err(serde::de::Error::custom)
     }
 }

@@ -14,7 +14,7 @@ use subtle::ConstantTimeEq;
 pub struct Proof([u8; HASH_LENGTH]);
 
 impl Proof {
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
         let bytes: [u8; HASH_LENGTH] =
             bytes
                 .try_into()
@@ -70,13 +70,13 @@ impl Serialize for Proof {
 
 impl FromHexString for Proof {
     fn try_from_hex(hex: &str) -> Result<Self> {
-        Self::from_bytes(&decode_hex(hex)?)
+        Self::try_from_bytes(&decode_hex(hex)?)
     }
 }
 
 impl<'de> Deserialize<'de> for Proof {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
         let bytes = Vec::<u8>::deserialize(deserializer)?;
-        Self::from_bytes(&bytes).map_err(serde::de::Error::custom)
+        Self::try_from_bytes(&bytes).map_err(serde::de::Error::custom)
     }
 }

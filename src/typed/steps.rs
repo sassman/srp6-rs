@@ -175,8 +175,8 @@ mod tests {
         let mut b_bytes = vec![0_u8; crate::group::Group2048::N_BYTES];
         b_bytes[crate::group::Group2048::N_BYTES - 1] = 3;
 
-        let a = PublicKey::<crate::group::Group2048>::from_bytes(&a_bytes).expect("valid A");
-        let b = PublicKey::<crate::group::Group2048>::from_bytes(&b_bytes).expect("valid B");
+        let a = PublicKey::<crate::group::Group2048>::try_from_bytes(&a_bytes).expect("valid A");
+        let b = PublicKey::<crate::group::Group2048>::try_from_bytes(&b_bytes).expect("valid B");
 
         let u = scrambler_u(&crate::group::Group2048, &a, &b);
         let expected = crate::group::Group2048

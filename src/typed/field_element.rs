@@ -40,7 +40,7 @@ impl<G: GroupOps> FieldElement<G> {
     ///
     /// Shorter inputs are zero-padded to the group's fixed width, so
     /// [`FieldElement::to_vec`] always returns `N_BYTES` bytes.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
         let group = G::default();
         let field = group
             .field_from_bytes(bytes)
@@ -96,7 +96,7 @@ impl<G: GroupOps> TryFrom<Vec<u8>> for FieldElement<G> {
     type Error = Srp6Error;
 
     fn try_from(bytes: Vec<u8>) -> Result<Self> {
-        Self::from_bytes(&bytes)
+        Self::try_from_bytes(&bytes)
     }
 }
 
@@ -104,13 +104,13 @@ impl<G: GroupOps> TryFrom<&[u8]> for FieldElement<G> {
     type Error = Srp6Error;
 
     fn try_from(bytes: &[u8]) -> Result<Self> {
-        Self::from_bytes(bytes)
+        Self::try_from_bytes(bytes)
     }
 }
 
 impl<G: GroupOps> FromHexString for FieldElement<G> {
     fn try_from_hex(hex: &str) -> Result<Self> {
-        Self::from_bytes(&decode_hex(hex)?)
+        Self::try_from_bytes(&decode_hex(hex)?)
     }
 }
 
@@ -135,6 +135,6 @@ impl<G: Group> Serialize for FieldElement<G> {
 impl<'de, G: GroupOps> Deserialize<'de> for FieldElement<G> {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
         let bytes = Vec::<u8>::deserialize(deserializer)?;
-        Self::from_bytes(&bytes).map_err(serde::de::Error::custom)
+        Self::try_from_bytes(&bytes).map_err(serde::de::Error::custom)
     }
 }
