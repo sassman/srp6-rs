@@ -11,7 +11,7 @@ use thiserror::Error;
 /// would become ambiguous: `("a:b", "c")` and `("a", "b:c")` would hash
 /// to exactly the same value.
 #[doc(alias = "I")]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String")]
 pub struct Username(String);
 /// Reference to a validated [`Username`] `I`
