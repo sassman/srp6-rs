@@ -18,10 +18,6 @@ pub enum Srp6Error {
     #[error("The provided strong proof is invalid")]
     InvalidStrongProof(Proof),
 
-    /// Carries the bytes that failed the `0 mod N` check.
-    #[error("The provided public key is invalid")]
-    InvalidPublicKey(Vec<u8>),
-
     /// The bytes did not decode to a non-zero element modulo the group's `N`.
     #[error("The provided bytes are not a valid field element of the group")]
     InvalidFieldElement,
