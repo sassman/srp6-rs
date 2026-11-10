@@ -54,7 +54,10 @@ impl fmt::Display for StrongSessionKey {
 }
 
 impl fmt::Debug for StrongSessionKey {
+    // The session secret must not leak through `{:?}` logging or a derived
+    // Debug on a surrounding struct. `Display` still prints the hex for callers
+    // that explicitly ask for it.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "StrongSessionKey({self})")
+        f.write_str("StrongSessionKey(<redacted>)")
     }
 }

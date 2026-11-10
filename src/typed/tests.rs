@@ -410,6 +410,16 @@ fn the_strong_session_key_implements_its_byte_contract() {
 }
 
 #[test]
+fn the_session_key_debug_does_not_leak_the_secret() {
+    let hex = "AB".repeat(2 * HASH_LENGTH);
+    let k = StrongSessionKey::try_from_hex(&hex).expect("valid key");
+
+    // Display still exposes the hex on explicit request; Debug must not.
+    assert_eq!(k.to_string(), hex);
+    assert!(!format!("{k:?}").contains("AB"));
+}
+
+#[test]
 fn the_driver_reports_the_group_widths() {
     let srp = Srp6::new(Group2048);
 
