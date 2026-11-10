@@ -23,6 +23,11 @@ pub enum Srp6Error {
     #[error("the scrambler parameter u must not be zero")]
     InvalidScrambler,
 
+    /// The client derived a zero premaster secret `S`; a malicious server can
+    /// force this with `B = k*v`. Refuse before deriving the session key `K`.
+    #[error("the derived premaster secret must not be zero")]
+    InvalidPremaster,
+
     /// The bytes did not decode to a non-zero element modulo the group's `N`.
     #[error("The provided bytes are not a valid field element of the group")]
     InvalidFieldElement,

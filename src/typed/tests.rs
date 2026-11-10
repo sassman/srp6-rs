@@ -56,6 +56,32 @@ fn a_wrong_password_is_refused() {
 }
 
 #[test]
+fn a_zero_premaster_from_a_malicious_server_is_refused() {
+    let srp = Srp6::new(Group2048);
+    let group = Group2048;
+    let username = Username::new("alice").expect("valid username");
+    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+
+    // A malicious server sends B = k*v, so base = B - k*g^x = k*(v - g^x) = 0
+    // and the premaster S collapses to zero (B itself is still non-zero, so it
+    // passes the public-key check).
+    let k = group.multiplier().expect("multiplier");
+    let v = verifier.to_field(&group).expect("verifier field");
+    let b_field = group.field_mul(&k, &v);
+    let handshake = Handshake {
+        B: PublicKey::from_field(&group, &b_field),
+        g: FieldElement::from_field(&group, &group.generator()),
+        k: FieldElement::from_field(&group, &k),
+        s: salt,
+    };
+
+    assert!(matches!(
+        srp.calculate_proof(&handshake, &username, "password123"),
+        Err(crate::Srp6Error::InvalidPremaster)
+    ));
+}
+
+#[test]
 fn a_wrong_strong_proof_is_refused() {
     let srp = Srp6::new(Group2048);
     let username = Username::new("alice").expect("valid username");

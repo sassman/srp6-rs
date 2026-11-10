@@ -194,6 +194,11 @@ impl<G: GroupOps> Srp6<G> {
         let base = self.group.field_sub(&b_field, &k_gx);
         let s = self.group.field_pow(&base, &exp);
         let s = FieldElement::from_field(&self.group, &s);
+        // A malicious server can send B = k*v, forcing base = 0 and S = 0.
+        // `from_field` does not re-reject zero, so guard before deriving K.
+        if s.as_bytes().iter().all(|&byte| byte == 0) {
+            return Err(Srp6Error::InvalidPremaster);
+        }
         let strong_key = steps::strong_session_key(&s);
 
         let m1 = steps::proof_m1(
