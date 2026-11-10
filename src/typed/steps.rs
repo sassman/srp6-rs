@@ -139,6 +139,8 @@ fn hash_n_xor_g<G: GroupOps>(group: &G) -> Hash {
 fn trim_leading_zeroes(bytes: &[u8]) -> &[u8] {
     match bytes.iter().position(|byte| *byte != 0) {
         Some(start) => &bytes[start..],
+        // All-zero input collapses to a single zero byte: an empty slice would
+        // hash differently from the minimal-form encoding the RFC expects.
         None => &bytes[bytes.len().saturating_sub(1)..],
     }
 }
