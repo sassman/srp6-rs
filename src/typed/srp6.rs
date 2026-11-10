@@ -150,7 +150,7 @@ impl<G: GroupOps> Srp6<G> {
             &k,
         );
         if !m1.ct_eq(&proof.M1) {
-            return Err(Srp6Error::InvalidProof(m1));
+            return Err(Srp6Error::InvalidProof);
         }
 
         Ok(steps::proof_m2(&proof.A, &m1, &k))

@@ -13,7 +13,7 @@ pub enum Srp6Error {
     InvalidProofLength { given: usize, expected: usize },
 
     #[error("The provided proof is invalid")]
-    InvalidProof(Proof),
+    InvalidProof,
 
     #[error("The provided strong proof is invalid")]
     InvalidStrongProof(Proof),
