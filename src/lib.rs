@@ -62,10 +62,35 @@
 //! - [RFC5054](https://datatracker.ietf.org/doc/html/rfc5054) that describes SRP6 for TLS Authentication
 //! - [check out the 2 examples](./examples) that illustrates the srp authentication flow as well
 
+// Modules
 pub mod defaults;
+pub mod group;
 pub mod hash;
 pub mod protocol_details;
+pub mod rfc_5054_appendix_a;
 pub mod rfc_lingo;
+
+mod credentials;
+mod error;
+mod typed;
+
+#[cfg(test)]
+mod golden_vectors;
+#[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
+pub mod rfc_5054_appendix_b;
+#[cfg(feature = "wow-1-12-1")]
+pub mod wow;
+
+// Crate-root re-exports
+pub use credentials::*;
+pub use defaults::*;
+pub use error::Srp6Error;
+pub use group::*;
+pub use typed::*;
+
+/// encapsulates a [`crate::error::Srp6Error`]
+pub type Result<T> = std::result::Result<T, crate::error::Srp6Error>;
+
 pub mod prelude {
     pub use crate::credentials::*;
     pub use crate::defaults::*;
@@ -75,25 +100,3 @@ pub mod prelude {
     pub use crate::typed::*;
     pub use std::convert::TryInto;
 }
-#[cfg(test)]
-mod golden_vectors;
-pub mod group;
-pub mod rfc_5054_appendix_a;
-#[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
-pub mod rfc_5054_appendix_b;
-mod typed;
-#[cfg(feature = "wow-1-12-1")]
-pub mod wow;
-
-pub use credentials::*;
-pub use error::Srp6Error;
-pub use group::*;
-pub use typed::*;
-
-mod credentials;
-mod error;
-
-/// encapsulates a [`crate::error::Srp6Error`]
-pub type Result<T> = std::result::Result<T, crate::error::Srp6Error>;
-
-pub use defaults::*;
