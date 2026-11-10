@@ -50,13 +50,13 @@
 //! ## Note on key length
 //!
 //! this crate provides some default keys [preconfigured and aliased][defaults].
-//! The modulus prime and genrator numbers are taken from [RFC5054](https://datatracker.ietf.org/doc/html/rfc5054).
+//! The modulus prime and generator numbers are taken from [RFC5054](https://datatracker.ietf.org/doc/html/rfc5054).
 //!
 //! ## Note on hash length
 //!
 //! The original RFC5054 uses SHA1 as the hash function. This crate uses SHA512 as the default hash function. Because SHA1 is considered weak, it is recommended to use newer versions of the SHA family. The hash length is 64 bytes for SHA512 instead of 20 bytes for SHA1. If you really need to use SHA1, you can use the `hash-sha1` feature.
 //!
-//! ## Further details and domain vocabolary
+//! ## Further details and domain vocabulary
 //! - You can find the documentation of SRP6 [variables in a dedicated module][`protocol_details`].
 //! - [RFC2945](https://datatracker.ietf.org/doc/html/rfc2945) that describes in detail the Secure remote password protocol (SRP).
 //! - [RFC5054](https://datatracker.ietf.org/doc/html/rfc5054) that describes SRP6 for TLS Authentication
