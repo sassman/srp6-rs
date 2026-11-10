@@ -1,8 +1,8 @@
-//!
-//! # An implementation of Secure Remote Password (SRP6) authentication protocol.
+//! # An safe rust native implementaiton of Secure Remote Password (SRP6) authentication protocol.
 //!
 //! **NOTE**: Please do only use key length >= 2048 bit in production.
-//!           You can do so by using [`Srp6_2048`] or [`Srp6_4096`] or related.
+//!           You can do so by using either of
+//!           [`Srp6_2048`], [`Srp6_4096`], [`Srp6_6144`], [`Srp6_8192`]
 //!
 //! ## Usage
 //!
@@ -44,9 +44,6 @@
 //! assert_eq!(session_key, *strong_proof_verifier.session_key());
 //! ```
 //!
-//! Group arithmetic and the const-generic calculus stay crate-private; the
-//! handshake is the only door into them.
-//!
 //! ## Note on key length
 //!
 //! this crate provides some default keys [preconfigured and aliased][defaults].
@@ -54,7 +51,12 @@
 //!
 //! ## Note on hash length
 //!
-//! The original RFC5054 uses SHA1 as the hash function. This crate uses SHA512 as the default hash function. Because SHA1 is considered weak, it is recommended to use newer versions of the SHA family. The hash length is 64 bytes for SHA512 instead of 20 bytes for SHA1. If you really need to use SHA1, you can use the `hash-sha1` feature.
+//! The original RFC5054 uses SHA1 as the hash function.
+//! This crate uses SHA512 as the default hash function,
+//! because SHA1 is considered weak, it is recommended to use newer versions of the SHA family.
+//!
+//! The hash length is 64 bytes for SHA512 instead of 20 bytes for SHA1.
+//! If you really need to use SHA1, you can use the `hash-sha1` feature.
 //!
 //! ## Further details and domain vocabulary
 //! - You can find the documentation of SRP6 [variables in a dedicated module][`protocol_details`].
