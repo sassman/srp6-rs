@@ -35,6 +35,12 @@ impl StrongSessionKey {
     }
 }
 
+impl AsRef<[u8]> for StrongSessionKey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl FromHexString for StrongSessionKey {
     fn try_from_hex(hex: &str) -> Result<Self> {
         Self::from_bytes(&decode_hex(hex)?)
