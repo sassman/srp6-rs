@@ -1,7 +1,6 @@
-use std::fmt;
 use std::marker::PhantomData;
 
-use super::hex::write_hex;
+use super::newtype::byte_newtype_fmt;
 use crate::group::Group;
 
 /// The prime modulus `N` of a closed group.
@@ -47,26 +46,10 @@ impl<G: Group> PartialEq for Modulus<G> {
 
 impl<G: Group> Eq for Modulus<G> {}
 
-impl<G: Group> AsRef<[u8]> for Modulus<G> {
-    fn as_ref(&self) -> &[u8] {
-        self.as_bytes()
-    }
-}
+byte_newtype_fmt!(<G> Modulus, "Modulus");
 
 impl<G: Group> From<Modulus<G>> for Vec<u8> {
     fn from(value: Modulus<G>) -> Self {
         value.to_vec()
-    }
-}
-
-impl<G: Group> fmt::Display for Modulus<G> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_hex(f, &self.bytes)
-    }
-}
-
-impl<G: Group> fmt::Debug for Modulus<G> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Modulus({self})")
     }
 }

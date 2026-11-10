@@ -1,9 +1,9 @@
 use std::convert::TryFrom;
-use std::fmt;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer};
 
-use super::hex::{decode_hex, write_hex, FromHexString};
+use super::hex::{decode_hex, FromHexString};
+use super::newtype::{byte_newtype_fmt, byte_newtype_serialize};
 use super::FieldElement;
 use crate::group::{Group, GroupOps};
 use crate::{error::Srp6Error, Result};
@@ -53,11 +53,8 @@ impl<G: Group> PartialEq for PublicKey<G> {
 
 impl<G: Group> Eq for PublicKey<G> {}
 
-impl<G: Group> AsRef<[u8]> for PublicKey<G> {
-    fn as_ref(&self) -> &[u8] {
-        self.as_bytes()
-    }
-}
+byte_newtype_fmt!(<G> PublicKey, "PublicKey");
+byte_newtype_serialize!(<G> PublicKey);
 
 impl<G: Group> From<PublicKey<G>> for Vec<u8> {
     fn from(value: PublicKey<G>) -> Self {
@@ -84,24 +81,6 @@ impl<G: GroupOps> TryFrom<&[u8]> for PublicKey<G> {
 impl<G: GroupOps> FromHexString for PublicKey<G> {
     fn try_from_hex(hex: &str) -> Result<Self> {
         Self::try_from_bytes(&decode_hex(hex)?)
-    }
-}
-
-impl<G: Group> fmt::Display for PublicKey<G> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_hex(f, self.as_bytes())
-    }
-}
-
-impl<G: Group> fmt::Debug for PublicKey<G> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PublicKey({self})")
-    }
-}
-
-impl<G: Group> Serialize for PublicKey<G> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
-        serializer.serialize_bytes(self.as_bytes())
     }
 }
 

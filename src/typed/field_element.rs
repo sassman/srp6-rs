@@ -1,11 +1,11 @@
 use std::convert::TryFrom;
 
-use std::fmt;
 use std::marker::PhantomData;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer};
 
-use super::hex::{decode_hex, write_hex, FromHexString};
+use super::hex::{decode_hex, FromHexString};
+use super::newtype::{byte_newtype_fmt, byte_newtype_serialize};
 use crate::group::{Group, GroupOps};
 use crate::{error::Srp6Error, Result};
 
@@ -80,11 +80,8 @@ impl<G: Group> PartialEq for FieldElement<G> {
 
 impl<G: Group> Eq for FieldElement<G> {}
 
-impl<G: Group> AsRef<[u8]> for FieldElement<G> {
-    fn as_ref(&self) -> &[u8] {
-        self.as_bytes()
-    }
-}
+byte_newtype_fmt!(<G> FieldElement, "FieldElement");
+byte_newtype_serialize!(<G> FieldElement);
 
 impl<G: Group> From<FieldElement<G>> for Vec<u8> {
     fn from(value: FieldElement<G>) -> Self {
@@ -111,24 +108,6 @@ impl<G: GroupOps> TryFrom<&[u8]> for FieldElement<G> {
 impl<G: GroupOps> FromHexString for FieldElement<G> {
     fn try_from_hex(hex: &str) -> Result<Self> {
         Self::try_from_bytes(&decode_hex(hex)?)
-    }
-}
-
-impl<G: Group> fmt::Display for FieldElement<G> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_hex(f, &self.bytes)
-    }
-}
-
-impl<G: Group> fmt::Debug for FieldElement<G> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "FieldElement({self})")
-    }
-}
-
-impl<G: Group> Serialize for FieldElement<G> {
-    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
-        serializer.serialize_bytes(&self.bytes)
     }
 }
 

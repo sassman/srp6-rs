@@ -1,10 +1,9 @@
 use std::convert::TryInto;
 
-use std::fmt;
+use serde::{Deserialize, Deserializer};
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use super::hex::{decode_hex, write_hex, FromHexString};
+use super::hex::{decode_hex, FromHexString};
+use super::newtype::{byte_newtype_fmt, byte_newtype_serialize};
 use crate::hash::{Hash, HASH_LENGTH};
 use crate::{error::Srp6Error, Result};
 use subtle::ConstantTimeEq;
@@ -44,29 +43,8 @@ impl Proof {
     }
 }
 
-impl AsRef<[u8]> for Proof {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl fmt::Display for Proof {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_hex(f, &self.0)
-    }
-}
-
-impl fmt::Debug for Proof {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Proof({self})")
-    }
-}
-
-impl Serialize for Proof {
-    fn serialize<S: Serializer>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error> {
-        serializer.serialize_bytes(&self.0)
-    }
-}
+byte_newtype_fmt!(Proof, "Proof");
+byte_newtype_serialize!(Proof);
 
 impl FromHexString for Proof {
     fn try_from_hex(hex: &str) -> Result<Self> {

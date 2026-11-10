@@ -9,6 +9,7 @@ mod field_element;
 mod handshake;
 mod hex;
 mod modulus;
+mod newtype;
 mod proof;
 mod public_key;
 mod salt;
