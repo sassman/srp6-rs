@@ -30,7 +30,7 @@ impl<G: Group> FieldElement<G> {
         &self.bytes
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_vec(&self) -> Vec<u8> {
         self.bytes.to_vec()
     }
 }
@@ -39,7 +39,7 @@ impl<G: GroupOps> FieldElement<G> {
     /// Decodes `bytes`, rejecting values wider than `N` or `0 mod N`.
     ///
     /// Shorter inputs are zero-padded to the group's fixed width, so
-    /// [`FieldElement::to_bytes`] always returns `N_BYTES` bytes.
+    /// [`FieldElement::to_vec`] always returns `N_BYTES` bytes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         let group = G::default();
         let field = group
@@ -88,7 +88,7 @@ impl<G: Group> AsRef<[u8]> for FieldElement<G> {
 
 impl<G: Group> From<FieldElement<G>> for Vec<u8> {
     fn from(value: FieldElement<G>) -> Self {
-        value.to_bytes()
+        value.to_vec()
     }
 }
 

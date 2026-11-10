@@ -84,7 +84,7 @@ fn a_verifier_round_trips_through_its_bytes() {
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
 
     let salt = Salt::from(salt.to_vec());
-    let verifier = Verifier::<Group2048>::from_bytes(&verifier.to_bytes())
+    let verifier = Verifier::<Group2048>::from_bytes(&verifier.to_vec())
         .expect("the verifier is a field element");
     srp.start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
@@ -273,14 +273,14 @@ fn the_verifier_implements_its_byte_contract() {
     let cloned = verifier.clone();
     assert_eq!(cloned, verifier);
     assert_eq!(cloned.as_bytes(), verifier.as_bytes());
-    assert_eq!(cloned.to_bytes(), verifier.to_bytes());
+    assert_eq!(cloned.to_vec(), verifier.to_vec());
     assert_eq!(
         <Verifier<Group2048> as AsRef<[u8]>>::as_ref(&verifier),
         verifier.as_bytes()
     );
-    assert_eq!(Vec::<u8>::from(verifier.clone()), verifier.to_bytes());
+    assert_eq!(Vec::<u8>::from(verifier.clone()), verifier.to_vec());
     assert_eq!(
-        Verifier::<Group2048>::try_from(verifier.to_bytes()).expect("owned bytes"),
+        Verifier::<Group2048>::try_from(verifier.to_vec()).expect("owned bytes"),
         verifier
     );
     assert_eq!(
@@ -307,14 +307,14 @@ fn the_public_key_implements_its_byte_contract() {
     let cloned = key.clone();
     assert_eq!(cloned, key);
     assert_eq!(cloned.as_bytes(), key.as_bytes());
-    assert_eq!(cloned.to_bytes(), key.to_bytes());
+    assert_eq!(cloned.to_vec(), key.to_vec());
     assert_eq!(
         <PublicKey<Group2048> as AsRef<[u8]>>::as_ref(&key),
         key.as_bytes()
     );
-    assert_eq!(Vec::<u8>::from(key.clone()), key.to_bytes());
+    assert_eq!(Vec::<u8>::from(key.clone()), key.to_vec());
     assert_eq!(
-        PublicKey::<Group2048>::try_from(key.to_bytes()).expect("owned bytes"),
+        PublicKey::<Group2048>::try_from(key.to_vec()).expect("owned bytes"),
         key
     );
     assert_eq!(

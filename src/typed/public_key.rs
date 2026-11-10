@@ -20,8 +20,8 @@ impl<G: Group> PublicKey<G> {
         self.0.as_bytes()
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.0.to_bytes()
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
     }
 }
 
@@ -61,7 +61,7 @@ impl<G: Group> AsRef<[u8]> for PublicKey<G> {
 
 impl<G: Group> From<PublicKey<G>> for Vec<u8> {
     fn from(value: PublicKey<G>) -> Self {
-        value.to_bytes()
+        value.to_vec()
     }
 }
 
