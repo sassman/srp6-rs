@@ -39,7 +39,7 @@ fn main() {
     println!("## {}'s handshake", user.username());
     printkeyln!("salt               [s]", handshake.salt());
     printkeyln!("server public key  [B]", handshake.public_key());
-    printkeyln!("prime modulus      [N]", Group4096.modulus());
+    printkeyln!("prime modulus      [N]", srp.modulus());
     printkeyln!("generator          [g]", handshake.generator());
     printkeyln!("multiplier         [k]", handshake.multiplier());
     println!();

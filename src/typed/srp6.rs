@@ -28,6 +28,15 @@ impl<G: Group> Srp6<G> {
     pub fn salt_bytes(&self) -> usize {
         G::SALT_BYTES
     }
+
+    /// The prime modulus `N`, as declared by the group.
+    ///
+    /// `N` is part of the handshake the server hands the client, so it is
+    /// reachable from the driver rather than only from the group type.
+    #[doc(alias = "N")]
+    pub fn modulus(&self) -> crate::Modulus<G> {
+        self.group.modulus()
+    }
 }
 
 impl<G: GroupOps> Default for Srp6<G> {
@@ -149,7 +158,7 @@ impl<G: GroupOps> Srp6<G> {
         &self,
         handshake: &Handshake<G>,
         username: &Username,
-        password: &str,
+        password: ClearTextPasswordRef,
     ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
         let a_exp = self.group.random_exponent();
         self.calculate_proof_with_a(handshake, username, password, a_exp)
@@ -159,7 +168,7 @@ impl<G: GroupOps> Srp6<G> {
         &self,
         handshake: &Handshake<G>,
         username: &Username,
-        password: &str,
+        password: ClearTextPasswordRef,
         a_exp: G::Exponent,
     ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
         let b_field = handshake.B.to_field(&self.group)?;
