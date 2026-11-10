@@ -275,7 +275,10 @@ mod tests {
         let group = Group2048;
         let bytes = group.exponent_to_bytes(&group.random_exponent());
         let headroom = bytes.len() - Group2048::N_BYTES;
-        assert!(headroom >= 8, "the exponent type must be wider than the modulus");
+        assert!(
+            headroom >= 8,
+            "the exponent type must be wider than the modulus"
+        );
         assert!(
             bytes[..headroom].iter().all(|byte| *byte == 0),
             "the top headroom bytes must stay zero so a + u*x cannot overflow"

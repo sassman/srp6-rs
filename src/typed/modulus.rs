@@ -5,7 +5,7 @@ use crate::group::Group;
 
 /// The prime modulus `N` of a closed group.
 ///
-/// The bytes are the group's canonical big-endian encoding; [`fmt::Display`]
+/// The bytes are the group's canonical big-endian encoding; [`std::fmt::Display`]
 /// prints them as uppercase hex.
 pub struct Modulus<G: Group> {
     bytes: Box<[u8]>,

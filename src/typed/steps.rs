@@ -63,7 +63,10 @@ pub(crate) fn scrambler_u<G: GroupOps>(
 /// sides MUST abort on it; `u` is public (`H(A | B)`), so a plain byte check is
 /// fine here.
 pub(crate) fn is_zero_exponent<G: GroupOps>(group: &G, exponent: &G::Exponent) -> bool {
-    group.exponent_to_bytes(exponent).iter().all(|byte| *byte == 0)
+    group
+        .exponent_to_bytes(exponent)
+        .iter()
+        .all(|byte| *byte == 0)
 }
 
 pub(crate) fn strong_session_key<G: GroupOps>(s: &FieldElement<G>) -> StrongSessionKey {
@@ -170,8 +173,14 @@ mod tests {
     #[test]
     fn the_zero_scrambler_is_detected() {
         let group = crate::group::Group2048;
-        assert!(is_zero_exponent(&group, &group.exponent_from_bytes(&[0_u8])));
-        assert!(!is_zero_exponent(&group, &group.exponent_from_bytes(&[1_u8])));
+        assert!(is_zero_exponent(
+            &group,
+            &group.exponent_from_bytes(&[0_u8])
+        ));
+        assert!(!is_zero_exponent(
+            &group,
+            &group.exponent_from_bytes(&[1_u8])
+        ));
     }
 
     #[test]

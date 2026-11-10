@@ -50,8 +50,7 @@ fn test_appendix_b_srp_test_vectors() {
     ));
 
     let srp = Srp6::new(group);
-    let (salt, verifier) =
-        srp.generate_new_user_secrets_with_salt(&username, &password, salt);
+    let (salt, verifier) = srp.generate_new_user_secrets_with_salt(&username, &password, salt);
     let (handshake, server) = srp
         .start_handshake_with_b(&username, salt.clone(), verifier.clone(), b)
         .expect("the handshake starts");
