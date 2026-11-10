@@ -420,6 +420,15 @@ fn the_session_key_debug_does_not_leak_the_secret() {
 }
 
 #[test]
+fn the_proof_debug_does_not_leak_the_value() {
+    let hex = "AB".repeat(HASH_LENGTH);
+    let proof = Proof::try_from_hex(&hex).expect("valid proof");
+
+    assert_eq!(proof.to_string(), hex);
+    assert!(!format!("{proof:?}").contains("AB"));
+}
+
+#[test]
 fn the_driver_reports_the_group_widths() {
     let srp = Srp6::new(Group2048);
 

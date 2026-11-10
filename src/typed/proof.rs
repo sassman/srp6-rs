@@ -3,7 +3,7 @@ use std::convert::TryInto;
 use serde::{Deserialize, Deserializer};
 
 use super::hex::{decode_hex, FromHexString};
-use super::newtype::{byte_newtype_fmt, byte_newtype_serialize};
+use super::newtype::{byte_newtype_fmt_redacted, byte_newtype_serialize};
 use crate::hash::{Hash, HASH_LENGTH};
 use crate::{error::Srp6Error, Result};
 use subtle::ConstantTimeEq;
@@ -43,7 +43,7 @@ impl Proof {
     }
 }
 
-byte_newtype_fmt!(Proof, "Proof");
+byte_newtype_fmt_redacted!(Proof, "Proof");
 byte_newtype_serialize!(Proof);
 
 impl FromHexString for Proof {

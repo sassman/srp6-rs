@@ -1,8 +1,7 @@
 use std::convert::TryInto;
 
-use std::fmt;
-
-use super::hex::{decode_hex, write_hex, FromHexString};
+use super::hex::{decode_hex, FromHexString};
+use super::newtype::byte_newtype_fmt_redacted;
 use crate::hash::STRONG_SESSION_KEY_LENGTH;
 use crate::{error::Srp6Error, Result};
 
@@ -35,29 +34,10 @@ impl StrongSessionKey {
     }
 }
 
-impl AsRef<[u8]> for StrongSessionKey {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
-    }
-}
+byte_newtype_fmt_redacted!(StrongSessionKey, "StrongSessionKey");
 
 impl FromHexString for StrongSessionKey {
     fn try_from_hex(hex: &str) -> Result<Self> {
         Self::try_from_bytes(&decode_hex(hex)?)
-    }
-}
-
-impl fmt::Display for StrongSessionKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write_hex(f, &self.0)
-    }
-}
-
-impl fmt::Debug for StrongSessionKey {
-    // The session secret must not leak through `{:?}` logging or a derived
-    // Debug on a surrounding struct. `Display` still prints the hex for callers
-    // that explicitly ask for it.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("StrongSessionKey(<redacted>)")
     }
 }

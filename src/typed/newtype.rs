@@ -6,7 +6,8 @@
 //! from an `as_bytes(&self) -> &[u8]` accessor, leaving each newtype file with
 //! only its own construction and validation.
 //!
-//! `StrongSessionKey` is deliberately wired by hand: its `Debug` is redacted.
+//! Secret values (`Proof`, `StrongSessionKey`) use the redacted `Debug`
+//! variant so they do not leak through logging.
 
 /// `Display` (hex), `Debug` (`TypeName(<hex>)`) and `AsRef<[u8]>` from an
 /// `as_bytes` accessor. The `<G>` arm is generic over the group marker.
@@ -51,6 +52,51 @@ macro_rules! byte_newtype_fmt {
     };
 }
 
+/// Like [`byte_newtype_fmt`] but redacts `Debug` for secret values: `Display`
+/// still yields the hex on explicit request, `Debug` prints
+/// `TypeName(<redacted>)` so secrets do not leak through `{:?}` or a derived
+/// Debug on a surrounding struct.
+macro_rules! byte_newtype_fmt_redacted {
+    (<G> $ty:ident, $name:literal) => {
+        impl<G: $crate::group::Group> ::std::fmt::Display for $ty<G> {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                $crate::typed::hex::write_hex(f, self.as_bytes())
+            }
+        }
+
+        impl<G: $crate::group::Group> ::std::fmt::Debug for $ty<G> {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                f.write_str(concat!($name, "(<redacted>)"))
+            }
+        }
+
+        impl<G: $crate::group::Group> ::std::convert::AsRef<[u8]> for $ty<G> {
+            fn as_ref(&self) -> &[u8] {
+                self.as_bytes()
+            }
+        }
+    };
+    ($ty:ident, $name:literal) => {
+        impl ::std::fmt::Display for $ty {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                $crate::typed::hex::write_hex(f, self.as_bytes())
+            }
+        }
+
+        impl ::std::fmt::Debug for $ty {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                f.write_str(concat!($name, "(<redacted>)"))
+            }
+        }
+
+        impl ::std::convert::AsRef<[u8]> for $ty {
+            fn as_ref(&self) -> &[u8] {
+                self.as_bytes()
+            }
+        }
+    };
+}
+
 /// `Serialize` as the raw bytes. Only for the newtypes that round-trip on the
 /// wire (not `Modulus`, which is a group constant).
 macro_rules! byte_newtype_serialize {
@@ -77,4 +123,5 @@ macro_rules! byte_newtype_serialize {
 }
 
 pub(crate) use byte_newtype_fmt;
+pub(crate) use byte_newtype_fmt_redacted;
 pub(crate) use byte_newtype_serialize;
