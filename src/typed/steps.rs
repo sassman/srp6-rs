@@ -59,6 +59,13 @@ pub(crate) fn scrambler_u<G: GroupOps>(
     group.exponent_from_hash(&hash)
 }
 
+/// Rejects the degenerate scrambler `u == 0`. `protocol_details` states both
+/// sides MUST abort on it; `u` is public (`H(A | B)`), so a plain byte check is
+/// fine here.
+pub(crate) fn is_zero_exponent<G: GroupOps>(group: &G, exponent: &G::Exponent) -> bool {
+    group.exponent_to_bytes(exponent).iter().all(|byte| *byte == 0)
+}
+
 pub(crate) fn strong_session_key<G: GroupOps>(s: &FieldElement<G>) -> StrongSessionKey {
     strong_session_key_bytes(s.as_bytes())
 }
@@ -159,6 +166,13 @@ mod tests {
     use super::*;
     use crate::credentials::Username;
     use crate::group::Group;
+
+    #[test]
+    fn the_zero_scrambler_is_detected() {
+        let group = crate::group::Group2048;
+        assert!(is_zero_exponent(&group, &group.exponent_from_bytes(&[0_u8])));
+        assert!(!is_zero_exponent(&group, &group.exponent_from_bytes(&[1_u8])));
+    }
 
     #[test]
     fn the_generator_is_hashed_in_its_minimal_form() {

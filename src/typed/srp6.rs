@@ -132,6 +132,9 @@ impl<G: GroupOps> Srp6<G> {
         let verifier_field = verifier.user.verifier.to_field(&self.group)?;
 
         let u = steps::scrambler_u(&self.group, &proof.A, &verifier.B);
+        if steps::is_zero_exponent(&self.group, &u) {
+            return Err(Srp6Error::InvalidScrambler);
+        }
         let v_u = self.group.field_pow(&verifier_field, &u);
         let a_vu = self.group.field_mul(&a_field, &v_u);
         let s = self.group.field_pow(&a_vu, &verifier.b);
@@ -179,6 +182,9 @@ impl<G: GroupOps> Srp6<G> {
         let a_public = PublicKey::from_field(&self.group, &a_field);
 
         let u = steps::scrambler_u(&self.group, &a_public, &handshake.B);
+        if steps::is_zero_exponent(&self.group, &u) {
+            return Err(Srp6Error::InvalidScrambler);
+        }
         let x = steps::private_key_x(&self.group, username, password, &handshake.s);
         let ux = self.group.exponent_mul(&u, &x);
         let exp = self.group.exponent_add(&a_exp, &ux);

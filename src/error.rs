@@ -18,6 +18,11 @@ pub enum Srp6Error {
     #[error("The provided strong proof is invalid")]
     InvalidStrongProof(Proof),
 
+    /// The scrambler `u = H(A | B)` reduced to zero; `protocol_details` requires
+    /// both sides to abort, since `u == 0` collapses the shared-secret exponent.
+    #[error("the scrambler parameter u must not be zero")]
+    InvalidScrambler,
+
     /// The bytes did not decode to a non-zero element modulo the group's `N`.
     #[error("The provided bytes are not a valid field element of the group")]
     InvalidFieldElement,
