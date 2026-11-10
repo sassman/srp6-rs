@@ -29,7 +29,9 @@ macro_rules! appendix_group {
     };
 }
 
+#[cfg(feature = "weak")]
 appendix_group!(group_1024_bit, Group1024, Srp6_1024);
+#[cfg(feature = "weak")]
 appendix_group!(group_1536_bit, Group1536, Srp6_1536);
 appendix_group!(group_2048_bit, Group2048, Srp6_2048);
 appendix_group!(group_3072_bit, Group3072, Srp6_3072);
@@ -43,7 +45,9 @@ mod tests {
 
     #[test]
     fn the_historical_group_modules_expose_the_default_handshake() {
+        #[cfg(feature = "weak")]
         assert_eq!(group_1024_bit::values().n_bytes(), 128);
+        #[cfg(feature = "weak")]
         assert_eq!(group_1536_bit::values().n_bytes(), 192);
         assert_eq!(group_2048_bit::values().n_bytes(), 256);
         assert_eq!(group_3072_bit::values().n_bytes(), 384);

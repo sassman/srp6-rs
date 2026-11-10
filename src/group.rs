@@ -8,9 +8,10 @@
 //! so the backend types stay out of the documented API.
 
 use crypto_bigint::{
-    const_monty_params, U1024, U1088, U1536, U1600, U2048, U2112, U3072, U3136, U4096, U4160,
-    U6144, U6208, U8192, U8320,
+    const_monty_params, U2048, U2112, U3072, U3136, U4096, U4160, U6144, U6208, U8192, U8320,
 };
+#[cfg(feature = "weak")]
+use crypto_bigint::{U1024, U1088, U1536, U1600};
 use rand::{rng, RngExt};
 
 use crate::hash::{Digest, HashFunc, Update};
@@ -18,7 +19,9 @@ use crate::hash::{Digest, HashFunc, Update};
 #[cfg(feature = "wow-1-12-1")]
 use crypto_bigint::{U256, U384};
 
+#[cfg(feature = "weak")]
 const N1024: &str = "EEAF0AB9ADB38DD69C33F80AFA8FC5E86072618775FF3C0B9EA2314C9C256576D674DF7496EA81D3383B4813D692C6E0E0D5D8E250B98BE48E495C1D6089DAD15DC7D7B46154D6B6CE8EF4AD69B15D4982559B297BCF1885C529F566660E57EC68EDBC3C05726CC02FD4CBF4976EAA9AFD5138FE8376435B9FC61D2FC0EB06E3";
+#[cfg(feature = "weak")]
 const N1536: &str = "9DEF3CAFB939277AB1F12A8617A47BBBDBA51DF499AC4C80BEEEA9614B19CC4D5F4F5F556E27CBDE51C6A94BE4607A291558903BA0D0F84380B655BB9A22E8DCDF028A7CEC67F0D08134B1C8B97989149B609E0BE3BAB63D47548381DBC5B1FC764E3F4B53DD9DA1158BFD3E2B9C8CF56EDF019539349627DB2FD53D24B7C48665772E437D6C7F8CE442734AF7CCB7AE837C264AE3A9BEB87F8A2FE9B8B5292E5A021FFF5E91479E8CE7A28C2442C6F315180F93499A234DCF76E3FED135F9BB";
 const N2048: &str = "AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF6095179A163AB3661A05FBD5FAAAE82918A9962F0B93B855F97993EC975EEAA80D740ADBF4FF747359D041D5C33EA71D281E446B14773BCA97B43A23FB801676BD207A436C6481F1D2B9078717461A5B9D32E688F87748544523B524B0D57D5EA77A2775D2ECFA032CFBDBF52FB3786160279004E57AE6AF874E7303CE53299CCC041C7BC308D82A5698F3A8D0C38271AE35F8E9DBFBB694B5C803D89F7AE435DE236D525F54759B65E372FCD68EF20FA7111F9E4AFF73";
 const N3072: &str = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D04507A33A85521ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619DCEE3D2261AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200CBBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFCE0FD108E4B82D120A93AD2CAFFFFFFFFFFFFFFFF";
@@ -28,10 +31,14 @@ const N8192: &str = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A6
 #[cfg(feature = "wow-1-12-1")]
 const NWOW: &str = "894B645E89E1535BBDAD5B8B290650530801B18EBFBF5E8FAB3C82872A3E9BB7";
 
+#[cfg(feature = "weak")]
 const_monty_params!(Rfc5054_1024, U1024, N1024);
+#[cfg(feature = "weak")]
 pub(crate) type Field1024 = crypto_bigint::modular::ConstMontyForm<Rfc5054_1024, { U1024::LIMBS }>;
 
+#[cfg(feature = "weak")]
 const_monty_params!(Rfc5054_1536, U1536, N1536);
+#[cfg(feature = "weak")]
 pub(crate) type Field1536 = crypto_bigint::modular::ConstMontyForm<Rfc5054_1536, { U1536::LIMBS }>;
 
 const_monty_params!(Rfc5054_2048, U2048, N2048);
@@ -61,10 +68,11 @@ mod sealed {
 
 /// A closed SRP group.
 ///
-/// The set is closed: [`Group1024`] to [`Group8192`] are the RFC 5054 appendix A
-/// groups and, behind `wow-1-12-1`, `GroupWow` is the 1.12.1 client's. Pick one
-/// through [`crate::Srp6`]; the trait only names the sizes and the encodings the
-/// handshake needs.
+/// The RFC 5054 appendix A groups run from 1024 to 8192 bit: [`Group2048`] to
+/// [`Group8192`] are always available; the sub-2048-bit `Group1024`/`Group1536`
+/// sit behind the `weak` feature (below current practice, opt in knowingly) and
+/// `GroupWow` behind `wow-1-12-1`. Pick one through [`crate::Srp6`]; the trait
+/// only names the sizes and the encodings the handshake needs.
 pub trait Group: Default + sealed::Sealed {
     /// The modulus width in bytes.
     const N_BYTES: usize;
@@ -239,7 +247,9 @@ macro_rules! closed_group {
     };
 }
 
+#[cfg(feature = "weak")]
 closed_group!(Group1024, Field1024, U1024, U1088, N1024, 2, 128, 128, None);
+#[cfg(feature = "weak")]
 closed_group!(Group1536, Field1536, U1536, U1600, N1536, 2, 192, 192, None);
 closed_group!(Group2048, Field2048, U2048, U2112, N2048, 2, 256, 256, None);
 closed_group!(Group3072, Field3072, U3072, U3136, N3072, 5, 384, 384, None);
@@ -274,7 +284,7 @@ mod tests {
 
     #[test]
     fn exponent_bytes_round_trip() {
-        let group = Group1024;
+        let group = Group2048;
         let bytes = [0x01, 0x02, 0x03];
 
         let exponent = group.exponent_from_bytes(&bytes);
@@ -285,7 +295,7 @@ mod tests {
 
     #[test]
     fn an_over_width_exponent_keeps_the_low_bytes() {
-        let group = Group1024;
+        let group = Group2048;
         let width = group
             .exponent_to_bytes(&group.exponent_from_bytes(&[]))
             .len();
@@ -343,7 +353,9 @@ mod tests {
         };
     }
 
+    #[cfg(feature = "weak")]
     const_group_matches_dynamic!(const_1024_matches_dynamic, Field1024, U1024, 2, Group1024);
+    #[cfg(feature = "weak")]
     const_group_matches_dynamic!(const_1536_matches_dynamic, Field1536, U1536, 2, Group1536);
     const_group_matches_dynamic!(const_2048_matches_dynamic, Field2048, U2048, 2, Group2048);
     const_group_matches_dynamic!(const_3072_matches_dynamic, Field3072, U3072, 5, Group3072);
