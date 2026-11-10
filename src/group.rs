@@ -201,11 +201,12 @@ macro_rules! closed_group {
             }
 
             fn random_exponent(&self) -> Self::Exponent {
-                let bytes: Vec<u8> = rng()
-                    .random_iter()
-                    .take(<$exp>::BITS as usize / 8)
-                    .collect();
-                <$exp>::from_be_slice(&bytes)
+                // Draw at the modulus width, not the exponent type width. The
+                // type carries ~64 bits of headroom so `a + u*x` cannot
+                // overflow; drawing the full width would defeat it and let
+                // `exponent_add` panic on carry (SEC-AUDIT #4).
+                let random: Vec<u8> = rng().random_iter().take($n_bytes).collect();
+                self.exponent_from_bytes(&random)
             }
 
             fn exponent_from_bytes(&self, bytes: &[u8]) -> Self::Exponent {
@@ -258,6 +259,18 @@ mod tests {
         modular::{BoxedMontyForm, BoxedMontyParams},
         BoxedUint, Odd,
     };
+
+    #[test]
+    fn a_random_exponent_leaves_overflow_headroom() {
+        let group = Group2048;
+        let bytes = group.exponent_to_bytes(&group.random_exponent());
+        let headroom = bytes.len() - Group2048::N_BYTES;
+        assert!(headroom >= 8, "the exponent type must be wider than the modulus");
+        assert!(
+            bytes[..headroom].iter().all(|byte| *byte == 0),
+            "the top headroom bytes must stay zero so a + u*x cannot overflow"
+        );
+    }
 
     #[test]
     fn exponent_bytes_round_trip() {
