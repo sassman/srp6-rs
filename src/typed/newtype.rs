@@ -125,3 +125,91 @@ macro_rules! byte_newtype_serialize {
 pub(crate) use byte_newtype_fmt;
 pub(crate) use byte_newtype_fmt_redacted;
 pub(crate) use byte_newtype_serialize;
+
+/// Construction, conversion and equality shared by the newtypes that wrap a
+/// validated `FieldElement<G>` (`PublicKey`, `Verifier`). They are the same
+/// shape but distinct types, so one cannot be passed where the other is
+/// expected. The wrapped tuple struct and its doc are written by hand; the
+/// caller applies `Display`/`Debug`/`AsRef` and `Serialize` separately, so each
+/// type chooses a transparent or redacted `Debug`.
+macro_rules! field_wrapper_impls {
+    ($ty:ident) => {
+        impl<G: $crate::group::Group> $ty<G> {
+            pub fn as_bytes(&self) -> &[u8] {
+                self.0.as_bytes()
+            }
+
+            pub fn to_vec(&self) -> ::std::vec::Vec<u8> {
+                self.0.to_vec()
+            }
+        }
+
+        impl<G: $crate::group::GroupOps> $ty<G> {
+            pub fn try_from_bytes(bytes: &[u8]) -> $crate::Result<Self> {
+                $crate::typed::FieldElement::try_from_bytes(bytes).map(Self)
+            }
+
+            pub(crate) fn from_field(group: &G, value: &G::Field) -> Self {
+                Self($crate::typed::FieldElement::from_field(group, value))
+            }
+
+            pub(crate) fn to_field(&self, group: &G) -> $crate::Result<G::Field> {
+                self.0.to_field(group)
+            }
+        }
+
+        impl<G: $crate::group::Group> ::std::clone::Clone for $ty<G> {
+            fn clone(&self) -> Self {
+                Self(::std::clone::Clone::clone(&self.0))
+            }
+        }
+
+        impl<G: $crate::group::Group> ::std::cmp::PartialEq for $ty<G> {
+            fn eq(&self, other: &Self) -> bool {
+                self.0 == other.0
+            }
+        }
+
+        impl<G: $crate::group::Group> ::std::cmp::Eq for $ty<G> {}
+
+        impl<G: $crate::group::Group> ::std::convert::From<$ty<G>> for ::std::vec::Vec<u8> {
+            fn from(value: $ty<G>) -> Self {
+                value.to_vec()
+            }
+        }
+
+        impl<G: $crate::group::GroupOps> ::std::convert::TryFrom<::std::vec::Vec<u8>> for $ty<G> {
+            type Error = $crate::error::Srp6Error;
+
+            fn try_from(bytes: ::std::vec::Vec<u8>) -> $crate::Result<Self> {
+                Self::try_from_bytes(&bytes)
+            }
+        }
+
+        impl<G: $crate::group::GroupOps> ::std::convert::TryFrom<&[u8]> for $ty<G> {
+            type Error = $crate::error::Srp6Error;
+
+            fn try_from(bytes: &[u8]) -> $crate::Result<Self> {
+                Self::try_from_bytes(bytes)
+            }
+        }
+
+        impl<G: $crate::group::GroupOps> $crate::typed::FromHexString for $ty<G> {
+            fn try_from_hex(hex: &str) -> $crate::Result<Self> {
+                Self::try_from_bytes(&$crate::typed::hex::decode_hex(hex)?)
+            }
+        }
+
+        impl<'de, G: $crate::group::GroupOps> ::serde::Deserialize<'de> for $ty<G> {
+            fn deserialize<D: ::serde::Deserializer<'de>>(
+                deserializer: D,
+            ) -> ::std::result::Result<Self, D::Error> {
+                let bytes =
+                    <::std::vec::Vec<u8> as ::serde::Deserialize>::deserialize(deserializer)?;
+                Self::try_from_bytes(&bytes).map_err(::serde::de::Error::custom)
+            }
+        }
+    };
+}
+
+pub(crate) use field_wrapper_impls;

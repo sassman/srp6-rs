@@ -291,7 +291,7 @@ fn the_verifier_implements_its_byte_contract() {
         Verifier::<Group2048>::try_from_hex(&verifier.to_string()).expect("printed hex"),
         verifier
     );
-    assert!(format!("{verifier:?}").starts_with("FieldElement("));
+    assert!(format!("{verifier:?}").starts_with("Verifier("));
 
     let json = serde_json::to_string(&verifier).expect("the verifier serializes");
     let back: Verifier<Group2048> = serde_json::from_str(&json).expect("the verifier deserializes");
@@ -426,6 +426,15 @@ fn the_proof_debug_does_not_leak_the_value() {
 
     assert_eq!(proof.to_string(), hex);
     assert!(!format!("{proof:?}").contains("AB"));
+}
+
+#[test]
+fn the_verifier_debug_does_not_leak_the_secret() {
+    let hex = "AB".repeat(Group2048::N_BYTES);
+    let verifier = Verifier::<Group2048>::try_from_hex(&hex).expect("valid verifier");
+
+    assert_eq!(verifier.to_string(), hex);
+    assert!(!format!("{verifier:?}").contains("AB"));
 }
 
 #[test]

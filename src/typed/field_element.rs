@@ -15,15 +15,13 @@ use crate::{error::Srp6Error, Result};
 /// this type is therefore always a valid group element, and there is no way to
 /// hold a degenerate one.
 ///
-/// [`Verifier`] is the semantic name used for the server-stored `v`;
-/// [`crate::PublicKey`] is a distinct type with its own validation.
+/// [`crate::Verifier`] and [`crate::PublicKey`] are distinct newtypes that wrap
+/// a validated field element with their own identity; `FieldElement` itself
+/// carries the group's generator `g` and multiplier `k`.
 pub struct FieldElement<G: Group> {
     bytes: Box<[u8]>,
     _group: PhantomData<G>,
 }
-
-/// The server-stored password verifier `v`.
-pub type Verifier<G> = FieldElement<G>;
 
 impl<G: Group> FieldElement<G> {
     pub fn as_bytes(&self) -> &[u8] {
