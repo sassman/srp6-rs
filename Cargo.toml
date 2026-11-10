@@ -1,6 +1,6 @@
 [package]
 name = "srp6"
-version = "1.0.0-beta.2"
+version = "1.0.0-rc.1"
 authors = ["Sven Kanoldt <sven@d34dl0ck.me>"]
 repository = "https://github.com/sassman/srp6-rs"
 categories = ["cryptography"]
@@ -37,14 +37,12 @@ default = ["hash-sha512"]
 hash-sha512 = ["dep:sha2"]
 hash-sha1 = ["dep:sha1"]
 
-# World of Warcraft 1.12.1 (build 5875) only: k = 3, uppercased credentials and
-# the 256-bit group in `src/wow.rs`. Later clients changed the flavour, so the
-# version is part of the name rather than implied.
+# World of Warcraft 1.12.1 (build 5875) only: k = 3, uppercased credentials and the 256-bit group.
 #
 # WARNING: do not use this for modern, production-grade applications. Its
 # cryptographic parameters are far below current practice: SHA-1 as the hash, and a
-# 256-bit modulus where this crate asks for >= 2048 bit in production. It exists to
-# talk to a client that shipped in 2006.
+# 256-bit modulus are not safe for production anylonger.
+# Its a legacy feature only.
 wow-1-12-1 = ["hash-sha1"]
 
 test-rfc-5054-appendix-b = ["hash-sha1"]
