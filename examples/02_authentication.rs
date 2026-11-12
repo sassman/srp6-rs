@@ -15,7 +15,7 @@ fn main() {
     // the server looks up the user details by a received username
     let alice = Username::new("alice").expect("valid username");
     let srp = Srp6_4096::default();
-    let user = mocked::lookup_user_details(&alice);
+    let user = mock::lookup_user_details(&alice);
 
     // the server creates a handshake
     let (handshake, proof_verifier) = srp
@@ -91,7 +91,7 @@ fn main() {
     println!("[client] 🎉🥳🎊🍾🎈 Proof of the server successfully verified");
 }
 
-mod mocked {
+mod mock {
     use super::*;
 
     /// normally salt and verifier is retrieved from a user database
