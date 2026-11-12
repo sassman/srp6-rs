@@ -103,14 +103,13 @@ pub(crate) fn proof_m1<G: GroupOps>(
     b: &PublicKey<G>,
     k: &StrongSessionKey,
 ) -> Proof {
-    // RFC 2945 hashes the salt raw; this pad is held onto until that switch
-    // is verified against a live WoW client. A no-op for any salt at least
-    // the group default wide, which generated salts are.
-    let salt = pad_left(salt.as_bytes(), G::DEFAULT_SALT_BYTES);
+    // The salt is hashed as stored, like in `x`: RFC 2945's PAD() covers only
+    // the group elements, and a padded salt breaks interop with conformant
+    // peers for any salt shorter than the pad.
     let digest: Hash = HashFunc::new()
         .chain(hash_n_xor_g(group))
         .chain(HashFunc::new().chain(username.as_bytes()).finalize())
-        .chain(salt)
+        .chain(salt.as_bytes())
         .chain(a.as_bytes())
         .chain(b.as_bytes())
         .chain(k.as_bytes())
@@ -156,15 +155,6 @@ fn trim_leading_zeroes(bytes: &[u8]) -> &[u8] {
         // hash differently from the minimal-form encoding the RFC expects.
         None => &bytes[bytes.len().saturating_sub(1)..],
     }
-}
-
-fn pad_left(bytes: &[u8], width: usize) -> Vec<u8> {
-    if bytes.len() >= width {
-        return bytes.to_vec();
-    }
-    let mut padded = vec![0_u8; width];
-    padded[width - bytes.len()..].copy_from_slice(bytes);
-    padded
 }
 
 #[cfg(test)]
@@ -226,5 +216,39 @@ mod tests {
     #[test]
     fn trimming_an_all_zero_generator_leaves_one_zero() {
         assert_eq!(trim_leading_zeroes(&[0, 0, 0]), [0_u8].as_slice());
+    }
+
+    /// Under the old left-pad both salts hashed identically; a conformant M1
+    /// must tell them apart, exactly as `x` does.
+    #[test]
+    fn the_m1_salt_is_hashed_as_stored() {
+        let group = crate::group::Group2048;
+        let username = Username::new("alice").expect("valid username");
+        let mut a_bytes = vec![0_u8; crate::group::Group2048::N_BYTES];
+        a_bytes[crate::group::Group2048::N_BYTES - 1] = 2;
+        let mut b_bytes = vec![0_u8; crate::group::Group2048::N_BYTES];
+        b_bytes[crate::group::Group2048::N_BYTES - 1] = 3;
+        let a = PublicKey::<crate::group::Group2048>::try_from_bytes(&a_bytes).expect("valid A");
+        let b = PublicKey::<crate::group::Group2048>::try_from_bytes(&b_bytes).expect("valid B");
+        let k = strong_session_key_bytes(&[0xAB; 32]);
+
+        let with_zero = proof_m1(
+            &group,
+            &username,
+            &Salt::from([0x00, 0xBE, 0xB2].as_slice()),
+            &a,
+            &b,
+            &k,
+        );
+        let trimmed = proof_m1(
+            &group,
+            &username,
+            &Salt::from([0xBE, 0xB2].as_slice()),
+            &a,
+            &b,
+            &k,
+        );
+
+        assert_ne!(with_zero, trimmed);
     }
 }
