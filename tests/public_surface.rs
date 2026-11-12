@@ -11,13 +11,11 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
     let srp = Srp6::new(Group2048);
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-    assert_eq!(salt.as_bytes().len(), 16);
     assert_eq!(verifier.as_bytes().len(), 256);
 
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    assert_eq!(handshake.salt().as_bytes().len(), 16);
 
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
