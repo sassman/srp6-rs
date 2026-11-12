@@ -9,8 +9,18 @@ use crate::{error::Srp6Error, Result};
 use subtle::ConstantTimeEq;
 
 /// An `M1` or `M2` proof: exactly one hash-length byte string.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 pub struct Proof([u8; HASH_LENGTH]);
+
+// Proofs get compared against attacker-supplied values, so `==` must not be a
+// timing oracle; the derive's short-circuit comparison would be one.
+impl PartialEq for Proof {
+    fn eq(&self, other: &Self) -> bool {
+        self.ct_eq(other)
+    }
+}
+
+impl Eq for Proof {}
 
 impl Proof {
     pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {

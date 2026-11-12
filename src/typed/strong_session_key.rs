@@ -4,10 +4,21 @@ use super::hex::{decode_hex, FromHexString};
 use super::newtype::byte_newtype_fmt_redacted;
 use crate::hash::STRONG_SESSION_KEY_LENGTH;
 use crate::{error::Srp6Error, Result};
+use subtle::ConstantTimeEq;
 
 /// The strong session key `K`: the interleaved hash of the premaster secret.
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy)]
 pub struct StrongSessionKey([u8; STRONG_SESSION_KEY_LENGTH]);
+
+// A session key is a secret, so `==` must not leak matching prefixes through
+// its timing; the derive's short-circuit comparison would.
+impl PartialEq for StrongSessionKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.0[..].ct_eq(&other.0[..]).into()
+    }
+}
+
+impl Eq for StrongSessionKey {}
 
 impl StrongSessionKey {
     /// Decodes `bytes`, which must be exactly `STRONG_SESSION_KEY_LENGTH` long.
