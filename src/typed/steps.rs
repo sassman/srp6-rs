@@ -103,7 +103,10 @@ pub(crate) fn proof_m1<G: GroupOps>(
     b: &PublicKey<G>,
     k: &StrongSessionKey,
 ) -> Proof {
-    let salt = pad_left(salt.as_bytes(), G::SALT_BYTES);
+    // Parked (ISSUE-PAD-LEFT): pads to the group's advisory default until the
+    // raw-vs-padded salt hashing question resolves; a no-op for any salt at
+    // least that wide, which generated salts are.
+    let salt = pad_left(salt.as_bytes(), G::DEFAULT_SALT_BYTES);
     let digest: Hash = HashFunc::new()
         .chain(hash_n_xor_g(group))
         .chain(HashFunc::new().chain(username.as_bytes()).finalize())

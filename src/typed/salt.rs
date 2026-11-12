@@ -6,7 +6,7 @@ use crate::Result;
 
 /// A salt, as generated, stored and sent to the client.
 ///
-/// Any byte string is a valid salt; [`crate::group::Group::SALT_BYTES`] only fixes what
+/// Any byte string is a valid salt; [`crate::Srp6::salt_bytes`] only fixes what
 /// [`crate::Srp6::generate_new_user_secrets`] draws.
 #[derive(Clone, PartialEq, Eq)]
 pub struct Salt(Box<[u8]>);

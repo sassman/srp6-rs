@@ -28,6 +28,15 @@ pub enum Srp6Error {
     #[error("the derived premaster secret must not be zero")]
     InvalidPremaster,
 
+    /// A [`crate::SaltBytes::custom`] width outside the safe range: below the
+    /// NIST 64-bit floor or over the RFC 5054 `opaque srp_s<1..2^8-1>` wire cap.
+    #[error("The requested salt length ({given:?} byte) is outside {min:?}..={max:?}")]
+    InvalidSaltLength {
+        given: usize,
+        min: usize,
+        max: usize,
+    },
+
     /// The bytes did not decode to a non-zero element modulo the group's `N`.
     #[error("The provided bytes are not a valid field element of the group")]
     InvalidFieldElement,

@@ -2,8 +2,8 @@
 
 use srp6::hash::HASH_LENGTH;
 use srp6::{
-    FromHexString, Group, Group2048, Proof, PublicKey, Salt, Srp6, StrongSessionKey, Username,
-    Verifier,
+    FromHexString, Group, Group2048, Proof, PublicKey, Salt, SaltBytes, Srp6, StrongSessionKey,
+    Username, Verifier,
 };
 
 #[test]
@@ -11,13 +11,13 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
     let srp = Srp6::new(Group2048);
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-    assert_eq!(salt.as_bytes().len(), 256);
+    assert_eq!(salt.as_bytes().len(), 16);
     assert_eq!(verifier.as_bytes().len(), 256);
 
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    assert_eq!(handshake.salt().as_bytes().len(), 256);
+    assert_eq!(handshake.salt().as_bytes().len(), 16);
 
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
@@ -30,6 +30,19 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
         .expect("the strong proof verifies");
 
     assert_eq!(k, *strong_verifier.session_key());
+}
+
+#[test]
+fn the_salt_width_is_overridable_from_outside_the_crate() {
+    let username = Username::new("alice").expect("valid username");
+    let custom = SaltBytes::custom(24).expect("within bounds");
+    let srp = Srp6::new(Group2048).with_salt(custom);
+
+    let (salt, _) = srp.generate_new_user_secrets(&username, "password123");
+
+    assert_eq!(salt.as_bytes().len(), 24);
+    assert!(SaltBytes::custom(7).is_err());
+    assert!(SaltBytes::custom(256).is_err());
 }
 
 #[test]

@@ -76,8 +76,10 @@ mod sealed {
 pub trait Group: Default + sealed::Sealed {
     /// The modulus width in bytes.
     const N_BYTES: usize;
-    /// The salt width in bytes.
-    const SALT_BYTES: usize;
+    /// The advisory default for generated salts, in bytes. Not a protocol
+    /// width: salt size is never negotiated, and [`crate::Srp6::with_salt`]
+    /// overrides it per instance.
+    const DEFAULT_SALT_BYTES: usize;
 
     /// The prime modulus `N`, big-endian.
     fn modulus(&self) -> crate::Modulus<Self>
@@ -154,7 +156,7 @@ macro_rules! closed_group {
 
         impl Group for $name {
             const N_BYTES: usize = $n_bytes;
-            const SALT_BYTES: usize = $salt_bytes;
+            const DEFAULT_SALT_BYTES: usize = $salt_bytes;
 
             fn modulus(&self) -> crate::Modulus<Self> {
                 crate::Modulus::from_bytes(self.modulus_bytes())
@@ -248,14 +250,14 @@ macro_rules! closed_group {
 }
 
 #[cfg(feature = "weak")]
-closed_group!(Group1024, Field1024, U1024, U1088, N1024, 2, 128, 128, None);
+closed_group!(Group1024, Field1024, U1024, U1088, N1024, 2, 128, 16, None);
 #[cfg(feature = "weak")]
-closed_group!(Group1536, Field1536, U1536, U1600, N1536, 2, 192, 192, None);
-closed_group!(Group2048, Field2048, U2048, U2112, N2048, 2, 256, 256, None);
-closed_group!(Group3072, Field3072, U3072, U3136, N3072, 5, 384, 384, None);
-closed_group!(Group4096, Field4096, U4096, U4160, N4096, 5, 512, 512, None);
-closed_group!(Group6144, Field6144, U6144, U6208, N6144, 5, 768, 768, None);
-closed_group!(Group8192, Field8192, U8192, U8320, N8192, 19, 1024, 1024, None);
+closed_group!(Group1536, Field1536, U1536, U1600, N1536, 2, 192, 16, None);
+closed_group!(Group2048, Field2048, U2048, U2112, N2048, 2, 256, 16, None);
+closed_group!(Group3072, Field3072, U3072, U3136, N3072, 5, 384, 16, None);
+closed_group!(Group4096, Field4096, U4096, U4160, N4096, 5, 512, 16, None);
+closed_group!(Group6144, Field6144, U6144, U6208, N6144, 5, 768, 16, None);
+closed_group!(Group8192, Field8192, U8192, U8320, N8192, 19, 1024, 16, None);
 
 #[cfg(feature = "wow-1-12-1")]
 closed_group!(GroupWow, FieldWow, U256, U384, NWOW, 7, 32, 32, Some(3));

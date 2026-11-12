@@ -19,7 +19,7 @@
 //! let username = Username::new("alice").expect("valid username");
 //! let srp = Srp6_4096::default();
 //! let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-//! assert_eq!(salt.as_bytes().len(), 512);
+//! assert_eq!(salt.as_bytes().len(), 16); // the default; `with_salt` overrides it
 //! assert_eq!(verifier.as_bytes().len(), 512);
 //!
 //! // login: the server opens the handshake from the stored secrets

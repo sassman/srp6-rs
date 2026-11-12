@@ -3,7 +3,7 @@ use rand::{rng, RngExt};
 use super::steps;
 use super::{
     FieldElement, Handshake, HandshakeProof, HandshakeProofVerifier, Proof, PublicKey, Salt,
-    StrongProofVerifier, StrongSessionKey, UserSecrets, Verifier,
+    SaltBytes, StrongProofVerifier, StrongSessionKey, UserSecrets, Verifier,
 };
 use crate::credentials::{ClearTextPasswordRef, Username};
 use crate::group::{Group, GroupOps};
@@ -12,11 +12,24 @@ use crate::{error::Srp6Error, Result};
 /// The SRP6 handshake for one closed group.
 pub struct Srp6<G: Group> {
     group: G,
+    salt_bytes: usize,
 }
 
 impl<G: Group> Srp6<G> {
     pub fn new(group: G) -> Self {
-        Self { group }
+        Self {
+            group,
+            salt_bytes: G::DEFAULT_SALT_BYTES,
+        }
+    }
+
+    /// Overrides the salt width [`Self::generate_new_user_secrets`] draws.
+    ///
+    /// Systemic, not per-user: salts already stored keep working at any
+    /// length, so this only shapes registrations made through this instance.
+    pub fn with_salt(mut self, salt: SaltBytes) -> Self {
+        self.salt_bytes = salt.get();
+        self
     }
 
     /// The modulus width in bytes, as declared by the group.
@@ -24,9 +37,10 @@ impl<G: Group> Srp6<G> {
         G::N_BYTES
     }
 
-    /// The salt width in bytes, as declared by the group.
+    /// The effective width of generated salts in bytes: the group's default,
+    /// or the [`Self::with_salt`] override.
     pub fn salt_bytes(&self) -> usize {
-        G::SALT_BYTES
+        self.salt_bytes
     }
 
     /// The prime modulus `N`, as declared by the group.
@@ -52,7 +66,7 @@ impl<G: GroupOps> Srp6<G> {
         username: &Username,
         password: ClearTextPasswordRef,
     ) -> (Salt, Verifier<G>) {
-        let salt: Vec<u8> = rng().random_iter().take(G::SALT_BYTES).collect();
+        let salt: Vec<u8> = rng().random_iter().take(self.salt_bytes).collect();
         self.generate_new_user_secrets_with_salt(username, password, Salt::from(salt))
     }
 

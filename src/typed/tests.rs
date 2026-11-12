@@ -468,5 +468,51 @@ fn the_driver_reports_the_group_widths() {
     let srp = Srp6::new(Group2048);
 
     assert_eq!(srp.n_bytes(), 256);
-    assert_eq!(srp.salt_bytes(), 256);
+    assert_eq!(srp.salt_bytes(), 16);
+}
+
+#[test]
+fn with_salt_overrides_the_generated_width() {
+    let username = Username::new("alice").expect("valid username");
+    let srp = Srp6::new(Group2048).with_salt(SaltBytes::BYTES_32);
+
+    let (salt, _) = srp.generate_new_user_secrets(&username, "password123");
+
+    assert_eq!(srp.salt_bytes(), 32);
+    assert_eq!(salt.as_bytes().len(), 32);
+}
+
+#[test]
+fn a_custom_salt_width_is_bounds_checked() {
+    assert_eq!(SaltBytes::custom(16), Ok(SaltBytes::BYTES_16));
+    assert!(SaltBytes::custom(8).is_ok());
+    assert!(SaltBytes::custom(255).is_ok());
+
+    for out_of_range in [0, 7, 256] {
+        assert_eq!(
+            SaltBytes::custom(out_of_range),
+            Err(crate::Srp6Error::InvalidSaltLength {
+                given: out_of_range,
+                min: 8,
+                max: 255,
+            })
+        );
+    }
+}
+
+#[test]
+fn a_custom_salt_width_drives_generation() {
+    let username = Username::new("alice").expect("valid username");
+    let width = SaltBytes::custom(255).expect("within the wire cap");
+    let srp = Srp6::new(Group2048).with_salt(width);
+
+    let (salt, _) = srp.generate_new_user_secrets(&username, "password123");
+
+    assert_eq!(salt.as_bytes().len(), 255);
+}
+
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn the_wow_group_defaults_to_its_wire_width() {
+    assert_eq!(Srp6::new(GroupWow).salt_bytes(), 32);
 }
