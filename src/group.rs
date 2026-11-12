@@ -214,7 +214,7 @@ macro_rules! closed_group {
                 // Draw at the modulus width, not the exponent type width. The
                 // type carries ~64 bits of headroom so `a + u*x` cannot
                 // overflow; drawing the full width would defeat it and let
-                // `exponent_add` panic on carry (SEC-AUDIT #4).
+                // `exponent_add` panic on carry.
                 let random: Vec<u8> = rng().random_iter().take($n_bytes).collect();
                 self.exponent_from_bytes(&random)
             }

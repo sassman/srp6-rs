@@ -103,9 +103,9 @@ pub(crate) fn proof_m1<G: GroupOps>(
     b: &PublicKey<G>,
     k: &StrongSessionKey,
 ) -> Proof {
-    // Parked (ISSUE-PAD-LEFT): pads to the group's advisory default until the
-    // raw-vs-padded salt hashing question resolves; a no-op for any salt at
-    // least that wide, which generated salts are.
+    // RFC 2945 hashes the salt raw; this pad is held onto until that switch
+    // is verified against a live WoW client. A no-op for any salt at least
+    // the group default wide, which generated salts are.
     let salt = pad_left(salt.as_bytes(), G::DEFAULT_SALT_BYTES);
     let digest: Hash = HashFunc::new()
         .chain(hash_n_xor_g(group))

@@ -224,8 +224,7 @@ fn golden_wow_sha1() {
 }
 
 /// A session key whose least significant byte is zero must still interleave
-/// the same way. This is the case the old padding arm gets right by accident
-/// and the WoW client's strip-zeros arm treats explicitly.
+/// the same way: `S` is hashed at its fixed width, never trimmed.
 #[cfg(not(feature = "hash-sha1"))]
 #[test]
 fn interleave_pads_a_session_key_with_a_zero_low_byte() {
