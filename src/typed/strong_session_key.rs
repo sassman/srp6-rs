@@ -10,8 +10,9 @@ use subtle::ConstantTimeEq;
 #[derive(Clone, Copy)]
 pub struct StrongSessionKey([u8; STRONG_SESSION_KEY_LENGTH]);
 
-// A session key is a secret, so `==` must not leak matching prefixes through
-// its timing; the derive's short-circuit comparison would.
+// A session key is a secret, and the derived `==` returns at the first
+// mismatching byte: how long the comparison takes reveals how many leading
+// bytes matched. Compare in constant time instead.
 impl PartialEq for StrongSessionKey {
     fn eq(&self, other: &Self) -> bool {
         self.0[..].ct_eq(&other.0[..]).into()

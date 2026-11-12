@@ -12,8 +12,10 @@ use subtle::ConstantTimeEq;
 #[derive(Clone, Copy)]
 pub struct Proof([u8; HASH_LENGTH]);
 
-// Proofs get compared against attacker-supplied values, so `==` must not be a
-// timing oracle; the derive's short-circuit comparison would be one.
+// Proofs get compared against attacker-supplied values, and the derived `==`
+// returns at the first mismatching byte: how long the comparison takes tells
+// an attacker how many leading bytes were right, enough to guess a proof
+// byte by byte. Compare in constant time instead.
 impl PartialEq for Proof {
     fn eq(&self, other: &Self) -> bool {
         self.ct_eq(other)
