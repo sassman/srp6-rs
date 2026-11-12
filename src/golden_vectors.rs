@@ -1,8 +1,10 @@
 //! Golden vectors for the SRP6 arithmetic.
 //!
 //! These freeze what the current backend computes: private key, verifier,
-//! public keys, session key, interleaved key and both proofs, for each group
-//! and hash flavour the crate ships. Regenerate with:
+//! public keys, session key and interleaved key, for each group and hash
+//! flavour the crate ships. The proofs are pinned by length only: `M1`/`M2`
+//! are crate-flavour values, not protocol vectors, and pinning their bytes
+//! would churn the fixtures on every proof-formula decision. Regenerate with:
 //!
 //! ```text
 //! cargo test --lib -- --ignored regenerate_golden
@@ -131,9 +133,9 @@ fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &S
         .expect("writing to a String cannot fail");
     writeln!(out, "K = {}", hex_trimmed(strong_key.as_bytes()))
         .expect("writing to a String cannot fail");
-    writeln!(out, "M1 = {}", hex_trimmed(proof.M1.as_bytes()))
+    writeln!(out, "M1.len = {}", proof.M1.as_bytes().len())
         .expect("writing to a String cannot fail");
-    writeln!(out, "M2 = {}", hex_trimmed(m2.as_bytes())).expect("writing to a String cannot fail");
+    writeln!(out, "M2.len = {}", m2.as_bytes().len()).expect("writing to a String cannot fail");
     out
 }
 
