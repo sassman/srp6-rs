@@ -1,204 +1,104 @@
-//!
-//! # An implementation of Secure Remote Password (SRP6) authentication protocol.
+//! # An safe rust native implementaiton of Secure Remote Password (SRP6) authentication protocol.
 //!
 //! **NOTE**: Please do only use key length >= 2048 bit in production.
-//!           You can do so by using [`Srp6_2048`] or [`Srp6_4096`] or related.
+//!           You can do so by using either of
+//!           [`Srp6_2048`], [`Srp6_4096`], [`Srp6_6144`], [`Srp6_8192`]
 //!
 //! ## Usage
 //!
-//! The usage example start on the server side.
-//! Client side interaction is marked explicit when needed.
-//!
-//! ### 1. A new user, welcome Alice
-//!
-//! ```rust
-//! use srp6::prelude::*;
-//!
-//! // this is happening on the client,
-//! // the password is never send to the server at any time
-//! let new_username = Username::new("alice").expect("valid username");
-//! let user_password = ClearTextPassword::from("password123");
-//!
-//! let (salt_s, verifier_v) = Srp6_4096::default()
-//!     .generate_new_user_secrets(
-//!         &new_username,
-//!         &user_password
-//!     );
-//!
-//! // At most the key length: a big number drops its leading zero bytes, so a fixed
-//! // length would fail about once in 256 runs.
-//! assert!(salt_s.num_bytes() <= Srp6_4096::KEY_LEN);
-//! assert!(verifier_v.num_bytes() <= Srp6_4096::KEY_LEN);
-//!
-//! // The server needs to persist,
-//! // `new_username`, `salt_s` and `verifier_v` in a user database / pw file
-//! ```
-//! **NOTE:** the password of the user will not be stored!
-//!
-//! **NOTE2:** the salt and verifier will never be the same, they have a random component to it
-//!
-//! ### 2. A session [`Handshake`] for Alice
-//!
-//! On the server side (when alice is already registered)
-//!
-//! - when a user/client connects they would send their [`Username`] first
-//! - with the username the server will lookup their [`Salt`] and [`PasswordVerifier`] from a user database or pw file
-//! - the server starts the authentication process with a [`Handshake`] send to the client
-//! - the server keeps a [`HandshakeProofVerifier`] for the user in order to verify the proof he will get from the client later on
+//! The example walks one full authentication: the server stores a salt and
+//! verifier per user, opens a handshake, and both sides prove each other. The
+//! values at the boundary are byte-backed newtypes ([`Salt`], [`Verifier`],
+//! [`PublicKey`], [`Proof`], [`StrongSessionKey`]), so no arithmetic detail
+//! shows up in the types a caller handles.
 //!
 //! ```rust
 //! use srp6::prelude::*;
-//! #[path = "doc_test_mocks.rs"]
-//! mod mocks;
 //!
-//! // the username is sent by the client
-//! let alice = Username::new("alice").expect("valid username");
-//! let user = mocks::lookup_user_details(&alice);
-//!
-//! // the server starts the handshake
+//! // signup: the server stores the username, salt and verifier
+//! let username = Username::new("alice").expect("valid username");
 //! let srp = Srp6_4096::default();
-//! let (handshake, proof_verifier) = srp.start_handshake(&user).unwrap();
+//! let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+//! assert_eq!(salt.as_bytes().len(), 16); // the default; `with_salt` overrides it
+//! assert_eq!(verifier.as_bytes().len(), 512);
 //!
-//! assert_eq!(handshake.s, user.salt);
-//! assert_eq!(handshake.N, srp.N);
-//! assert_eq!(handshake.g, srp.g);
-//! // Same leading-zero caveat as the salt above.
-//! assert!(handshake.B.num_bytes() <= Srp6_4096::KEY_LEN);
+//! // login: the server opens the handshake from the stored secrets
+//! let (handshake, proof_verifier) = srp
+//!     .start_handshake(&username, salt, verifier)
+//!     .expect("the handshake starts");
 //!
-//! // send `handshake` to the client
-//! // keep `proof_verifier` for later in a session or cache
-//! ```
+//! // the client sends its proof
+//! let (proof, strong_proof_verifier) = srp
+//!     .calculate_proof(&handshake, &username, "password123")
+//!     .expect("the client can prove");
 //!
-//! ### 3. A [`Proof`] that Alice is Alice
+//! // the server verifies the proof and answers with the strong proof M2
+//! let strong_proof = srp
+//!     .verify_proof(&proof_verifier, &proof)
+//!     .expect("the proof verifies");
 //!
-//! - with the handshake, alice needs to create [`Proof`] that she is who she says she is
-//! - this [`Proof`] and her [`PublicKey`] will be sent to the server where it is verified
-//!
-//! ```rust
-//! use srp6::prelude::*;
-//! #[path = "doc_test_mocks.rs"]
-//! mod mocks;
-//!
-//! // this is entered by the user on the client (none is sent to the server)
-//! let username = Username::new("alice").expect("valid username");
-//! let password = "password123";
-//!
-//! // this comes from the server
-//! let handshake = mocks::handshake_from_the_server(&username);
-//!
-//! // the final proof calculation
-//! let (proof, strong_proof_verifier) = handshake
-//!     .calculate_proof(&username, password)
-//!     .unwrap();
-//!
-//! // send this `proof` to the server
-//! // `strong_proof_verifier` is kept for the final verification
-//! ```
-//!
-//! ### 4. Verify [`Proof`] from Alice
-//!
-//! - The client sends the proof ([`HandshakeProof`]) to the server
-//! - The server calculates their version of the Proof and compoares if they match
-//! - On Success both parties have calculated a strong proof ([`StrongProof`] M2) and a session key ([`StrongSessionKey`] K)
-//!
-//! ```rust
-//! use srp6::prelude::*;
-//! #[path = "doc_test_mocks.rs"]
-//! mod mocks;
-//!
-//! // this comes from the server
-//! let username = Username::new("alice").expect("valid username");
-//! let proof_verifier = mocks::stored_proof_verifier_from_step_2(&username);
-//! let proof_from_alice = mocks::alice_proof();
-//!
-//! // the server verifies the proof from alice
-//! let (strong_proof, session_key_server) = proof_verifier
-//!     .verify_proof(&proof_from_alice)
-//!     .expect("proof was invalid");
-//!
-//! // `strong_proof` is sent back to alice
-//! ```
-//!
-//! ### 5. Alice verifies the server
-//!
-//! - The client receivs the strong proof ([`StrongProof`] K) from the server
-//! - Alice calculates their own strong proof and verifies the both match
-//! - On Success both parties have verified each other and have a shared strong proof ([`StrongProof`] M2) and a session key ([`StrongSessionKey`] K)
-//!
-//! ```rust
-//! use srp6::prelude::*;
-//! #[path = "doc_test_mocks.rs"]
-//! mod mocks;
-//!
-//! // see the previous step..
-//! let strong_proof_verifier = mocks::strong_proof_verifier_from_step_3();
-//! let strong_proof = mocks::strong_proof_from_the_server();
-//!
-//! // alice verifies the proof from the server
-//! strong_proof_verifier
-//!     .verify_strong_proof(&strong_proof)
-//!     .expect("strong proof was invalid");
+//! // the client verifies the server; both sides now share the session key K
+//! let session_key = srp
+//!     .verify_strong_proof(&strong_proof_verifier, &strong_proof)
+//!     .expect("the strong proof verifies");
+//! assert_eq!(session_key, *strong_proof_verifier.session_key());
 //! ```
 //!
 //! ## Note on key length
 //!
 //! this crate provides some default keys [preconfigured and aliased][defaults].
-//! The modulus prime and genrator numbers are taken from [RFC5054](https://datatracker.ietf.org/doc/html/rfc5054).
+//! The modulus prime and generator numbers are taken from [RFC5054](https://datatracker.ietf.org/doc/html/rfc5054).
 //!
 //! ## Note on hash length
 //!
-//! The original RFC5054 uses SHA1 as the hash function. This crate uses SHA512 as the default hash function. Because SHA1 is considered weak, it is recommended to use newer versions of the SHA family. The hash length is 64 bytes for SHA512 instead of 20 bytes for SHA1. If you really need to use SHA1, you can use the `hash-sha1` feature.
+//! The original RFC5054 uses SHA1 as the hash function.
+//! This crate uses SHA512 as the default hash function,
+//! because SHA1 is considered weak, it is recommended to use newer versions of the SHA family.
 //!
-//! ## Further details and domain vocabolary
+//! The hash length is 64 bytes for SHA512 instead of 20 bytes for SHA1.
+//! If you really need to use SHA1, you can use the `hash-sha1` feature.
+//!
+//! ## Further details and domain vocabulary
 //! - You can find the documentation of SRP6 [variables in a dedicated module][`protocol_details`].
 //! - [RFC2945](https://datatracker.ietf.org/doc/html/rfc2945) that describes in detail the Secure remote password protocol (SRP).
 //! - [RFC5054](https://datatracker.ietf.org/doc/html/rfc5054) that describes SRP6 for TLS Authentication
 //! - [check out the 2 examples](./examples) that illustrates the srp authentication flow as well
 
+// Modules
 pub mod defaults;
+pub mod group;
 pub mod hash;
 pub mod protocol_details;
-pub mod rfc_lingo;
-pub mod prelude {
-    pub use crate::api::host::*;
-    pub use crate::api::user::*;
-    pub use crate::big_number::BigNumber;
-    pub use crate::defaults::*;
-    pub use crate::error::Srp6Error;
-    pub use crate::hash::HASH_LENGTH;
-    pub use crate::primitives::*;
-    pub use std::convert::TryInto;
-}
-pub mod group;
 pub mod rfc_5054_appendix_a;
+pub mod rfc_lingo;
+
+mod credentials;
+mod error;
+mod typed;
+
+#[cfg(test)]
+mod golden_vectors;
 #[cfg(all(test, feature = "test-rfc-5054-appendix-b"))]
 pub mod rfc_5054_appendix_b;
 #[cfg(feature = "wow-1-12-1")]
 pub mod wow;
 
-// #[cfg(any(test, doc, doctest, docsrs, feature = "doc-test-mocks"))]
-// pub mod doc_test_mocks;
-
-mod api;
-mod big_number;
-mod error;
-mod primitives;
-
-// // TODO: remove this, in favor of the prelude module
-// pub use api::host::*;
-// pub use api::user::*;
-// pub use defaults::*;
-// pub use primitives::{
-//     ClearTextPassword, Generator, MultiplierParameter, PasswordVerifier, PrimeModulus, PrivateKey,
-//     Proof, PublicKey, Salt, SessionKey, StrongProof, StrongSessionKey, UserCredentials,
-//     UserSecrets, Username, UsernameRef,
-// };
-// pub use std::convert::TryInto;
+// Crate-root re-exports
+pub use credentials::*;
+pub use defaults::*;
+pub use error::Srp6Error;
+pub use group::*;
+pub use typed::*;
 
 /// encapsulates a [`crate::error::Srp6Error`]
 pub type Result<T> = std::result::Result<T, crate::error::Srp6Error>;
 
-pub use api::host::*;
-pub use api::user::*;
-pub use defaults::*;
-pub use primitives::*;
+pub mod prelude {
+    pub use crate::credentials::*;
+    pub use crate::defaults::*;
+    pub use crate::error::Srp6Error;
+    pub use crate::group::*;
+    pub use crate::hash::HASH_LENGTH;
+    pub use crate::typed::*;
+    pub use std::convert::TryInto;
+}
