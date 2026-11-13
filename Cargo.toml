@@ -19,7 +19,7 @@ include = ["src", "examples", "LICENSE", "README.md", "CHANGELOG.md"]
 [dependencies]
 thiserror = "2.0"
 rand = { version = "0.10", default-features = false, features = ["thread_rng"] }
-crypto-bigint = { version = "=0.7.10", default-features = false, features = [
+crypto-bigint = { version = "=0.7.11", default-features = false, features = [
     "alloc",
     "extra-sizes",
 ] }
