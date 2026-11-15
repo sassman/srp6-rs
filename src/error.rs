@@ -1,7 +1,5 @@
 use thiserror::Error;
 
-use crate::typed::Proof;
-
 #[derive(Error, Debug, PartialEq)]
 pub enum Srp6Error {
     #[error(
@@ -15,8 +13,10 @@ pub enum Srp6Error {
     #[error("The provided proof is invalid")]
     InvalidProof,
 
+    /// Carries the rejected `M2` bytes for inspection; hash-agnostic so the error
+    /// type stays free of the hash parameter.
     #[error("The provided strong proof is invalid")]
-    InvalidStrongProof(Proof),
+    InvalidStrongProof(Vec<u8>),
 
     /// The scrambler `u = H(A | B)` reduced to zero; `protocol_details` requires
     /// both sides to abort, since `u == 0` collapses the shared-secret exponent.

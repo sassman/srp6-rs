@@ -113,16 +113,16 @@ impl<G: GroupOps> HandshakeProofVerifier<G> {
 
 /// The client's proof.
 #[allow(non_snake_case)]
-pub struct HandshakeProof<G: Group> {
+pub struct HandshakeProof<G: Group, H> {
     pub(crate) A: PublicKey<G>,
-    pub(crate) M1: Proof,
+    pub(crate) M1: Proof<H>,
 }
 
-impl<G: Group> HandshakeProof<G> {
+impl<G: Group, H> HandshakeProof<G, H> {
     /// Rebuilds the client's proof on the server side from what the wire
     /// carries: `A` and `M1`.
     #[allow(non_snake_case)]
-    pub fn from_wire(A: PublicKey<G>, M1: Proof) -> Self {
+    pub fn from_wire(A: PublicKey<G>, M1: Proof<H>) -> Self {
         Self { A, M1 }
     }
 
@@ -134,20 +134,20 @@ impl<G: Group> HandshakeProof<G> {
 
     /// The client's proof `M1`.
     #[doc(alias = "M1")]
-    pub fn proof(&self) -> &Proof {
+    pub fn proof(&self) -> &Proof<H> {
         &self.M1
     }
 }
 
 /// What the client keeps to verify the server's strong proof.
 #[allow(non_snake_case)]
-pub struct StrongProofVerifier<G: Group> {
+pub struct StrongProofVerifier<G: Group, H> {
     pub(crate) A: PublicKey<G>,
-    pub(crate) K: StrongSessionKey,
-    pub(crate) M1: Proof,
+    pub(crate) K: StrongSessionKey<H>,
+    pub(crate) M1: Proof<H>,
 }
 
-impl<G: Group> StrongProofVerifier<G> {
+impl<G: Group, H> StrongProofVerifier<G, H> {
     /// The client's public key `A`.
     #[doc(alias = "A")]
     pub fn public_key(&self) -> &PublicKey<G> {
@@ -156,13 +156,13 @@ impl<G: Group> StrongProofVerifier<G> {
 
     /// The strong session key `K`.
     #[doc(alias = "K")]
-    pub fn session_key(&self) -> &StrongSessionKey {
+    pub fn session_key(&self) -> &StrongSessionKey<H> {
         &self.K
     }
 
     /// The client's proof `M1`.
     #[doc(alias = "M1")]
-    pub fn proof(&self) -> &Proof {
+    pub fn proof(&self) -> &Proof<H> {
         &self.M1
     }
 }
@@ -205,7 +205,7 @@ impl<G: GroupOps> std::fmt::Debug for HandshakeProofVerifier<G> {
     }
 }
 
-impl<G: Group> std::fmt::Debug for HandshakeProof<G> {
+impl<G: Group, H> std::fmt::Debug for HandshakeProof<G, H> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("HandshakeProof")
             .field("A", &self.A)
@@ -214,7 +214,7 @@ impl<G: Group> std::fmt::Debug for HandshakeProof<G> {
     }
 }
 
-impl<G: Group> std::fmt::Debug for StrongProofVerifier<G> {
+impl<G: Group, H> std::fmt::Debug for StrongProofVerifier<G, H> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StrongProofVerifier")
             .field("A", &self.A)

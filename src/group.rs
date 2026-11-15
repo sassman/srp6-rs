@@ -14,8 +14,6 @@ use crypto_bigint::{
 use crypto_bigint::{U1024, U1088, U1536, U1600};
 use rand::{rng, RngExt};
 
-use crate::hash::{Digest, HashFunc, Update};
-
 #[cfg(feature = "wow-1-12-1")]
 use crypto_bigint::{U256, U384};
 
@@ -97,10 +95,11 @@ pub trait GroupOps: Group {
     type Exponent: Clone;
 
     fn generator(&self) -> Self::Field;
-    /// The multiplier `k`. Infallible: every group's `k` is a fixed, valid field
-    /// element (`3` for WoW, `H(N | g)` for the RFC groups), and the trait is
-    /// sealed, so no caller can supply one that fails to decode.
-    fn multiplier(&self) -> Self::Field;
+    /// The constant multiplier `k`, for groups that fix it (WoW: `3`). `None` means
+    /// `k = H(N | PAD(g))`, which depends on the hash and is computed where `H` is
+    /// known (`steps::multiplier`). Every constant is a valid field element and the
+    /// trait is sealed, so a caller never has to handle a bad one.
+    fn multiplier_constant(&self) -> Option<Vec<u8>>;
 
     /// Decodes a value in the group's byte order, refusing one that is 0 modulo N.
     fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field>;
@@ -155,32 +154,15 @@ macro_rules! closed_group {
                 Self::oriented(<$uint>::from_be_hex($hex).to_be_bytes().to_vec())
             }
 
-            pub(crate) fn generator_bytes(&self) -> Vec<u8> {
-                // Big-endian on purpose: this only feeds `H(g)`, where the hash
-                // step trims leading zeroes down to the single generator byte -
-                // the same byte in either orientation.
-                let mut bytes = vec![0_u8; $n_bytes];
-                bytes[$n_bytes - 1] = $g;
-                bytes
-            }
-
-            pub(crate) fn multiplier_bytes(&self) -> Vec<u8> {
-                match $k {
-                    Some(k) => {
-                        let mut bytes = vec![0_u8; $n_bytes];
-                        bytes[$n_bytes - 1] = k;
-                        Self::oriented(bytes)
-                    }
-                    None => {
-                        let hash = HashFunc::new()
-                            .chain(self.modulus_bytes())
-                            .chain(self.generator_bytes())
-                            .finalize();
-                        let mut bytes = vec![0_u8; $n_bytes];
-                        bytes[$n_bytes - hash.len()..].copy_from_slice(&hash);
-                        Self::oriented(bytes)
-                    }
-                }
+            // The constant multiplier `k`, for groups that fix it (WoW: 3). `None`
+            // means `k = H(N | PAD(g))`, which depends on the hash and is computed
+            // in `steps::multiplier` where `H` is known.
+            pub(crate) fn multiplier_constant_bytes(&self) -> Option<Vec<u8>> {
+                $k.map(|k| {
+                    let mut bytes = vec![0_u8; $n_bytes];
+                    bytes[$n_bytes - 1] = k;
+                    Self::oriented(bytes)
+                })
             }
         }
 
@@ -201,9 +183,8 @@ macro_rules! closed_group {
                 $field::new(&<$uint>::from_u8($g))
             }
 
-            fn multiplier(&self) -> Self::Field {
-                self.field_from_bytes(&self.multiplier_bytes())
-                    .expect("a sealed group's multiplier is a valid field element")
+            fn multiplier_constant(&self) -> Option<Vec<u8>> {
+                self.multiplier_constant_bytes()
             }
 
             fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field> {
@@ -443,7 +424,12 @@ mod tests {
                 let salt =
                     Salt::try_from_hex("BEB25379D1A8581EB5A727673A2441EE").expect("valid hex");
                 let username = Username::new("alice").expect("valid username");
-                let x = steps::private_key_x(&group, &username, "password123", &salt);
+                let x = steps::private_key_x::<_, crate::hash::DefaultHash>(
+                    &group,
+                    &username,
+                    "password123",
+                    &salt,
+                );
 
                 let n_bytes = (<$uint>::BITS / 8) as usize;
                 let x_bytes = group.exponent_to_bytes(&x);

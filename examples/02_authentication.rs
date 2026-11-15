@@ -50,7 +50,7 @@ fn main() {
         .expect("the client can prove");
     assert_eq!(
         proof.proof().as_bytes().len(),
-        HASH_LENGTH,
+        <DefaultHash as Digest>::output_size(),
         "sha1 or sha-512 hash length expected"
     );
     println!("### Next Step: sending this handshake to the client");

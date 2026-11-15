@@ -17,4 +17,4 @@ pub use crate::group::GroupWow;
 ///
 /// `N_BYTES` is 256 bit / 32 byte; generated salts default to the same 32
 /// byte, the width the 1.12.1 client expects on the wire.
-pub type Srp6_256 = crate::Srp6<GroupWow>;
+pub type Srp6_256 = crate::Srp6<GroupWow, crate::hash::Sha1>;

@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use rand::{rng, RngExt};
 
 use super::steps;
@@ -7,19 +9,23 @@ use super::{
 };
 use crate::credentials::{ClearTextPasswordRef, Username};
 use crate::group::{Group, GroupOps};
+use crate::hash::{DefaultHash, Digest};
 use crate::{error::Srp6Error, Result};
 
-/// The SRP6 handshake for one closed group.
-pub struct Srp6<G: Group> {
+/// The SRP6 handshake for one closed group and hash. The hash `H` defaults to
+/// SHA-512; name another (e.g. `Srp6<GroupWow, Sha1>`) for a different flavour.
+pub struct Srp6<G: Group, H = DefaultHash> {
     group: G,
     salt_bytes: usize,
+    _hash: PhantomData<H>,
 }
 
-impl<G: Group> Srp6<G> {
+impl<G: Group, H> Srp6<G, H> {
     pub fn new(group: G) -> Self {
         Self {
             group,
             salt_bytes: G::DEFAULT_SALT_BYTES,
+            _hash: PhantomData,
         }
     }
 
@@ -53,18 +59,18 @@ impl<G: Group> Srp6<G> {
     }
 }
 
-impl<G: GroupOps> Default for Srp6<G> {
+impl<G: GroupOps, H> Default for Srp6<G, H> {
     fn default() -> Self {
         Self::new(G::default())
     }
 }
 
-impl<G: GroupOps> Srp6<G> {
+impl<G: GroupOps, H: Digest> Srp6<G, H> {
     /// The multiplier `k`, derived from the group - it is never on the wire,
     /// so a client rebuilding a [`Handshake`] takes it from here.
     #[doc(alias = "k")]
     pub fn multiplier(&self) -> FieldElement<G> {
-        let k = self.group.multiplier();
+        let k = steps::multiplier::<G, H>(&self.group);
         FieldElement::from_field(&self.group, &k)
     }
 
@@ -84,7 +90,7 @@ impl<G: GroupOps> Srp6<G> {
         password: ClearTextPasswordRef,
         salt: Salt,
     ) -> (Salt, Verifier<G>) {
-        let x = steps::private_key_x(&self.group, username, password, &salt);
+        let x = steps::private_key_x::<_, H>(&self.group, username, password, &salt);
         let verifier = self.group.field_pow(&self.group.generator(), &x);
 
         (salt, Verifier::from_field(&self.group, &verifier))
@@ -114,7 +120,7 @@ impl<G: GroupOps> Srp6<G> {
     ) -> Result<(Handshake<G>, HandshakeProofVerifier<G>)> {
         let verifier_field = verifier.to_field(&self.group)?;
         let g = self.group.generator();
-        let k = self.group.multiplier();
+        let k = steps::multiplier::<G, H>(&self.group);
         let g_b = self.group.field_pow(&g, &b);
         let k_v = self.group.field_mul(&k, &verifier_field);
         let b_pub = self.group.field_add(&k_v, &g_b);
@@ -150,12 +156,12 @@ impl<G: GroupOps> Srp6<G> {
     pub fn verify_proof(
         &self,
         verifier: &HandshakeProofVerifier<G>,
-        proof: &HandshakeProof<G>,
-    ) -> Result<(Proof, StrongSessionKey)> {
+        proof: &HandshakeProof<G, H>,
+    ) -> Result<(Proof<H>, StrongSessionKey<H>)> {
         let a_field = proof.A.to_field(&self.group)?;
         let verifier_field = verifier.user.verifier.to_field(&self.group)?;
 
-        let u = steps::scrambler_u(&self.group, &proof.A, &verifier.B);
+        let u = steps::scrambler_u::<_, H>(&self.group, &proof.A, &verifier.B);
         if steps::is_zero_exponent(&self.group, &u) {
             return Err(Srp6Error::InvalidScrambler);
         }
@@ -163,7 +169,7 @@ impl<G: GroupOps> Srp6<G> {
         let a_vu = self.group.field_mul(&a_field, &v_u);
         let s = self.group.field_pow(&a_vu, &verifier.b);
         let s = FieldElement::from_field(&self.group, &s);
-        let k = steps::strong_session_key(&s);
+        let k = steps::strong_session_key::<_, H>(&s);
 
         let m1 = steps::proof_m1(
             &self.group,
@@ -186,7 +192,7 @@ impl<G: GroupOps> Srp6<G> {
         handshake: &Handshake<G>,
         username: &Username,
         password: ClearTextPasswordRef,
-    ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
+    ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
         let a_exp = self.group.random_exponent();
         self.calculate_proof_with_a(handshake, username, password, a_exp)
     }
@@ -197,7 +203,7 @@ impl<G: GroupOps> Srp6<G> {
         username: &Username,
         password: ClearTextPasswordRef,
         a_exp: G::Exponent,
-    ) -> Result<(HandshakeProof<G>, StrongProofVerifier<G>)> {
+    ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
         let b_field = handshake.B.to_field(&self.group)?;
         let g_field = handshake.g.to_field(&self.group)?;
         let k_field = handshake.k.to_field(&self.group)?;
@@ -205,11 +211,11 @@ impl<G: GroupOps> Srp6<G> {
         let a_field = self.group.field_pow(&self.group.generator(), &a_exp);
         let a_public = PublicKey::from_field(&self.group, &a_field);
 
-        let u = steps::scrambler_u(&self.group, &a_public, &handshake.B);
+        let u = steps::scrambler_u::<_, H>(&self.group, &a_public, &handshake.B);
         if steps::is_zero_exponent(&self.group, &u) {
             return Err(Srp6Error::InvalidScrambler);
         }
-        let x = steps::private_key_x(&self.group, username, password, &handshake.s);
+        let x = steps::private_key_x::<_, H>(&self.group, username, password, &handshake.s);
         let ux = self.group.exponent_mul(&u, &x);
         let exp = self.group.exponent_add(&a_exp, &ux);
 
@@ -223,7 +229,7 @@ impl<G: GroupOps> Srp6<G> {
         if s.as_bytes().iter().all(|&byte| byte == 0) {
             return Err(Srp6Error::InvalidPremaster);
         }
-        let strong_key = steps::strong_session_key(&s);
+        let strong_key = steps::strong_session_key::<_, H>(&s);
 
         let m1 = steps::proof_m1(
             &self.group,
@@ -236,7 +242,7 @@ impl<G: GroupOps> Srp6<G> {
 
         let proof = HandshakeProof {
             A: a_public.clone(),
-            M1: m1,
+            M1: m1.clone(),
         };
         let verifier = StrongProofVerifier {
             A: a_public,
@@ -250,14 +256,14 @@ impl<G: GroupOps> Srp6<G> {
     /// Verifies the server's strong proof.
     pub fn verify_strong_proof(
         &self,
-        verifier: &StrongProofVerifier<G>,
-        m2: &Proof,
-    ) -> Result<StrongSessionKey> {
+        verifier: &StrongProofVerifier<G, H>,
+        m2: &Proof<H>,
+    ) -> Result<StrongSessionKey<H>> {
         let expected = steps::proof_m2(&verifier.A, &verifier.M1, &verifier.K);
         if !expected.ct_eq(m2) {
-            return Err(Srp6Error::InvalidStrongProof(*m2));
+            return Err(Srp6Error::InvalidStrongProof(m2.to_vec()));
         }
 
-        Ok(verifier.K)
+        Ok(verifier.K.clone())
     }
 }

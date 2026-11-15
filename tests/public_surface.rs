@@ -1,14 +1,13 @@
 //! The boundary a caller sees: the typed handshake and byte-backed values.
 
-use srp6::hash::HASH_LENGTH;
 use srp6::{
-    FromHexString, Group, Group2048, Proof, PublicKey, Salt, SaltBytes, Srp6, StrongSessionKey,
-    Username, Verifier,
+    DefaultHash, Digest, FromHexString, Group, Group2048, Proof, PublicKey, Salt, SaltBytes, Srp6,
+    StrongSessionKey, Username, Verifier,
 };
 
 #[test]
 fn the_typed_handshake_is_reachable_from_outside_the_crate() {
-    let srp = Srp6::new(Group2048);
+    let srp = Srp6::<Group2048>::new(Group2048);
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     assert_eq!(verifier.as_bytes().len(), 256);
@@ -35,7 +34,7 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
 fn the_salt_width_is_overridable_from_outside_the_crate() {
     let username = Username::new("alice").expect("valid username");
     let custom = SaltBytes::custom(24).expect("within bounds");
-    let srp = Srp6::new(Group2048).with_salt(custom);
+    let srp = Srp6::<Group2048>::new(Group2048).with_salt(custom);
 
     let (salt, _) = srp.generate_new_user_secrets(&username, "password123");
 
@@ -64,9 +63,11 @@ fn the_public_types_parse_their_printed_hex() {
     let verifier = Verifier::<Group2048>::try_from_hex(&verifier_hex).expect("valid field element");
     assert_eq!(verifier.as_bytes().len(), 256);
 
-    let proof = Proof::try_from_hex(&"00".repeat(HASH_LENGTH)).expect("valid proof");
-    assert_eq!(proof.as_bytes().len(), HASH_LENGTH);
+    let hash_len = <DefaultHash as Digest>::output_size();
+    let proof = Proof::<DefaultHash>::try_from_hex(&"00".repeat(hash_len)).expect("valid proof");
+    assert_eq!(proof.as_bytes().len(), hash_len);
 
-    let key = StrongSessionKey::try_from_hex(&"00".repeat(2 * HASH_LENGTH)).expect("valid key");
-    assert_eq!(key.as_bytes().len(), 2 * HASH_LENGTH);
+    let key = StrongSessionKey::<DefaultHash>::try_from_hex(&"00".repeat(2 * hash_len))
+        .expect("valid key");
+    assert_eq!(key.as_bytes().len(), 2 * hash_len);
 }

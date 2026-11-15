@@ -19,6 +19,11 @@ use crate::credentials::Username;
 use crate::group::GroupOps;
 #[cfg(feature = "wow-1-12-1")]
 use crate::group::GroupWow;
+#[cfg(not(feature = "hash-sha1"))]
+use crate::hash::DefaultHash;
+use crate::hash::Digest;
+#[cfg(feature = "hash-sha1")]
+use crate::hash::Sha1;
 use crate::typed::{steps, FromHexString, Salt, Srp6};
 
 /// The RFC 5054 appendix B salt, reused here so the vectors have one fixed input.
@@ -59,11 +64,16 @@ fn hex_trimmed(bytes: &[u8]) -> String {
 
 /// Everything a full handshake derives, in a stable text form.
 #[allow(non_snake_case)]
-fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &Salt) -> String {
+fn snapshot<G: GroupOps, H: Digest>(
+    group: G,
+    username: &Username,
+    password: &str,
+    salt: &Salt,
+) -> String {
     let a = group.exponent_from_bytes(&hex_to_bytes(PRIVATE_A_HEX));
     let b = group.exponent_from_bytes(&hex_to_bytes(PRIVATE_B_HEX));
 
-    let srp = Srp6::new(group);
+    let srp = Srp6::<G, H>::new(group);
     let (salt, verifier) =
         srp.generate_new_user_secrets_with_salt(username, password, salt.clone());
     let (handshake, server) = srp
@@ -81,8 +91,8 @@ fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &S
 
     // `x` and `S` are not public values; recompute them from the same inputs.
     let helper = G::default();
-    let x = steps::private_key_x(&helper, username, password, &salt);
-    let u = steps::scrambler_u(&helper, &proof.A, &handshake.B);
+    let x = steps::private_key_x::<_, H>(&helper, username, password, &salt);
+    let u = steps::scrambler_u::<_, H>(&helper, &proof.A, &handshake.B);
     let v_field = verifier
         .to_field(&helper)
         .expect("a validated field element");
@@ -145,7 +155,7 @@ fn salt() -> Salt {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_2048_sha512() -> String {
-    snapshot(
+    snapshot::<_, DefaultHash>(
         crate::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
@@ -155,7 +165,7 @@ fn vectors_2048_sha512() -> String {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_4096_sha512() -> String {
-    snapshot(
+    snapshot::<_, DefaultHash>(
         crate::group::Group4096,
         &Username::new("alice").expect("valid username"),
         "password123",
@@ -165,7 +175,7 @@ fn vectors_4096_sha512() -> String {
 
 #[cfg(all(feature = "hash-sha1", not(feature = "wow-1-12-1")))]
 fn vectors_2048_sha1() -> String {
-    snapshot(
+    snapshot::<_, Sha1>(
         crate::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
@@ -175,7 +185,7 @@ fn vectors_2048_sha1() -> String {
 
 #[cfg(feature = "wow-1-12-1")]
 fn vectors_wow_sha1() -> String {
-    snapshot(
+    snapshot::<_, Sha1>(
         GroupWow,
         &Username::new("Thrall").expect("valid username"),
         "thrall",
@@ -235,7 +245,7 @@ fn wow_verifier_matches_published_corpus() {
     let salt_bytes: Vec<u8> = (0u8..32)
         .map(|i| i.wrapping_mul(11).wrapping_add(2))
         .collect();
-    let srp = Srp6::new(GroupWow);
+    let srp = Srp6::<GroupWow, Sha1>::new(GroupWow);
     let (_salt, verifier) = srp.generate_new_user_secrets_with_salt(
         &Username::new("ALICE").expect("valid username"),
         "PASSWORD1",
@@ -264,7 +274,7 @@ fn wow_interleave_matches_published_corpus() {
         ),
     ];
     for (s_hex, key_hex) in cases {
-        let k = steps::strong_session_key_bytes(&hex_to_bytes(s_hex));
+        let k = steps::strong_session_key_bytes::<Sha1>(&hex_to_bytes(s_hex));
         assert_eq!(hex(k.as_bytes()), key_hex, "S={s_hex}");
     }
 }
@@ -276,7 +286,7 @@ fn wow_interleave_matches_published_corpus() {
 fn interleave_pads_a_session_key_with_a_zero_low_byte() {
     let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
 
-    let k = steps::strong_session_key_bytes(&s);
+    let k = steps::strong_session_key_bytes::<DefaultHash>(&s);
 
     assert_eq!(
         hex_trimmed(k.as_bytes()),
@@ -289,11 +299,33 @@ fn interleave_pads_a_session_key_with_a_zero_low_byte() {
 fn interleave_pads_a_session_key_with_a_zero_low_byte() {
     let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
 
-    let k = steps::strong_session_key_bytes(&s);
+    let k = steps::strong_session_key_bytes::<Sha1>(&s);
 
     assert_eq!(
         hex_trimmed(k.as_bytes()),
         include_str!("../tests/golden/interleave-zero-low-byte-sha1.txt").trim()
+    );
+}
+
+/// The capability the mutually-exclusive hash features forbade: one binary runs
+/// SHA-1 and SHA-512 on the same group, as two instances, and they disagree -
+/// proof the hash is a real per-instance choice.
+#[cfg(feature = "hash-sha1")]
+#[test]
+fn one_group_runs_both_hashes_at_once() {
+    use crate::group::Group2048;
+
+    let user = Username::new("alice").expect("valid username");
+    let (_s1, v_sha1) = Srp6::<Group2048, Sha1>::new(Group2048)
+        .generate_new_user_secrets_with_salt(&user, "password123", salt());
+    let (_s2, v_sha512) = Srp6::<Group2048, crate::hash::DefaultHash>::new(Group2048)
+        .generate_new_user_secrets_with_salt(&user, "password123", salt());
+
+    assert_ne!(v_sha1.to_vec(), v_sha512.to_vec());
+    assert_eq!(
+        v_sha1.as_bytes().len(),
+        v_sha512.as_bytes().len(),
+        "same group width"
     );
 }
 
@@ -308,7 +340,7 @@ fn regenerate_golden() {
         std::fs::write(format!("{dir}/4096-sha512.txt"), vectors_4096_sha512()).unwrap();
 
         let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
-        let k = steps::strong_session_key_bytes(&s);
+        let k = steps::strong_session_key_bytes::<DefaultHash>(&s);
         std::fs::write(
             format!("{dir}/interleave-zero-low-byte-sha512.txt"),
             hex_trimmed(k.as_bytes()),
@@ -319,7 +351,7 @@ fn regenerate_golden() {
     #[cfg(feature = "hash-sha1")]
     {
         let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
-        let k = steps::strong_session_key_bytes(&s);
+        let k = steps::strong_session_key_bytes::<Sha1>(&s);
         std::fs::write(
             format!("{dir}/interleave-zero-low-byte-sha1.txt"),
             hex_trimmed(k.as_bytes()),
