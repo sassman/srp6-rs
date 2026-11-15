@@ -518,3 +518,43 @@ fn a_custom_salt_width_drives_generation() {
 fn the_wow_group_defaults_to_its_wire_width() {
     assert_eq!(Srp6::new(GroupWow).salt_bytes(), 32);
 }
+
+/// A client rebuilds the handshake from the challenge bytes the server sent,
+/// and a server rebuilds the proof from the answer - neither side holds the
+/// other's structs, only wire bytes.
+#[test]
+fn both_boundary_structs_rebuild_from_wire_parts() {
+    let srp = Srp6::new(Group2048);
+    let username = Username::new("alice").expect("valid username");
+    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
+
+    // What the challenge carries: B, g, s. k is derived, never sent.
+    let rebuilt = Handshake::from_wire(
+        PublicKey::try_from_bytes(handshake.public_key().as_bytes()).expect("B decodes"),
+        FieldElement::try_from_bytes(handshake.generator().as_bytes()).expect("g decodes"),
+        srp.multiplier().expect("k derives"),
+        handshake.salt().clone(),
+    );
+    assert_eq!(rebuilt.public_key(), handshake.public_key());
+    assert_eq!(rebuilt.multiplier(), handshake.multiplier());
+
+    // The client proves against the rebuilt handshake; the server rebuilds the
+    // proof from wire bytes and the flow still closes.
+    let (proof, strong_verifier) = srp
+        .calculate_proof(&rebuilt, &username, "password123")
+        .expect("the client can prove");
+    let wire_a = proof.public_key().to_vec();
+    let wire_m1 = proof.proof().to_vec();
+    let proof = HandshakeProof::from_wire(
+        PublicKey::try_from_bytes(&wire_a).expect("A decodes"),
+        Proof::try_from_bytes(&wire_m1).expect("M1 decodes"),
+    );
+    let (m2, _) = srp
+        .verify_proof(&proof_verifier, &proof)
+        .expect("the proof verifies");
+    srp.verify_strong_proof(&strong_verifier, &m2)
+        .expect("the strong proof verifies");
+}

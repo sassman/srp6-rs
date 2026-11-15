@@ -49,6 +49,15 @@ pub struct Handshake<G: Group> {
 }
 
 impl<G: Group> Handshake<G> {
+    /// Rebuilds the server's handshake on the client side from what the wire
+    /// carries: `B`, `g` and `s`. The multiplier `k` is never on the wire -
+    /// both sides derive it, so the caller takes it from
+    /// [`crate::Srp6::multiplier`].
+    #[allow(non_snake_case)]
+    pub fn from_wire(B: PublicKey<G>, g: FieldElement<G>, k: FieldElement<G>, s: Salt) -> Self {
+        Self { B, g, k, s }
+    }
+
     /// The server's public key `B`.
     #[doc(alias = "B")]
     pub fn public_key(&self) -> &PublicKey<G> {
@@ -110,6 +119,13 @@ pub struct HandshakeProof<G: Group> {
 }
 
 impl<G: Group> HandshakeProof<G> {
+    /// Rebuilds the client's proof on the server side from what the wire
+    /// carries: `A` and `M1`.
+    #[allow(non_snake_case)]
+    pub fn from_wire(A: PublicKey<G>, M1: Proof) -> Self {
+        Self { A, M1 }
+    }
+
     /// The client's public key `A`.
     #[doc(alias = "A")]
     pub fn public_key(&self) -> &PublicKey<G> {

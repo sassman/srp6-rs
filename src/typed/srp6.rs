@@ -60,6 +60,18 @@ impl<G: GroupOps> Default for Srp6<G> {
 }
 
 impl<G: GroupOps> Srp6<G> {
+    /// The multiplier `k`, derived from the group - it is never on the wire,
+    /// so a client rebuilding a [`Handshake`] takes it from here.
+    ///
+    /// # Errors
+    /// Returns [`Srp6Error::InvalidFieldElement`] if the group's multiplier
+    /// does not decode to a non-zero field element.
+    #[doc(alias = "k")]
+    pub fn multiplier(&self) -> Result<FieldElement<G>> {
+        let k = self.group.multiplier()?;
+        Ok(FieldElement::from_field(&self.group, &k))
+    }
+
     /// Creates a salt and password verifier for a new user.
     pub fn generate_new_user_secrets(
         &self,
