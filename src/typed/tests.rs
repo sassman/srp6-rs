@@ -4,9 +4,12 @@ use super::*;
 use crate::credentials::Username;
 use crate::group::{Group, Group2048, Group4096, GroupOps};
 use crate::hash::{DefaultHash, Digest};
+use crate::Srp6_2048;
 
 #[cfg(feature = "wow-1-12-1")]
 use crate::group::GroupWow;
+#[cfg(feature = "wow-1-12-1")]
+use crate::wow::Srp6_256;
 
 fn round_trip<G: GroupOps, H: Digest>(group: G) {
     let srp = Srp6::<G, H>::new(group);
@@ -45,7 +48,7 @@ fn a_wow_handshake_round_trips() {
 
 #[test]
 fn a_wrong_password_is_refused() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     let (handshake, proof_verifier) = srp
@@ -59,7 +62,7 @@ fn a_wrong_password_is_refused() {
 
 #[test]
 fn a_zero_premaster_from_a_malicious_server_is_refused() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let group = Group2048;
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
@@ -85,7 +88,7 @@ fn a_zero_premaster_from_a_malicious_server_is_refused() {
 
 #[test]
 fn a_wrong_strong_proof_is_refused() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     let (handshake, proof_verifier) = srp
@@ -107,7 +110,7 @@ fn a_wrong_strong_proof_is_refused() {
 
 #[test]
 fn a_verifier_round_trips_through_its_bytes() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
 
@@ -141,7 +144,7 @@ fn degenerate_values_are_refused() {
 
 #[test]
 fn hex_round_trips_through_the_boundary_types() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
 
@@ -199,7 +202,7 @@ fn the_boundary_types_round_trip_through_json() {
 
 #[test]
 fn the_strong_session_key_round_trips_through_hex() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     let (handshake, proof_verifier) = srp
@@ -224,7 +227,7 @@ fn the_strong_session_key_round_trips_through_hex() {
 
 #[test]
 fn the_strong_session_key_is_two_hashes_wide() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     let (handshake, proof_verifier) = srp
@@ -249,7 +252,7 @@ fn the_strong_session_key_is_two_hashes_wide() {
 
 #[test]
 fn the_handshake_accessors_expose_the_same_values() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     let (handshake, proof_verifier) = srp
@@ -303,7 +306,7 @@ fn the_modulus_exposes_its_bytes_and_display() {
 
 #[test]
 fn the_verifier_implements_its_byte_contract() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (_, verifier) = srp.generate_new_user_secrets(&username, "password123");
 
@@ -416,7 +419,7 @@ fn the_proof_implements_its_byte_contract() {
 
 #[test]
 fn the_strong_session_key_implements_its_byte_contract() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     let (handshake, proof_verifier) = srp
@@ -478,7 +481,7 @@ fn the_verifier_debug_does_not_leak_the_secret() {
 
 #[test]
 fn the_driver_reports_the_group_widths() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
 
     assert_eq!(srp.n_bytes(), 256);
     assert_eq!(srp.salt_bytes(), 16);
@@ -487,7 +490,7 @@ fn the_driver_reports_the_group_widths() {
 #[test]
 fn with_salt_overrides_the_generated_width() {
     let username = Username::new("alice").expect("valid username");
-    let srp = Srp6::<Group2048>::new(Group2048).with_salt(SaltBytes::BYTES_32);
+    let srp = Srp6_2048::default().with_salt(SaltBytes::BYTES_32);
 
     let (salt, _) = srp.generate_new_user_secrets(&username, "password123");
 
@@ -517,7 +520,7 @@ fn a_custom_salt_width_is_bounds_checked() {
 fn a_custom_salt_width_drives_generation() {
     let username = Username::new("alice").expect("valid username");
     let width = SaltBytes::custom(255).expect("within the wire cap");
-    let srp = Srp6::<Group2048>::new(Group2048).with_salt(width);
+    let srp = Srp6_2048::default().with_salt(width);
 
     let (salt, _) = srp.generate_new_user_secrets(&username, "password123");
 
@@ -527,10 +530,7 @@ fn a_custom_salt_width_drives_generation() {
 #[cfg(feature = "wow-1-12-1")]
 #[test]
 fn the_wow_group_defaults_to_its_wire_width() {
-    assert_eq!(
-        Srp6::<GroupWow, crate::hash::Sha1>::new(GroupWow).salt_bytes(),
-        32
-    );
+    assert_eq!(Srp6_256::default().salt_bytes(), 32);
 }
 
 /// A client rebuilds the handshake from the challenge bytes the server sent,
@@ -538,7 +538,7 @@ fn the_wow_group_defaults_to_its_wire_width() {
 /// other's structs, only wire bytes.
 #[test]
 fn both_boundary_structs_rebuild_from_wire_parts() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     let (handshake, proof_verifier) = srp
@@ -577,7 +577,7 @@ fn both_boundary_structs_rebuild_from_wire_parts() {
 /// impls must exist, and what is secret must not reach the log line.
 #[test]
 fn handshake_structs_debug_without_leaking_secrets() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     let (handshake, proof_verifier) = srp

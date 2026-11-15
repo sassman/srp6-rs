@@ -1,13 +1,13 @@
 //! The boundary a caller sees: the typed handshake and byte-backed values.
 
 use srp6::{
-    DefaultHash, Digest, FromHexString, Group, Group2048, Proof, PublicKey, Salt, SaltBytes, Srp6,
-    StrongSessionKey, Username, Verifier,
+    DefaultHash, Digest, FromHexString, Group, Group2048, Proof, PublicKey, Salt, SaltBytes,
+    Srp6_2048, StrongSessionKey, Username, Verifier,
 };
 
 #[test]
 fn the_typed_handshake_is_reachable_from_outside_the_crate() {
-    let srp = Srp6::<Group2048>::new(Group2048);
+    let srp = Srp6_2048::default();
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
     assert_eq!(verifier.as_bytes().len(), 256);
@@ -34,7 +34,7 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
 fn the_salt_width_is_overridable_from_outside_the_crate() {
     let username = Username::new("alice").expect("valid username");
     let custom = SaltBytes::custom(24).expect("within bounds");
-    let srp = Srp6::<Group2048>::new(Group2048).with_salt(custom);
+    let srp = Srp6_2048::default().with_salt(custom);
 
     let (salt, _) = srp.generate_new_user_secrets(&username, "password123");
 

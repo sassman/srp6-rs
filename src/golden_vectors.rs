@@ -25,6 +25,8 @@ use crate::hash::Digest;
 #[cfg(feature = "hash-sha1")]
 use crate::hash::Sha1;
 use crate::typed::{steps, FromHexString, Salt, Srp6};
+#[cfg(feature = "wow-1-12-1")]
+use crate::wow::Srp6_256;
 
 /// The RFC 5054 appendix B salt, reused here so the vectors have one fixed input.
 const SALT_HEX: &str = "BEB25379D1A8581EB5A727673A2441EE";
@@ -245,7 +247,7 @@ fn wow_verifier_matches_published_corpus() {
     let salt_bytes: Vec<u8> = (0u8..32)
         .map(|i| i.wrapping_mul(11).wrapping_add(2))
         .collect();
-    let srp = Srp6::<GroupWow, Sha1>::new(GroupWow);
+    let srp = Srp6_256::default();
     let (_salt, verifier) = srp.generate_new_user_secrets_with_salt(
         &Username::new("ALICE").expect("valid username"),
         "PASSWORD1",
