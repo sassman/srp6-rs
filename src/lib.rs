@@ -32,8 +32,9 @@
 //!     .calculate_proof(&handshake, &username, "password123")
 //!     .expect("the client can prove");
 //!
-//! // the server verifies the proof and answers with the strong proof M2
-//! let strong_proof = srp
+//! // the server verifies the proof, learns the session key K,
+//! // and answers with the strong proof M2
+//! let (strong_proof, server_key) = srp
 //!     .verify_proof(&proof_verifier, &proof)
 //!     .expect("the proof verifies");
 //!
@@ -42,6 +43,7 @@
 //!     .verify_strong_proof(&strong_proof_verifier, &strong_proof)
 //!     .expect("the strong proof verifies");
 //! assert_eq!(session_key, *strong_proof_verifier.session_key());
+//! assert_eq!(session_key, server_key);
 //! ```
 //!
 //! ## Note on key length

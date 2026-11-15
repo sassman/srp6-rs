@@ -20,7 +20,7 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let m2 = srp
+    let (m2, server_key) = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     let k = srp
@@ -28,6 +28,7 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
         .expect("the strong proof verifies");
 
     assert_eq!(k, *strong_verifier.session_key());
+    assert_eq!(k, server_key);
 }
 
 #[test]

@@ -18,11 +18,13 @@ fn round_trip<G: GroupOps>(group: G) {
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let m2 = srp
+    let (m2, server_key) = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
-    srp.verify_strong_proof(&strong_verifier, &m2)
+    let client_key = srp
+        .verify_strong_proof(&strong_verifier, &m2)
         .expect("the strong proof verifies");
+    assert_eq!(server_key, client_key, "both sides derive the same K");
 }
 
 #[test]
@@ -92,7 +94,7 @@ fn a_wrong_strong_proof_is_refused() {
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let m2 = srp
+    let (m2, _) = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
 
@@ -203,7 +205,7 @@ fn the_strong_session_key_round_trips_through_hex() {
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let m2 = srp
+    let (m2, _) = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     let k = srp
@@ -225,7 +227,7 @@ fn the_strong_session_key_is_two_hashes_wide() {
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let m2 = srp
+    let (m2, _) = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     let k = srp
@@ -412,7 +414,7 @@ fn the_strong_session_key_implements_its_byte_contract() {
     let (proof, strong_verifier) = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let m2 = srp
+    let (m2, _) = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     let k = srp

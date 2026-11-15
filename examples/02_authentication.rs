@@ -61,8 +61,8 @@ fn main() {
     printkeyln!("public key  [A]", proof.public_key());
     println!();
 
-    // the server verifies this proof
-    let strong_proof = srp
+    // the server verifies this proof and learns the session key
+    let (strong_proof, _server_key) = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     println!("### Next Step: sending proof to the server");

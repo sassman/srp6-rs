@@ -57,7 +57,7 @@ fn test_appendix_b_srp_test_vectors() {
     let (proof, client) = srp
         .calculate_proof_with_a(&handshake, &username, &password, a)
         .expect("the client can prove");
-    let m2 = srp
+    let (m2, _) = srp
         .verify_proof(&server, &proof)
         .expect("the proof verifies");
     let k = srp

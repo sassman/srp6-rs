@@ -72,7 +72,7 @@ fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &S
     let (proof, client) = srp
         .calculate_proof_with_a(&handshake, username, password, a.clone())
         .expect("the client can prove");
-    let m2 = srp
+    let (m2, _) = srp
         .verify_proof(&server, &proof)
         .expect("the proof verifies");
     let strong_key = srp

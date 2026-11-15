@@ -136,12 +136,14 @@ impl<G: GroupOps> Srp6<G> {
         Ok((handshake, verifier))
     }
 
-    /// Verifies the client's proof and returns the strong proof `M2`.
+    /// Verifies the client's proof and returns the strong proof `M2` together
+    /// with the shared session key `K` - the server encrypts with `K` from the
+    /// first packet after login, so it leaves the handshake here.
     pub fn verify_proof(
         &self,
         verifier: &HandshakeProofVerifier<G>,
         proof: &HandshakeProof<G>,
-    ) -> Result<Proof> {
+    ) -> Result<(Proof, StrongSessionKey)> {
         let a_field = proof.A.to_field(&self.group)?;
         let verifier_field = verifier.user.verifier.to_field(&self.group)?;
 
@@ -167,7 +169,7 @@ impl<G: GroupOps> Srp6<G> {
             return Err(Srp6Error::InvalidProof);
         }
 
-        Ok(steps::proof_m2(&proof.A, &m1, &k))
+        Ok((steps::proof_m2(&proof.A, &m1, &k), k))
     }
 
     /// Calculates the client's proof and its strong-proof verifier.
