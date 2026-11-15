@@ -95,7 +95,7 @@ pub trait GroupOps: Group {
     type Exponent: Clone;
 
     fn generator(&self) -> Self::Field;
-    /// The constant multiplier `k`, for groups that fix it (WoW: `3`). `None` means
+    /// The constant multiplier `k`, for groups that fix it. `None` means
     /// `k = H(N | PAD(g))`, which depends on the hash and is computed where `H` is
     /// known (`steps::multiplier`). Every constant is a valid field element and the
     /// trait is sealed, so a caller never has to handle a bad one.

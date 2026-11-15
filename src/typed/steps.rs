@@ -38,7 +38,7 @@ pub(crate) fn x_hash<H: Digest>(
         .finalize()
 }
 
-/// The multiplier `k`. A group may fix it (WoW: `3`); otherwise it is
+/// The multiplier `k`. A group may fix it as a constant; otherwise it is
 /// `k = H(N | PAD(g))` (RFC 5054), hashed in the group's byte order - which is why
 /// it lives here, where `H` is known, rather than on the hash-agnostic group.
 pub(crate) fn multiplier<G: GroupOps, H: Digest>(group: &G) -> G::Field {

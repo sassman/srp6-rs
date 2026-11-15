@@ -13,7 +13,7 @@ use crate::hash::{DefaultHash, Digest};
 use crate::{error::Srp6Error, Result};
 
 /// The SRP6 handshake for one closed group and hash. The hash `H` defaults to
-/// SHA-512; name another (e.g. `Srp6<GroupWow, Sha1>`) for a different flavour.
+/// SHA-512; a consumer can name another for a different flavour.
 pub struct Srp6<G: Group, H = DefaultHash> {
     group: G,
     salt_bytes: usize,
