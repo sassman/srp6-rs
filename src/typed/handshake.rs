@@ -166,3 +166,60 @@ impl<G: Group> StrongProofVerifier<G> {
         &self.M1
     }
 }
+
+// Hand-written rather than derived: consumers hold these in their own
+// `#[derive(Debug)]` state, so the impls must exist - and the ephemeral `b`
+// carries no Debug bound and must never reach a log line anyway. The field
+// types guard themselves (`Verifier`, `Proof` and `StrongSessionKey` redact),
+// so delegation leaks nothing.
+
+impl<G: Group> std::fmt::Debug for Handshake<G> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Handshake")
+            .field("B", &self.B)
+            .field("g", &self.g)
+            .field("k", &self.k)
+            .field("s", &self.s)
+            .finish()
+    }
+}
+
+impl<G: Group> std::fmt::Debug for UserSecrets<G> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserSecrets")
+            .field("username", &self.username)
+            .field("salt", &self.salt)
+            .field("verifier", &self.verifier)
+            .finish()
+    }
+}
+
+impl<G: GroupOps> std::fmt::Debug for HandshakeProofVerifier<G> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HandshakeProofVerifier")
+            .field("b", &"<redacted>")
+            .field("B", &self.B)
+            .field("g", &self.g)
+            .field("user", &self.user)
+            .finish()
+    }
+}
+
+impl<G: Group> std::fmt::Debug for HandshakeProof<G> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HandshakeProof")
+            .field("A", &self.A)
+            .field("M1", &self.M1)
+            .finish()
+    }
+}
+
+impl<G: Group> std::fmt::Debug for StrongProofVerifier<G> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StrongProofVerifier")
+            .field("A", &self.A)
+            .field("K", &self.K)
+            .field("M1", &self.M1)
+            .finish()
+    }
+}

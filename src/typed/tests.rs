@@ -558,3 +558,28 @@ fn both_boundary_structs_rebuild_from_wire_parts() {
     srp.verify_strong_proof(&strong_verifier, &m2)
         .expect("the strong proof verifies");
 }
+
+/// Consumers keep these structs in their own `#[derive(Debug)]` state; the
+/// impls must exist, and what is secret must not reach the log line.
+#[test]
+fn handshake_structs_debug_without_leaking_secrets() {
+    let srp = Srp6::new(Group2048);
+    let username = Username::new("alice").expect("valid username");
+    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
+    let (proof, strong_verifier) = srp
+        .calculate_proof(&handshake, &username, "password123")
+        .expect("the client can prove");
+
+    let printed = format!("{handshake:?} {proof_verifier:?} {proof:?} {strong_verifier:?}");
+    assert!(printed.contains("Handshake"));
+    let b_public = handshake.public_key().to_string();
+    assert!(printed.contains(&b_public), "public values stay readable");
+    assert!(printed.contains("<redacted>"), "secrets are redacted");
+    assert!(
+        !printed.contains(&strong_verifier.session_key().to_string()),
+        "the session key never reaches a log line"
+    );
+}
