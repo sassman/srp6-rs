@@ -67,7 +67,7 @@ fn a_zero_premaster_from_a_malicious_server_is_refused() {
     // A malicious server sends B = k*v, so base = B - k*g^x = k*(v - g^x) = 0
     // and the premaster S collapses to zero (B itself is still non-zero, so it
     // passes the public-key check).
-    let k = group.multiplier().expect("multiplier");
+    let k = group.multiplier();
     let v = verifier.to_field(&group).expect("verifier field");
     let b_field = group.field_mul(&k, &v);
     let handshake = Handshake {
@@ -535,7 +535,7 @@ fn both_boundary_structs_rebuild_from_wire_parts() {
     let rebuilt = Handshake::from_wire(
         PublicKey::try_from_bytes(handshake.public_key().as_bytes()).expect("B decodes"),
         FieldElement::try_from_bytes(handshake.generator().as_bytes()).expect("g decodes"),
-        srp.multiplier().expect("k derives"),
+        srp.multiplier(),
         handshake.salt().clone(),
     );
     assert_eq!(rebuilt.public_key(), handshake.public_key());

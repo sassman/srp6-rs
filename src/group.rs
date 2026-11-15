@@ -97,11 +97,14 @@ pub trait GroupOps: Group {
     type Exponent: Clone;
 
     fn generator(&self) -> Self::Field;
-    fn multiplier(&self) -> crate::Result<Self::Field>;
+    /// The multiplier `k`. Infallible: every group's `k` is a fixed, valid field
+    /// element (`3` for WoW, `H(N | g)` for the RFC groups), and the trait is
+    /// sealed, so no caller can supply one that fails to decode.
+    fn multiplier(&self) -> Self::Field;
 
-    /// Decodes a big-endian value, refusing one that is 0 modulo N.
+    /// Decodes a value in the group's byte order, refusing one that is 0 modulo N.
     fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field>;
-    /// Fixed-width big-endian encoding, `N_BYTES` long.
+    /// Fixed-width encoding in the group's byte order, `N_BYTES` long.
     fn field_to_bytes(&self, value: &Self::Field) -> Vec<u8>;
     fn field_add(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
     fn field_sub(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
@@ -116,24 +119,33 @@ pub trait GroupOps: Group {
     fn exponent_mul(&self, a: &Self::Exponent, b: &Self::Exponent) -> Self::Exponent;
 }
 
+/// Byte order a group uses at its hash and wire boundary. The WoW 1.12.1 wire is
+/// little-endian; the RFC 5054 groups are big-endian. The math is unaffected -
+/// each group's modulus lives in its field type - so this orients bytes only when
+/// they cross into a hash or onto the wire.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Endianness {
+    Big,
+    // Only `GroupWow` is little-endian, so this is constructed solely under
+    // `wow-1-12-1`; without it the sole use disappears.
+    #[cfg_attr(not(feature = "wow-1-12-1"), allow(dead_code))]
+    Little,
+}
+
 macro_rules! closed_group {
-    ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $le:expr) => {
+    ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $endian:expr) => {
         #[derive(Default)]
         pub struct $name;
 
         impl sealed::Sealed for $name {}
 
         impl $name {
-            /// Whether this group encodes field and exponent bytes little-endian.
-            /// The WoW 1.12.1 wire is little-endian; the RFC groups are big-endian.
-            /// The math is unaffected - each group's modulus lives in its field
-            /// type - so this orients bytes only at the hash and wire boundary.
-            const BYTES_LE: bool = $le;
+            const ENDIAN: Endianness = $endian;
 
             /// Reorient a big-endian buffer into the group's encoding. Symmetric,
             /// so it also maps the group's encoding back to big-endian for parsing.
             fn oriented(mut bytes: Vec<u8>) -> Vec<u8> {
-                if Self::BYTES_LE {
+                if matches!(Self::ENDIAN, Endianness::Little) {
                     bytes.reverse();
                 }
                 bytes
@@ -189,9 +201,9 @@ macro_rules! closed_group {
                 $field::new(&<$uint>::from_u8($g))
             }
 
-            fn multiplier(&self) -> crate::Result<Self::Field> {
+            fn multiplier(&self) -> Self::Field {
                 self.field_from_bytes(&self.multiplier_bytes())
-                    .ok_or(crate::error::Srp6Error::InvalidFieldElement)
+                    .expect("a sealed group's multiplier is a valid field element")
             }
 
             fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field> {
@@ -270,14 +282,91 @@ macro_rules! closed_group {
 }
 
 #[cfg(feature = "weak")]
-closed_group!(Group1024, Field1024, U1024, U1088, N1024, 2, 128, 16, None, false);
+closed_group!(
+    Group1024,
+    Field1024,
+    U1024,
+    U1088,
+    N1024,
+    2,
+    128,
+    16,
+    None,
+    Endianness::Big
+);
 #[cfg(feature = "weak")]
-closed_group!(Group1536, Field1536, U1536, U1600, N1536, 2, 192, 16, None, false);
-closed_group!(Group2048, Field2048, U2048, U2112, N2048, 2, 256, 16, None, false);
-closed_group!(Group3072, Field3072, U3072, U3136, N3072, 5, 384, 16, None, false);
-closed_group!(Group4096, Field4096, U4096, U4160, N4096, 5, 512, 16, None, false);
-closed_group!(Group6144, Field6144, U6144, U6208, N6144, 5, 768, 16, None, false);
-closed_group!(Group8192, Field8192, U8192, U8320, N8192, 19, 1024, 16, None, false);
+closed_group!(
+    Group1536,
+    Field1536,
+    U1536,
+    U1600,
+    N1536,
+    2,
+    192,
+    16,
+    None,
+    Endianness::Big
+);
+closed_group!(
+    Group2048,
+    Field2048,
+    U2048,
+    U2112,
+    N2048,
+    2,
+    256,
+    16,
+    None,
+    Endianness::Big
+);
+closed_group!(
+    Group3072,
+    Field3072,
+    U3072,
+    U3136,
+    N3072,
+    5,
+    384,
+    16,
+    None,
+    Endianness::Big
+);
+closed_group!(
+    Group4096,
+    Field4096,
+    U4096,
+    U4160,
+    N4096,
+    5,
+    512,
+    16,
+    None,
+    Endianness::Big
+);
+closed_group!(
+    Group6144,
+    Field6144,
+    U6144,
+    U6208,
+    N6144,
+    5,
+    768,
+    16,
+    None,
+    Endianness::Big
+);
+closed_group!(
+    Group8192,
+    Field8192,
+    U8192,
+    U8320,
+    N8192,
+    19,
+    1024,
+    16,
+    None,
+    Endianness::Big
+);
 
 // The WoW 1.12.1 wire is little-endian throughout; every other group is RFC 5054
 // big-endian.
@@ -292,7 +381,7 @@ closed_group!(
     32,
     32,
     Some(3),
-    true
+    Endianness::Little
 );
 
 #[cfg(test)]
