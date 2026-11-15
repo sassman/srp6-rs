@@ -117,18 +117,36 @@ pub trait GroupOps: Group {
 }
 
 macro_rules! closed_group {
-    ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr) => {
+    ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $le:expr) => {
         #[derive(Default)]
         pub struct $name;
 
         impl sealed::Sealed for $name {}
 
         impl $name {
+            /// Whether this group encodes field and exponent bytes little-endian.
+            /// The WoW 1.12.1 wire is little-endian; the RFC groups are big-endian.
+            /// The math is unaffected - each group's modulus lives in its field
+            /// type - so this orients bytes only at the hash and wire boundary.
+            const BYTES_LE: bool = $le;
+
+            /// Reorient a big-endian buffer into the group's encoding. Symmetric,
+            /// so it also maps the group's encoding back to big-endian for parsing.
+            fn oriented(mut bytes: Vec<u8>) -> Vec<u8> {
+                if Self::BYTES_LE {
+                    bytes.reverse();
+                }
+                bytes
+            }
+
             pub(crate) fn modulus_bytes(&self) -> Vec<u8> {
-                <$uint>::from_be_hex($hex).to_be_bytes().to_vec()
+                Self::oriented(<$uint>::from_be_hex($hex).to_be_bytes().to_vec())
             }
 
             pub(crate) fn generator_bytes(&self) -> Vec<u8> {
+                // Big-endian on purpose: this only feeds `H(g)`, where the hash
+                // step trims leading zeroes down to the single generator byte -
+                // the same byte in either orientation.
                 let mut bytes = vec![0_u8; $n_bytes];
                 bytes[$n_bytes - 1] = $g;
                 bytes
@@ -139,7 +157,7 @@ macro_rules! closed_group {
                     Some(k) => {
                         let mut bytes = vec![0_u8; $n_bytes];
                         bytes[$n_bytes - 1] = k;
-                        bytes
+                        Self::oriented(bytes)
                     }
                     None => {
                         let hash = HashFunc::new()
@@ -148,7 +166,7 @@ macro_rules! closed_group {
                             .finalize();
                         let mut bytes = vec![0_u8; $n_bytes];
                         bytes[$n_bytes - hash.len()..].copy_from_slice(&hash);
-                        bytes
+                        Self::oriented(bytes)
                     }
                 }
             }
@@ -180,8 +198,9 @@ macro_rules! closed_group {
                 if bytes.len() > $n_bytes {
                     return None;
                 }
+                let bytes = Self::oriented(bytes.to_vec());
                 let mut padded = vec![0_u8; $n_bytes];
-                padded[$n_bytes - bytes.len()..].copy_from_slice(bytes);
+                padded[$n_bytes - bytes.len()..].copy_from_slice(&bytes);
                 let field = $field::new(&<$uint>::from_be_slice(&padded));
                 if field.retrieve().is_zero().to_bool() {
                     None
@@ -191,7 +210,7 @@ macro_rules! closed_group {
             }
 
             fn field_to_bytes(&self, value: &Self::Field) -> Vec<u8> {
-                value.retrieve().to_be_bytes().to_vec()
+                Self::oriented(value.retrieve().to_be_bytes().to_vec())
             }
 
             fn field_add(&self, a: &Self::Field, b: &Self::Field) -> Self::Field {
@@ -220,18 +239,19 @@ macro_rules! closed_group {
             }
 
             fn exponent_from_bytes(&self, bytes: &[u8]) -> Self::Exponent {
+                let bytes = Self::oriented(bytes.to_vec());
                 let width = <$exp>::BITS as usize / 8;
                 let mut padded = vec![0_u8; width];
                 if bytes.len() > width {
                     padded.copy_from_slice(&bytes[bytes.len() - width..]);
                 } else {
-                    padded[width - bytes.len()..].copy_from_slice(bytes);
+                    padded[width - bytes.len()..].copy_from_slice(&bytes);
                 }
                 <$exp>::from_be_slice(&padded)
             }
 
             fn exponent_to_bytes(&self, value: &Self::Exponent) -> Vec<u8> {
-                value.to_be_bytes().to_vec()
+                Self::oriented(value.to_be_bytes().to_vec())
             }
 
             fn exponent_from_hash(&self, hash: &[u8]) -> Self::Exponent {
@@ -250,17 +270,30 @@ macro_rules! closed_group {
 }
 
 #[cfg(feature = "weak")]
-closed_group!(Group1024, Field1024, U1024, U1088, N1024, 2, 128, 16, None);
+closed_group!(Group1024, Field1024, U1024, U1088, N1024, 2, 128, 16, None, false);
 #[cfg(feature = "weak")]
-closed_group!(Group1536, Field1536, U1536, U1600, N1536, 2, 192, 16, None);
-closed_group!(Group2048, Field2048, U2048, U2112, N2048, 2, 256, 16, None);
-closed_group!(Group3072, Field3072, U3072, U3136, N3072, 5, 384, 16, None);
-closed_group!(Group4096, Field4096, U4096, U4160, N4096, 5, 512, 16, None);
-closed_group!(Group6144, Field6144, U6144, U6208, N6144, 5, 768, 16, None);
-closed_group!(Group8192, Field8192, U8192, U8320, N8192, 19, 1024, 16, None);
+closed_group!(Group1536, Field1536, U1536, U1600, N1536, 2, 192, 16, None, false);
+closed_group!(Group2048, Field2048, U2048, U2112, N2048, 2, 256, 16, None, false);
+closed_group!(Group3072, Field3072, U3072, U3136, N3072, 5, 384, 16, None, false);
+closed_group!(Group4096, Field4096, U4096, U4160, N4096, 5, 512, 16, None, false);
+closed_group!(Group6144, Field6144, U6144, U6208, N6144, 5, 768, 16, None, false);
+closed_group!(Group8192, Field8192, U8192, U8320, N8192, 19, 1024, 16, None, false);
 
+// The WoW 1.12.1 wire is little-endian throughout; every other group is RFC 5054
+// big-endian.
 #[cfg(feature = "wow-1-12-1")]
-closed_group!(GroupWow, FieldWow, U256, U384, NWOW, 7, 32, 32, Some(3));
+closed_group!(
+    GroupWow,
+    FieldWow,
+    U256,
+    U384,
+    NWOW,
+    7,
+    32,
+    32,
+    Some(3),
+    true
+);
 
 #[cfg(test)]
 mod tests {
@@ -412,17 +445,21 @@ mod tests {
     #[test]
     fn the_wow_const_field_reproduces_the_verifier() {
         let golden = include_str!("../tests/golden/wow-sha1.txt");
+        // The WoW golden encodes x and v little-endian; the high bytes of the
+        // little-endian exponent are zero, so its low 32 carry the whole value.
         let x = golden_value(golden, "x");
         let v = golden_value(golden, "v");
 
-        let mut x_padded = [0_u8; 32];
-        x_padded[32 - x.len()..].copy_from_slice(&x);
-        let exponent = U256::from_be_slice(&x_padded);
+        let mut x_le = [0_u8; 32];
+        let n = x.len().min(32);
+        x_le[..n].copy_from_slice(&x[..n]);
+        let exponent = U256::from_le_slice(&x_le);
 
         let generator = U256::from_u8(7);
         let verifier = FieldWow::new(&generator).pow(&exponent).retrieve();
 
-        let bytes = verifier.to_be_bytes();
-        assert_eq!(&bytes[bytes.len() - v.len()..], v.as_slice());
+        let mut actual = verifier.to_be_bytes().to_vec();
+        actual.reverse();
+        assert_eq!(&actual[..v.len()], v.as_slice());
     }
 }

@@ -225,6 +225,50 @@ fn golden_wow_sha1() {
     );
 }
 
+/// The published WoW SRP6 verifier (wow_srp MIT corpus, also benilla's pinned
+/// golden): a real 1.12.1 client derives exactly this, little-endian, for
+/// `ALICE`/`PASSWORD1` with salt bytes `i*11+2`. The lib must reproduce it or no
+/// stock client can log in - this is the correctness the dogfood uncovered.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn wow_verifier_matches_published_corpus() {
+    let salt_bytes: Vec<u8> = (0u8..32)
+        .map(|i| i.wrapping_mul(11).wrapping_add(2))
+        .collect();
+    let srp = Srp6::new(GroupWow);
+    let (_salt, verifier) = srp.generate_new_user_secrets_with_salt(
+        &Username::new("ALICE").expect("valid username"),
+        "PASSWORD1",
+        Salt::from(salt_bytes),
+    );
+    assert_eq!(
+        hex(verifier.as_bytes()),
+        "28B837075A12B82553921D9095FA3FDCB0151C4BFC860AB97A69D0FA86A3D213",
+    );
+}
+
+/// The published WoW session-key interleave (wow_srp MIT corpus, also benilla's
+/// pinned goldens): little-endian `S` in, little-endian `K` out. Guards that the
+/// lib folds `S` into `K` exactly as the real client does.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn wow_interleave_matches_published_corpus() {
+    let cases = [
+        (
+            "8F4CEBD60DFC34E5C007E51BD4F3A4FF2BC1D930E2D3EA770D8D3EEDFF2DCCFC",
+            "EE144E1AE08DAC891AB63ABC42BF89738003343422E6B58131BEE4C3087A7027E55A7216D18D556C",
+        ),
+        (
+            "CCC1BDE07FC4FA3182DDEAAB036A88F78AD605AB0D8BFBF6F5EE8ED65CDE4F09",
+            "2AA23706C3FC3517A4293E2D4944F567E220CC1A227359D70154E5FD3CEE973673130C4AFBAD9E6D",
+        ),
+    ];
+    for (s_hex, key_hex) in cases {
+        let k = steps::strong_session_key_bytes(&hex_to_bytes(s_hex));
+        assert_eq!(hex(k.as_bytes()), key_hex, "S={s_hex}");
+    }
+}
+
 /// A session key whose least significant byte is zero must still interleave
 /// the same way: `S` is hashed at its fixed width, never trimmed.
 #[cfg(not(feature = "hash-sha1"))]
