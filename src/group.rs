@@ -539,10 +539,10 @@ mod tests {
         let x = golden_value(golden, "x");
         let v = golden_value(golden, "v");
 
-        let mut x_le = [0_u8; 32];
+        let mut x_padded_le = [0_u8; 32];
         let n = x.len().min(32);
-        x_le[..n].copy_from_slice(&x[..n]);
-        let exponent = U256::from_le_slice(&x_le);
+        x_padded_le[..n].copy_from_slice(&x[..n]);
+        let exponent = U256::from_le_slice(&x_padded_le);
 
         let generator = U256::from_u8(7);
         let verifier = FieldWow::new(&generator).pow(&exponent).retrieve();
