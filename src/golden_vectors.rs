@@ -24,7 +24,7 @@ use crate::hash::DefaultHash;
 use crate::hash::Digest;
 #[cfg(feature = "hash-sha1")]
 use crate::hash::Sha1;
-use crate::typed::{steps, FromHexString, Salt, Srp6};
+use crate::typed::{steps, FromHexString, Salt, Srp6, WireStable};
 #[cfg(feature = "wow-1-12-1")]
 use crate::wow::Srp6_256;
 
@@ -66,13 +66,14 @@ fn hex_trimmed(bytes: &[u8]) -> String {
 
 /// Everything a full handshake derives, in a stable text form.
 #[allow(non_snake_case)]
-fn snapshot<G: GroupOps, H: Digest>(
+fn snapshot<G: GroupOps + WireStable, H: Digest>(
     group: G,
     username: &Username,
     password: &str,
     salt: &Salt,
 ) -> String {
-    let a = group.exponent_from_bytes(&hex_to_bytes(PRIVATE_A_HEX));
+    let a_bytes = hex_to_bytes(PRIVATE_A_HEX);
+    let a = group.exponent_from_bytes(&a_bytes);
     let b = group.exponent_from_bytes(&hex_to_bytes(PRIVATE_B_HEX));
 
     let srp = Srp6::<G, H>::new(group);
@@ -82,7 +83,7 @@ fn snapshot<G: GroupOps, H: Digest>(
         .start_handshake_with_b(username, salt.clone(), verifier.clone(), b.clone())
         .expect("the handshake starts");
     let (proof, client) = srp
-        .calculate_proof_with_a(&handshake, username, password, a.clone())
+        .calculate_proof_with_a(&handshake, username, password, &a_bytes)
         .expect("the client can prove");
     let (m2, _) = srp
         .verify_proof(&server, &proof)
@@ -256,6 +257,56 @@ fn wow_verifier_matches_published_corpus() {
     assert_eq!(
         hex(verifier.as_bytes()),
         "28B837075A12B82553921D9095FA3FDCB0151C4BFC860AB97A69D0FA86A3D213",
+    );
+}
+
+/// A WoW client redraws an ephemeral whose proof would not encode unambiguously.
+/// Reuses benilla's SRP fixture: against this `B`/salt, `TRIPS_A` is the draw
+/// benilla found trips the `A` guard and `CLEAN` trips none, so srp6 must reject
+/// the first with `AmbiguousEncoding` and accept the second.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
+    use crate::typed::{Handshake, PublicKey};
+    use crate::{FieldElement, Srp6Error};
+
+    const FIXTURE_B: [u8; 32] = [
+        5, 42, 79, 116, 153, 190, 227, 8, 45, 82, 119, 156, 193, 230, 11, 48, 85, 122, 159, 196,
+        233, 14, 51, 88, 125, 162, 199, 236, 17, 54, 91, 128,
+    ];
+    const FIXTURE_SALT: [u8; 32] = [
+        3, 14, 25, 36, 47, 58, 69, 80, 91, 102, 113, 124, 135, 146, 157, 168, 179, 190, 201, 212,
+        223, 234, 245, 0, 11, 22, 33, 44, 55, 66, 77, 88,
+    ];
+    const TRIPS_A: [u8; 32] = [
+        237, 250, 2, 239, 106, 197, 124, 117, 132, 5, 226, 189, 212, 217, 169, 146, 39, 212, 214,
+        11, 198, 57, 225, 84, 17, 219, 168, 107, 118, 105, 11, 95,
+    ];
+    const CLEAN: [u8; 32] = [
+        52, 226, 21, 16, 93, 106, 129, 125, 56, 197, 129, 14, 149, 1, 254, 105, 63, 23, 9, 190, 46,
+        113, 240, 125, 128, 130, 150, 46, 174, 240, 93, 249,
+    ];
+
+    let srp = crate::wow::Srp6_256::default();
+    let handshake = Handshake::from_wire(
+        PublicKey::<GroupWow>::try_from_bytes(&FIXTURE_B).expect("B is a valid public key"),
+        FieldElement::<GroupWow>::try_from_bytes(&[7]).expect("g = 7"),
+        srp.multiplier(),
+        Salt::from(FIXTURE_SALT.to_vec()),
+    );
+    let user = Username::new("alice").expect("valid username");
+
+    assert!(
+        matches!(
+            srp.calculate_proof_with_a(&handshake, &user, "password1", &TRIPS_A),
+            Err(Srp6Error::AmbiguousEncoding)
+        ),
+        "the A-tripping draw must be rejected"
+    );
+    assert!(
+        srp.calculate_proof_with_a(&handshake, &user, "password1", &CLEAN)
+            .is_ok(),
+        "the clean draw must pass"
     );
 }
 

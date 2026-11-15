@@ -42,9 +42,7 @@ fn test_appendix_b_srp_test_vectors() {
 
     let group = Group1024;
     let helper = Group1024;
-    let a = group.exponent_from_bytes(&hex_to_bytes(
-        "60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393",
-    ));
+    let a = hex_to_bytes("60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393");
     let b = group.exponent_from_bytes(&hex_to_bytes(
         "E487CB59D31AC550471E81F00F6928E01DDA08E974A004F49E61F5D105284D20",
     ));
@@ -55,7 +53,7 @@ fn test_appendix_b_srp_test_vectors() {
         .start_handshake_with_b(&username, salt.clone(), verifier.clone(), b)
         .expect("the handshake starts");
     let (proof, client) = srp
-        .calculate_proof_with_a(&handshake, &username, &password, a)
+        .calculate_proof_with_a(&handshake, &username, &password, &a)
         .expect("the client can prove");
     let (m2, _) = srp
         .verify_proof(&server, &proof)

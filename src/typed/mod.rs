@@ -18,6 +18,7 @@ mod srp6;
 pub(crate) mod steps;
 mod strong_session_key;
 mod verifier;
+mod wire;
 
 #[cfg(test)]
 mod tests;
@@ -35,3 +36,4 @@ pub use salt_bytes::SaltBytes;
 pub use srp6::Srp6;
 pub use strong_session_key::StrongSessionKey;
 pub use verifier::Verifier;
+pub use wire::WireStable;

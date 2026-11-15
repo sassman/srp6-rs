@@ -5,12 +5,24 @@ use rand::{rng, RngExt};
 use super::steps;
 use super::{
     FieldElement, Handshake, HandshakeProof, HandshakeProofVerifier, Proof, PublicKey, Salt,
-    SaltBytes, StrongProofVerifier, StrongSessionKey, UserSecrets, Verifier,
+    SaltBytes, StrongProofVerifier, StrongSessionKey, UserSecrets, Verifier, WireStable,
 };
 use crate::credentials::{ClearTextPasswordRef, Username};
 use crate::group::{Group, GroupOps};
 use crate::hash::{DefaultHash, Digest};
 use crate::{error::Srp6Error, Result};
+
+/// Whether a WoW draw encodes unambiguously at the fixed wire width. The
+/// high-order byte is last in the little-endian wire, so a zero there makes `A`,
+/// `K` or `M1` ambiguous; for the premaster `S` it is the low byte the client
+/// interleave would strip.
+fn wire_stable(a: &[u8], s: &[u8], k: &[u8], m1: &[u8]) -> bool {
+    let high_nonzero = |bytes: &[u8]| bytes.last().is_some_and(|&byte| byte != 0);
+    high_nonzero(a)
+        && s.first().is_some_and(|&byte| byte != 0)
+        && high_nonzero(k)
+        && high_nonzero(m1)
+}
 
 /// The SRP6 handshake for one closed group and hash. The hash `H` defaults to
 /// SHA-512; a consumer can name another for a different flavour.
@@ -65,7 +77,7 @@ impl<G: GroupOps, H> Default for Srp6<G, H> {
     }
 }
 
-impl<G: GroupOps, H: Digest> Srp6<G, H> {
+impl<G: GroupOps + WireStable, H: Digest> Srp6<G, H> {
     /// The multiplier `k`, derived from the group - it is never on the wire,
     /// so a client rebuilding a [`Handshake`] takes it from here.
     #[doc(alias = "k")]
@@ -186,18 +198,33 @@ impl<G: GroupOps, H: Digest> Srp6<G, H> {
         Ok((steps::proof_m2(&proof.A, &m1, &k), k))
     }
 
-    /// Calculates the client's proof and its strong-proof verifier.
+    /// Calculates the client's proof and its strong-proof verifier, drawing a
+    /// fresh ephemeral `a`.
     pub fn calculate_proof(
         &self,
         handshake: &Handshake<G>,
         username: &Username,
         password: ClearTextPasswordRef,
     ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
-        let a_exp = self.group.random_exponent();
-        self.calculate_proof_with_a(handshake, username, password, a_exp)
+        self.proof_for_exponent(handshake, username, password, self.group.random_exponent())
     }
 
-    pub(crate) fn calculate_proof_with_a(
+    /// [`Self::calculate_proof`] with the ephemeral `a` supplied as raw bytes, so a
+    /// client that must redraw controls its own source. A wire-stable flavour
+    /// rejects an ambiguous draw with [`Srp6Error::AmbiguousEncoding`], and the
+    /// caller tries another `a`.
+    pub fn calculate_proof_with_a(
+        &self,
+        handshake: &Handshake<G>,
+        username: &Username,
+        password: ClearTextPasswordRef,
+        a: &[u8],
+    ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
+        let a_exp = self.group.exponent_from_bytes(a);
+        self.proof_for_exponent(handshake, username, password, a_exp)
+    }
+
+    fn proof_for_exponent(
         &self,
         handshake: &Handshake<G>,
         username: &Username,
@@ -239,6 +266,22 @@ impl<G: GroupOps, H: Digest> Srp6<G, H> {
             &handshake.B,
             &strong_key,
         );
+
+        // WoW sends each value at the group's fixed width, and a zero in a
+        // significant byte hashes differently on the stock client. A flavour that
+        // cannot represent it rejects the draw so the caller redraws `a`. The
+        // high-order byte is last in the little-endian wire; the premaster's is
+        // the low byte the interleave strips.
+        if G::AMBIGUITY_CHECKED
+            && !wire_stable(
+                a_public.as_bytes(),
+                s.as_bytes(),
+                strong_key.as_bytes(),
+                m1.as_bytes(),
+            )
+        {
+            return Err(Srp6Error::AmbiguousEncoding);
+        }
 
         let proof = HandshakeProof {
             A: a_public.clone(),

@@ -28,6 +28,13 @@ pub enum Srp6Error {
     #[error("the derived premaster secret must not be zero")]
     InvalidPremaster,
 
+    /// A drawn proof did not encode unambiguously at the group's fixed wire
+    /// width: `A`, `K` or `M1` had a zero high-order byte, or the premaster `S` a
+    /// zero low-order one that the client interleave strips. Only a wire-stable
+    /// flavour (WoW 1.12.1) raises it; the caller redraws the ephemeral `a`.
+    #[error("the drawn proof does not encode unambiguously at the wire width")]
+    AmbiguousEncoding,
+
     /// A [`crate::SaltBytes::custom`] width outside the safe range: below the
     /// NIST 64-bit floor or over the RFC 5054 `opaque srp_s<1..2^8-1>` wire cap.
     #[error("The requested salt length ({given:?} byte) is outside {min:?}..={max:?}")]
