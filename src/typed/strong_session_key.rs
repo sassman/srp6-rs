@@ -1,8 +1,9 @@
+use std::convert::TryFrom;
 use std::marker::PhantomData;
 
 use super::hex::{decode_hex, FromHexString};
 use super::newtype::byte_newtype_fmt_redacted;
-use crate::hash::{strong_session_key_len, Digest};
+use crate::hash::{strong_session_key_len, Digest, SrpHash};
 use crate::{error::Srp6Error, Result};
 use subtle::ConstantTimeEq;
 
@@ -38,6 +39,16 @@ impl<H> StrongSessionKey<H> {
     }
 }
 
+impl<H: SrpHash> StrongSessionKey<H> {
+    /// `K` as a fixed array of the width `H` donates, so a caller that knows the
+    /// hash avoids a length check. The stored key is always two digests wide.
+    pub fn as_array(&self) -> H::SessionKey {
+        H::SessionKey::try_from(self.as_bytes())
+            .ok()
+            .expect("the session key is stored at exactly two hash widths")
+    }
+}
+
 impl<H: Digest> StrongSessionKey<H> {
     /// Decodes `bytes`, which must be exactly two hashes long.
     pub fn try_from_bytes(bytes: &[u8]) -> Result<Self> {
@@ -62,5 +73,20 @@ byte_newtype_fmt_redacted!(<H> StrongSessionKey, "StrongSessionKey");
 impl<H: Digest> FromHexString for StrongSessionKey<H> {
     fn try_from_hex(hex: &str) -> Result<Self> {
         Self::try_from_bytes(&decode_hex(hex)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hash::DefaultHash;
+
+    #[test]
+    fn as_array_is_two_hash_widths_and_matches_as_bytes() {
+        let key = StrongSessionKey::<DefaultHash>::try_from_bytes(&[9u8; 128])
+            .expect("two SHA-512 halves");
+        let array = key.as_array();
+        assert_eq!(array.len(), 128);
+        assert_eq!(array.as_slice(), key.as_bytes());
     }
 }
