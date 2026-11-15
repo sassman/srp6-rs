@@ -95,10 +95,11 @@ pub trait GroupOps: Group {
     type Exponent: Clone;
 
     fn generator(&self) -> Self::Field;
-    /// The constant multiplier `k`, for groups that fix it. `None` means
-    /// `k = H(N | PAD(g))`, which depends on the hash and is computed where `H` is
-    /// known (`steps::multiplier`). Every constant is a valid field element and the
-    /// trait is sealed, so a caller never has to handle a bad one.
+    /// A pinned multiplier `k` as field bytes, or `None` for the protocol
+    /// derivation `k = H(N | PAD(g))` (RFC 5054), computed in `steps::multiplier`
+    /// where `H` is known. Only a legacy flavour pins a constant; the RFC groups
+    /// return `None` and have no way to pin one. A pinned value is a valid field
+    /// element and the trait is sealed, so a caller never handles a bad one.
     fn multiplier_constant(&self) -> Option<Vec<u8>>;
 
     /// Decodes a value in the group's byte order, refusing one that is 0 modulo N.
@@ -132,7 +133,17 @@ pub(crate) enum Endianness {
 }
 
 macro_rules! closed_group {
-    ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $endian:expr) => {
+    // RFC 5054 groups follow the protocol: `k` is always derived, never pinned.
+    // The normal form takes no `k`, so there is no way to pin one onto a group.
+    ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $endian:expr) => {
+        closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, None, $endian);
+    };
+    // The sole exception: the WoW 1.12.1 flavour pins `k = 3`. Baked here, not a
+    // parameter, so even this arm cannot name a different constant.
+    (@wow $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $endian:expr) => {
+        closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, Some(3), $endian);
+    };
+    (@group $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $endian:expr) => {
         #[derive(Default)]
         pub struct $name;
 
@@ -154,9 +165,8 @@ macro_rules! closed_group {
                 Self::oriented(<$uint>::from_be_hex($hex).to_be_bytes().to_vec())
             }
 
-            // The constant multiplier `k`, for groups that fix it (WoW: 3). `None`
-            // means `k = H(N | PAD(g))`, which depends on the hash and is computed
-            // in `steps::multiplier` where `H` is known.
+            // A pinned `k` as field bytes, or `None` for the protocol derivation
+            // in `steps::multiplier`. Only the `@wow` arm supplies a constant.
             pub(crate) fn multiplier_constant_bytes(&self) -> Option<Vec<u8>> {
                 $k.map(|k| {
                     let mut bytes = vec![0_u8; $n_bytes];
@@ -272,7 +282,6 @@ closed_group!(
     2,
     128,
     16,
-    None,
     Endianness::Big
 );
 #[cfg(feature = "weak")]
@@ -285,7 +294,6 @@ closed_group!(
     2,
     192,
     16,
-    None,
     Endianness::Big
 );
 closed_group!(
@@ -297,7 +305,6 @@ closed_group!(
     2,
     256,
     16,
-    None,
     Endianness::Big
 );
 closed_group!(
@@ -309,7 +316,6 @@ closed_group!(
     5,
     384,
     16,
-    None,
     Endianness::Big
 );
 closed_group!(
@@ -321,7 +327,6 @@ closed_group!(
     5,
     512,
     16,
-    None,
     Endianness::Big
 );
 closed_group!(
@@ -333,7 +338,6 @@ closed_group!(
     5,
     768,
     16,
-    None,
     Endianness::Big
 );
 closed_group!(
@@ -345,7 +349,6 @@ closed_group!(
     19,
     1024,
     16,
-    None,
     Endianness::Big
 );
 
@@ -353,6 +356,7 @@ closed_group!(
 // big-endian.
 #[cfg(feature = "wow-1-12-1")]
 closed_group!(
+    @wow
     GroupWow,
     FieldWow,
     U256,
@@ -361,7 +365,6 @@ closed_group!(
     7,
     32,
     32,
-    Some(3),
     Endianness::Little
 );
 
