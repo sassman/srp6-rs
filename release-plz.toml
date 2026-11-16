@@ -4,6 +4,6 @@ changelog_update = true
 git_tag_enable = true
 publish = false
 
-# cargo-semver-checks enables every feature, but hash-sha1 and hash-sha512
-# are mutually exclusive by design, so its doc build cannot compile the crate.
+# cargo-semver-checks enables every feature, and the features are not all meant
+# to combine: `wow-1-12-1` changes credential handling crate-wide.
 semver_check = false
