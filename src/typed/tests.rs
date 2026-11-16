@@ -791,3 +791,116 @@ fn the_wow_group_folds_the_case_of_credentials() {
         verifier_of("ALICE", "SECRET")
     );
 }
+
+/// The named results sit in a consumer's `#[derive(Debug)]` state like the other
+/// handshake structs, and the session key must not reach a log line through them.
+#[test]
+fn the_named_results_debug_without_leaking_the_session_key() {
+    let srp = Srp6_2048::default();
+    let username = Username::new("alice").expect("valid username");
+    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
+    let client = srp
+        .calculate_proof(&handshake, &username, "password123")
+        .expect("the client can prove");
+    let server = srp
+        .verify_proof(&proof_verifier, &client.proof)
+        .expect("the proof verifies");
+
+    let printed = format!("{client:?} {server:?}");
+    assert!(printed.contains("ClientProof") && printed.contains("ServerProof"));
+    assert!(printed.contains(&client.proof.public_key().to_string()));
+    assert!(printed.contains("<redacted>"));
+    assert!(!printed.contains(&server.session_key.to_string()));
+}
+
+/// What a store loads is what the handshake is opened from.
+#[test]
+fn user_secrets_assemble_from_stored_parts() {
+    let srp = Srp6_2048::default();
+    let username = Username::new("alice").expect("valid username");
+    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+
+    let user = UserSecrets::new(username.clone(), salt.clone(), verifier.clone());
+
+    assert_eq!(user.username(), &username);
+    assert_eq!(user.salt(), &salt);
+    assert_eq!(user.verifier(), &verifier);
+}
+
+/// Every way into a `FieldElement` runs the same validation, and every way out
+/// yields the fixed-width bytes.
+#[test]
+fn a_field_element_converts_through_every_boundary_form() {
+    let g = Srp6_2048::default().generator();
+    let bytes = g.to_vec();
+
+    assert_eq!(Vec::<u8>::from(g.clone()), bytes);
+    assert_eq!(
+        FieldElement::<Group2048>::try_from(bytes.clone()).ok(),
+        Some(g.clone())
+    );
+    assert_eq!(
+        FieldElement::<Group2048>::try_from(&[2_u8][..]).ok(),
+        Some(g.clone())
+    );
+    assert_eq!(
+        FieldElement::<Group2048>::try_from_hex("02").ok(),
+        Some(g.clone())
+    );
+
+    let json = serde_json::to_string(&g).expect("serialises");
+    assert_eq!(
+        serde_json::from_str::<FieldElement<Group2048>>(&json).ok(),
+        Some(g)
+    );
+
+    let zero = serde_json::to_string(&vec![0_u8; 4]).expect("serialises");
+    assert!(serde_json::from_str::<FieldElement<Group2048>>(&zero).is_err());
+    assert!(FieldElement::<Group2048>::try_from(vec![0_u8; 257]).is_err());
+}
+
+/// The wrappers hand out the same minimal form as the element they wrap.
+#[test]
+fn a_public_key_and_a_verifier_read_in_their_minimal_form() {
+    let mut padded = vec![0_u8; Group2048::N_BYTES];
+    padded[Group2048::N_BYTES - 2] = 0x01;
+    padded[Group2048::N_BYTES - 1] = 0x02;
+
+    let key = PublicKey::<Group2048>::try_from_bytes(&padded).expect("a valid key");
+    let verifier = Verifier::<Group2048>::try_from_bytes(&padded).expect("a valid verifier");
+
+    assert_eq!(key.as_minimal_bytes(), &[0x01, 0x02]);
+    assert_eq!(verifier.as_minimal_bytes(), &[0x01, 0x02]);
+    assert_eq!(AsRef::<[u8]>::as_ref(&verifier), padded.as_slice());
+}
+
+/// Nothing in a group is all zero, but the trim must not hand back nothing if it is
+/// ever asked: one byte is kept.
+#[test]
+fn the_minimal_form_keeps_one_byte_of_a_zero_value() {
+    assert_eq!(Group2048::minimal(&[0, 0, 0]), &[0]);
+    assert_eq!(Group2048::minimal(&[]), &[] as &[u8]);
+    assert_eq!(Group2048::minimal(&[0, 5, 0]), &[5, 0]);
+}
+
+/// `k = H(N | PAD(g))` depends on the hash, so two flavours of one group do not share it.
+#[test]
+fn the_multiplier_is_derived_from_the_group_and_the_hash() {
+    let k = Srp6_2048::default().multiplier();
+
+    assert_eq!(k, Srp6_2048::default().multiplier());
+    assert!(
+        k.as_minimal_bytes().len() > 1,
+        "a hash, not a small constant"
+    );
+}
+
+/// The legacy flavour pins `k = 3` where the protocol derives it.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn the_wow_multiplier_is_three() {
+    assert_eq!(Srp6_256::default().multiplier().as_minimal_bytes(), &[3]);
+}
