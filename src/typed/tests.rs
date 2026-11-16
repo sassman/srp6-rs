@@ -11,7 +11,7 @@ use crate::group::GroupWow;
 #[cfg(feature = "wow-1-12-1")]
 use crate::wow::Srp6_256;
 
-fn round_trip<G: GroupOps + WireStable, H: Digest>(group: G) {
+fn round_trip<G: GroupOps, H: Digest>(group: G) {
     let srp = Srp6::<G, H>::new(group);
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");

@@ -32,6 +32,7 @@ pub enum Srp6Error {
     /// width: `A`, `K` or `M1` had a zero high-order byte, or the premaster `S` a
     /// zero low-order one that the client interleave strips. Only a wire-stable
     /// flavour (WoW 1.12.1) raises it; the caller redraws the ephemeral `a`.
+    #[cfg(feature = "wow-1-12-1")]
     #[error("the drawn proof does not encode unambiguously at the wire width")]
     AmbiguousEncoding,
 

@@ -24,7 +24,7 @@ use crate::hash::DefaultHash;
 use crate::hash::Digest;
 #[cfg(feature = "hash-sha1")]
 use crate::hash::Sha1;
-use crate::typed::{steps, FromHexString, Salt, Srp6, WireStable};
+use crate::typed::{steps, FromHexString, Salt, Srp6};
 #[cfg(feature = "wow-1-12-1")]
 use crate::wow::Srp6_256;
 
@@ -66,7 +66,7 @@ fn hex_trimmed(bytes: &[u8]) -> String {
 
 /// Everything a full handshake derives, in a stable text form.
 #[allow(non_snake_case)]
-fn snapshot<G: GroupOps + WireStable, H: Digest>(
+fn snapshot<G: GroupOps, H: Digest>(
     group: G,
     username: &Username,
     password: &str,

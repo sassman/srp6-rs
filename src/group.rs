@@ -93,6 +93,12 @@ pub trait Group: Default + sealed::Sealed {
 pub trait GroupOps: Group {
     type Field: Clone;
     type Exponent: Clone;
+    /// Whether a drawn proof is rejected when it does not encode unambiguously
+    /// at the group's fixed width. The WoW 1.12.1 wire sends each value at that
+    /// width, and the stock client and vmangos hash a value with a zero in a
+    /// significant byte differently; the RFC 5054 groups share one encoding.
+    #[cfg(feature = "wow-1-12-1")]
+    const AMBIGUITY_CHECKED: bool;
 
     fn generator(&self) -> Self::Field;
     /// A pinned multiplier `k` as field bytes, or `None` for the protocol
@@ -140,14 +146,15 @@ macro_rules! closed_group {
     // RFC 5054 groups follow the protocol: `k` is always derived, never pinned.
     // The normal form takes no `k`, so there is no way to pin one onto a group.
     ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $endian:expr) => {
-        closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, None, $endian);
+        closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, None, false, $endian);
     };
-    // The sole exception: the WoW 1.12.1 flavour pins `k = 3`. Baked here, not a
-    // parameter, so even this arm cannot name a different constant.
+    // The sole exception: the WoW 1.12.1 flavour pins `k = 3` and rejects a draw
+    // its fixed-width wire cannot carry. Baked here, not parameters, so even this
+    // arm cannot name a different constant.
     (@wow $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $endian:expr) => {
-        closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, Some(3), $endian);
+        closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, Some(3), true, $endian);
     };
-    (@group $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $endian:expr) => {
+    (@group $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $ambiguity:expr, $endian:expr) => {
         #[derive(Default)]
         pub struct $name;
 
@@ -192,6 +199,8 @@ macro_rules! closed_group {
         impl GroupOps for $name {
             type Field = $field;
             type Exponent = $exp;
+            #[cfg(feature = "wow-1-12-1")]
+            const AMBIGUITY_CHECKED: bool = $ambiguity;
 
             fn generator(&self) -> Self::Field {
                 $field::new(&<$uint>::from_u8($g))
