@@ -272,101 +272,30 @@ macro_rules! closed_group {
     };
 }
 
+// One line per group so the arities line up for a glance comparison; rustfmt
+// would otherwise wrap each call across its own block of lines.
+#[rustfmt::skip]
 #[cfg(feature = "weak")]
-closed_group!(
-    Group1024,
-    Field1024,
-    U1024,
-    U1088,
-    N1024,
-    2,
-    128,
-    16,
-    Endianness::Big
-);
+closed_group!(Group1024, Field1024, U1024, U1088, N1024, 2, 128, 16, Endianness::Big);
+#[rustfmt::skip]
 #[cfg(feature = "weak")]
-closed_group!(
-    Group1536,
-    Field1536,
-    U1536,
-    U1600,
-    N1536,
-    2,
-    192,
-    16,
-    Endianness::Big
-);
-closed_group!(
-    Group2048,
-    Field2048,
-    U2048,
-    U2112,
-    N2048,
-    2,
-    256,
-    16,
-    Endianness::Big
-);
-closed_group!(
-    Group3072,
-    Field3072,
-    U3072,
-    U3136,
-    N3072,
-    5,
-    384,
-    16,
-    Endianness::Big
-);
-closed_group!(
-    Group4096,
-    Field4096,
-    U4096,
-    U4160,
-    N4096,
-    5,
-    512,
-    16,
-    Endianness::Big
-);
-closed_group!(
-    Group6144,
-    Field6144,
-    U6144,
-    U6208,
-    N6144,
-    5,
-    768,
-    16,
-    Endianness::Big
-);
-closed_group!(
-    Group8192,
-    Field8192,
-    U8192,
-    U8320,
-    N8192,
-    19,
-    1024,
-    16,
-    Endianness::Big
-);
+closed_group!(Group1536, Field1536, U1536, U1600, N1536, 2, 192, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group2048, Field2048, U2048, U2112, N2048, 2, 256, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group3072, Field3072, U3072, U3136, N3072, 5, 384, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group4096, Field4096, U4096, U4160, N4096, 5, 512, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group6144, Field6144, U6144, U6208, N6144, 5, 768, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group8192, Field8192, U8192, U8320, N8192, 19, 1024, 16, Endianness::Big);
 
 // The WoW 1.12.1 wire is little-endian throughout; every other group is RFC 5054
 // big-endian.
+#[rustfmt::skip]
 #[cfg(feature = "wow-1-12-1")]
-closed_group!(
-    @wow
-    GroupWow,
-    FieldWow,
-    U256,
-    U384,
-    NWOW,
-    7,
-    32,
-    32,
-    Endianness::Little
-);
+closed_group!(@wow GroupWow, FieldWow, U256, U384, NWOW, 7, 32, 32, Endianness::Little);
 
 #[cfg(test)]
 mod tests {
