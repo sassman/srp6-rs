@@ -33,6 +33,10 @@ ci-check:
     echo "==> test (wow)"
     cargo test --features wow-1-12-1 --no-default-features --lib
 
+    # Features only add, so everything on at once must hold too.
+    echo "==> test (all features)"
+    cargo test --all-features
+
     echo "==> docs"
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 

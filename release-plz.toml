@@ -3,7 +3,3 @@ changelog_config = "cliff.toml"
 changelog_update = true
 git_tag_enable = true
 publish = false
-
-# cargo-semver-checks enables every feature, and the features are not all meant
-# to combine: `wow-1-12-1` changes credential handling crate-wide.
-semver_check = false
