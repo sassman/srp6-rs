@@ -12,6 +12,11 @@ use crate::group::{Group, GroupOps};
 use crate::hash::{DefaultHash, Digest};
 use crate::{error::Srp6Error, Result};
 
+/// How often [`Srp6::calculate_proof`] redraws an ambiguous ephemeral before it
+/// gives up, so the loop is bounded. Nearly every draw passes, so a run this
+/// long only happens against values chosen to make it.
+const AMBIGUOUS_REDRAWS: u32 = 64;
+
 /// Whether a WoW draw encodes unambiguously at the fixed wire width. The
 /// high-order byte is last in the little-endian wire, so a zero there makes `A`,
 /// `K` or `M1` ambiguous; for the premaster `S` it is the low byte the client
@@ -202,14 +207,23 @@ impl<G: GroupOps + WireStable, H: Digest> Srp6<G, H> {
     }
 
     /// Calculates the client's proof and its strong-proof verifier, drawing a
-    /// fresh ephemeral `a`.
+    /// fresh ephemeral `a`. The draw is this method's own, so a wire-stable
+    /// flavour redraws an ambiguous one here instead of reporting it.
     pub fn calculate_proof(
         &self,
         handshake: &Handshake<G>,
         username: &Username,
         password: ClearTextPasswordRef,
     ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
-        self.proof_for_exponent(handshake, username, password, self.group.random_exponent())
+        let mut drawn = Err(Srp6Error::AmbiguousEncoding);
+        for _ in 0..AMBIGUOUS_REDRAWS {
+            let a_exp = self.group.random_exponent();
+            drawn = self.proof_for_exponent(handshake, username, password, a_exp);
+            if !matches!(drawn, Err(Srp6Error::AmbiguousEncoding)) {
+                break;
+            }
+        }
+        drawn
     }
 
     /// [`Self::calculate_proof`] with the ephemeral `a` supplied as raw bytes, so a

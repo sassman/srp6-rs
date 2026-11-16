@@ -46,6 +46,29 @@ fn a_wow_handshake_round_trips() {
     round_trip::<_, crate::hash::Sha1>(GroupWow);
 }
 
+/// A draw `calculate_proof` makes itself is redrawn when the WoW wire could not
+/// carry it, so a caller never sees `AmbiguousEncoding` from it. Without the
+/// redraw a run this long would hit an ambiguous draw almost surely.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn a_drawn_wow_proof_is_never_ambiguous() {
+    let srp = Srp6_256::default();
+    let username = Username::new("alice").expect("valid username");
+    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+    let (handshake, _) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
+
+    for _ in 0..400 {
+        let (proof, verifier) = srp
+            .calculate_proof(&handshake, &username, "password123")
+            .expect("an ambiguous draw is redrawn, not reported");
+        assert_ne!(proof.public_key().as_bytes().last(), Some(&0), "A");
+        assert_ne!(verifier.session_key().as_bytes().last(), Some(&0), "K");
+        assert_ne!(proof.proof().as_bytes().last(), Some(&0), "M1");
+    }
+}
+
 #[test]
 fn a_wrong_password_is_refused() {
     let srp = Srp6_2048::default();
