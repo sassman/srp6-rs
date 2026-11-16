@@ -106,6 +106,10 @@ pub trait GroupOps: Group {
     fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field>;
     /// Fixed-width encoding in the group's byte order, `N_BYTES` long.
     fn field_to_bytes(&self, value: &Self::Field) -> Vec<u8>;
+    /// Minimal-length encoding in the group's byte order: the high-order zero
+    /// bytes dropped, one byte kept. Which end those sit at depends on the byte
+    /// order, so only the group can trim them.
+    fn field_to_bytes_minimal(&self, value: &Self::Field) -> Vec<u8>;
     fn field_add(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
     fn field_sub(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
     fn field_mul(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
@@ -214,6 +218,12 @@ macro_rules! closed_group {
 
             fn field_to_bytes(&self, value: &Self::Field) -> Vec<u8> {
                 Self::oriented(value.retrieve().to_be_bytes().to_vec())
+            }
+
+            fn field_to_bytes_minimal(&self, value: &Self::Field) -> Vec<u8> {
+                let be = value.retrieve().to_be_bytes();
+                let first = be.iter().position(|byte| *byte != 0).unwrap_or(be.len() - 1);
+                Self::oriented(be[first..].to_vec())
             }
 
             fn field_add(&self, a: &Self::Field, b: &Self::Field) -> Self::Field {

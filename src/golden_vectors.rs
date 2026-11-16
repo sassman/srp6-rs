@@ -303,10 +303,27 @@ fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
         ),
         "the A-tripping draw must be rejected"
     );
-    assert!(
-        srp.calculate_proof_with_a(&handshake, &user, "password1", &CLEAN)
-            .is_ok(),
-        "the clean draw must pass"
+    // The clean draw is also a whole-handshake known answer: `A`, `M1`, `M2` and
+    // `K` as benilla's own client computes them for this fixture.
+    let (proof, verifier) = srp
+        .calculate_proof_with_a(&handshake, &user, "password1", &CLEAN)
+        .expect("the clean draw must pass");
+    assert_eq!(
+        hex(proof.public_key().as_bytes()),
+        "35F896D3776C62F3125D4BE34A3CE13CC60A9A46354FC0ED5F2BF3C57A18D86C",
+    );
+    assert_eq!(
+        hex(proof.proof().as_bytes()),
+        "4B706EE7E19D1151451684860CBD1FCD02D71BEC",
+    );
+    let m2 = crate::Proof::try_from_hex("76B7DB2B48435911FB013BBF2FBE35DF69FA27E1")
+        .expect("a SHA-1 proof");
+    let key = srp
+        .verify_strong_proof(&verifier, &m2)
+        .expect("the golden M2 verifies");
+    assert_eq!(
+        hex(key.as_bytes()),
+        "E5D5D1ED870112DB554579245BEFC674DF740DD1AAB9D42C380B73E9784EFA0A893C4816D97DF547",
     );
 }
 

@@ -159,26 +159,16 @@ fn hash_n_xor_g<G: GroupOps, H: Digest>(group: &G) -> Output<H> {
     let modulus = group.modulus();
     let mut n_hash = H::new().chain_update(modulus.as_bytes()).finalize();
 
-    // RFC 5054 hashes N at full width and g in its minimal form.
-    let generator = group.generator();
-    let generator_bytes = group.field_to_bytes(&generator);
+    // RFC 5054 hashes N at full width and g in its minimal form. The group trims
+    // it: the high-order zeros lead in big-endian and trail in little-endian.
     let g_hash = H::new()
-        .chain_update(trim_leading_zeroes(&generator_bytes))
+        .chain_update(group.field_to_bytes_minimal(&group.generator()))
         .finalize();
 
     for (n, g) in n_hash.iter_mut().zip(g_hash.iter()) {
         *n ^= *g;
     }
     n_hash
-}
-
-fn trim_leading_zeroes(bytes: &[u8]) -> &[u8] {
-    match bytes.iter().position(|byte| *byte != 0) {
-        Some(start) => &bytes[start..],
-        // All-zero input collapses to a single zero byte: an empty slice would
-        // hash differently from the minimal-form encoding the RFC expects.
-        None => &bytes[bytes.len().saturating_sub(1)..],
-    }
 }
 
 #[cfg(test)]
@@ -204,10 +194,17 @@ mod tests {
     #[test]
     fn the_generator_is_hashed_in_its_minimal_form() {
         let group = crate::group::Group2048;
-        let full = group.field_to_bytes(&group.generator());
-        let minimal = trim_leading_zeroes(&full);
+        assert_eq!(group.field_to_bytes_minimal(&group.generator()), [2_u8]);
+    }
 
-        assert_eq!(minimal, [2_u8].as_slice());
+    /// A little-endian group keeps its high-order zeros at the tail; trimming
+    /// the head there would hash `g` at the full width and break `M1` for every
+    /// stock client.
+    #[cfg(feature = "wow-1-12-1")]
+    #[test]
+    fn the_wow_generator_is_hashed_as_one_byte() {
+        let group = crate::group::GroupWow;
+        assert_eq!(group.field_to_bytes_minimal(&group.generator()), [7_u8]);
     }
 
     #[test]
@@ -242,11 +239,6 @@ mod tests {
         let without_zero = x_hash::<DefaultHash>(&username, "password123", &trimmed);
 
         assert_ne!(with_zero, without_zero);
-    }
-
-    #[test]
-    fn trimming_an_all_zero_generator_leaves_one_zero() {
-        assert_eq!(trim_leading_zeroes(&[0, 0, 0]), [0_u8].as_slice());
     }
 
     /// Under the old left-pad both salts hashed identically; a conformant M1
