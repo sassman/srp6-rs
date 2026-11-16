@@ -79,11 +79,15 @@ pub trait Group: Default + sealed::Sealed {
     /// overrides it per instance.
     const DEFAULT_SALT_BYTES: usize;
 
-    /// The prime modulus `N`, big-endian.
+    /// The prime modulus `N`, in the group's byte order.
     fn modulus(&self) -> crate::Modulus<Self>
     where
         Self: Sized;
 }
+
+/// The RFC 5054 appendix A groups: big-endian, with `k` derived per the protocol. Any
+/// supported hash runs on them ([`crate::HashFor`]).
+pub trait RfcGroup: Group {}
 
 /// The typed arithmetic behind [`Group`].
 ///
@@ -147,6 +151,8 @@ macro_rules! closed_group {
     // The normal form takes no `k`, so there is no way to pin one onto a group.
     ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $endian:expr) => {
         closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, None, false, $endian);
+
+        impl RfcGroup for $name {}
     };
     // The sole exception: the WoW 1.12.1 flavour pins `k = 3` and rejects a draw
     // its fixed-width wire cannot carry. Baked here, not parameters, so even this

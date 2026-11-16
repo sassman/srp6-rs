@@ -9,7 +9,7 @@ use super::{
 };
 use crate::credentials::{ClearTextPasswordRef, Username};
 use crate::group::{Group, GroupOps};
-use crate::hash::{DefaultHash, Digest};
+use crate::hash::{DefaultHash, HashFor};
 use crate::{error::Srp6Error, Result};
 
 /// How often [`Srp6::calculate_proof`] redraws an ambiguous ephemeral before it
@@ -84,7 +84,7 @@ impl<G: GroupOps, H> Default for Srp6<G, H> {
     }
 }
 
-impl<G: GroupOps, H: Digest> Srp6<G, H> {
+impl<G: GroupOps, H: HashFor<G>> Srp6<G, H> {
     /// The multiplier `k`, derived from the group - it is never on the wire,
     /// so a client rebuilding a [`Handshake`] takes it from here.
     #[doc(alias = "k")]
@@ -112,7 +112,9 @@ impl<G: GroupOps, H: Digest> Srp6<G, H> {
 
     /// [`Self::generate_new_user_secrets`] for a salt the caller already holds:
     /// an account imported with its salt, or one whose salt must satisfy a rule
-    /// of the wire it travels on. The salt comes back unchanged.
+    /// of the wire it travels on. The salt comes back unchanged, and is taken as
+    /// it is: no floor on its length applies here, so a short or repeated salt is
+    /// the caller's to rule out.
     pub fn generate_new_user_secrets_with_salt(
         &self,
         username: &Username,
@@ -238,8 +240,10 @@ impl<G: GroupOps, H: Digest> Srp6<G, H> {
         self.proof_for_exponent(handshake, username, password, a_exp)
     }
 
-    /// [`Self::calculate_proof`] with the ephemeral `a` supplied as raw bytes,
-    /// for a caller that must control the draw.
+    /// [`Self::calculate_proof`] with the ephemeral `a` supplied as raw bytes in
+    /// the group's byte order, for a caller that must control the draw. It must be
+    /// 1 to `N_BYTES` long and not zero, and it is the caller's to draw from a
+    /// cryptographic source: an `a` that can be guessed gives the session away.
     pub fn calculate_proof_with_a(
         &self,
         handshake: &Handshake<G>,
@@ -247,6 +251,9 @@ impl<G: GroupOps, H: Digest> Srp6<G, H> {
         password: ClearTextPasswordRef,
         a: &[u8],
     ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
+        if a.is_empty() || a.len() > G::N_BYTES || a.iter().all(|byte| *byte == 0) {
+            return Err(Srp6Error::InvalidEphemeral { max: G::N_BYTES });
+        }
         let a_exp = self.group.exponent_from_bytes(a);
         self.proof_for_exponent(handshake, username, password, a_exp)
     }
@@ -258,11 +265,18 @@ impl<G: GroupOps, H: Digest> Srp6<G, H> {
         password: ClearTextPasswordRef,
         a_exp: G::Exponent,
     ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
+        // The group is the client's own. `g` and `k` as a peer names them are only
+        // compared, never computed with: see `Srp6Error::GroupMismatch`.
+        if handshake.g.as_bytes() != self.generator().as_bytes()
+            || handshake.k.as_bytes() != self.multiplier().as_bytes()
+        {
+            return Err(Srp6Error::GroupMismatch);
+        }
         let b_field = handshake.B.to_field(&self.group)?;
-        let g_field = handshake.g.to_field(&self.group)?;
-        let k_field = handshake.k.to_field(&self.group)?;
+        let g_field = self.group.generator();
+        let k_field = steps::multiplier::<G, H>(&self.group);
 
-        let a_field = self.group.field_pow(&self.group.generator(), &a_exp);
+        let a_field = self.group.field_pow(&g_field, &a_exp);
         let a_public = PublicKey::from_field(&self.group, &a_field);
 
         let u = steps::scrambler_u::<_, H>(&self.group, &a_public, &handshake.B);

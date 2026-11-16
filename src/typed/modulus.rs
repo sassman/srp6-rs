@@ -5,8 +5,8 @@ use crate::group::Group;
 
 /// The prime modulus `N` of a closed group.
 ///
-/// The bytes are the group's canonical big-endian encoding; [`std::fmt::Display`]
-/// prints them as uppercase hex.
+/// The bytes are in the group's own byte order, the one its wire uses;
+/// [`std::fmt::Display`] prints them as uppercase hex.
 pub struct Modulus<G: Group> {
     bytes: Box<[u8]>,
     _group: PhantomData<G>,

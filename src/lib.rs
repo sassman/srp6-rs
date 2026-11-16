@@ -92,7 +92,7 @@ pub use error::Srp6Error;
 pub use group::*;
 #[cfg(feature = "hash-sha1")]
 pub use hash::Sha1;
-pub use hash::{DefaultHash, Digest, SrpHash};
+pub use hash::{DefaultHash, Digest, HashFor, SrpHash};
 pub use typed::*;
 
 /// encapsulates a [`crate::error::Srp6Error`]
@@ -105,7 +105,7 @@ pub mod prelude {
     pub use crate::group::*;
     #[cfg(feature = "hash-sha1")]
     pub use crate::hash::Sha1;
-    pub use crate::hash::{DefaultHash, Digest, SrpHash};
+    pub use crate::hash::{DefaultHash, Digest, HashFor, SrpHash};
     pub use crate::typed::*;
     pub use std::convert::TryInto;
 }

@@ -3,7 +3,8 @@ use std::convert::TryFrom;
 use super::*;
 use crate::credentials::Username;
 use crate::group::{Group, Group2048, Group4096, GroupOps};
-use crate::hash::{DefaultHash, Digest};
+use crate::hash::{DefaultHash, Digest, HashFor};
+use crate::Srp6Error;
 use crate::Srp6_2048;
 
 #[cfg(feature = "wow-1-12-1")]
@@ -11,7 +12,7 @@ use crate::group::GroupWow;
 #[cfg(feature = "wow-1-12-1")]
 use crate::wow::Srp6_256;
 
-fn round_trip<G: GroupOps, H: Digest>(group: G) {
+fn round_trip<G: GroupOps, H: HashFor<G>>(group: G) {
     let srp = Srp6::<G, H>::new(group);
     let username = Username::new("alice").expect("valid username");
     let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
@@ -632,4 +633,79 @@ fn handshake_structs_debug_without_leaking_secrets() {
         !printed.contains(&strong_verifier.session_key().to_string()),
         "the session key never reaches a log line"
     );
+}
+
+/// A server that knows no verifier can still fix the premaster secret if the client
+/// computes with the generator it is sent: `g = 1` makes `g^x` one for every password.
+/// The client computes in its own group, so a handshake naming another `g` or `k` is
+/// refused before anything is derived from it.
+#[test]
+fn a_handshake_naming_another_generator_or_multiplier_is_refused() {
+    let srp = Srp6_2048::default();
+    let username = Username::new("alice").expect("valid username");
+    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+    let (genuine, _) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
+    let one = FieldElement::<Group2048>::try_from_bytes(&[1]).expect("a field element");
+
+    let forged_g = Handshake::from_wire(
+        genuine.public_key().clone(),
+        one.clone(),
+        srp.multiplier(),
+        genuine.salt().clone(),
+    );
+    let forged_k = Handshake::from_wire(
+        genuine.public_key().clone(),
+        srp.generator(),
+        one,
+        genuine.salt().clone(),
+    );
+
+    for forged in [forged_g, forged_k] {
+        assert_eq!(
+            srp.calculate_proof(&forged, &username, "password123").err(),
+            Some(Srp6Error::GroupMismatch)
+        );
+    }
+    assert!(srp
+        .calculate_proof(&genuine, &username, "password123")
+        .is_ok());
+}
+
+/// A caller's ephemeral is taken as it is, so one that would overflow the exponent, or
+/// that is zero and gives `A = 1`, is refused instead of computed with.
+#[test]
+fn a_supplied_ephemeral_must_fit_the_group_and_not_be_zero() {
+    let srp = Srp6_2048::default();
+    let username = Username::new("alice").expect("valid username");
+    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+    let (handshake, _) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
+    let refused = Some(Srp6Error::InvalidEphemeral {
+        max: Group2048::N_BYTES,
+    });
+
+    for bad in [
+        vec![],
+        vec![0_u8; 32],
+        vec![0xFF_u8; Group2048::N_BYTES + 1],
+    ] {
+        assert_eq!(
+            srp.calculate_proof_with_a(&handshake, &username, "password123", &bad)
+                .err(),
+            refused,
+            "{} bytes",
+            bad.len()
+        );
+    }
+    assert!(srp
+        .calculate_proof_with_a(
+            &handshake,
+            &username,
+            "password123",
+            &[0xFF_u8; Group2048::N_BYTES]
+        )
+        .is_ok());
 }

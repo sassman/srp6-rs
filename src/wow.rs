@@ -17,4 +17,14 @@ pub use crate::group::GroupWow;
 ///
 /// `N_BYTES` is 256 bit / 32 byte; generated salts default to the same 32
 /// byte, the width the 1.12.1 client expects on the wire.
+///
+/// The group runs on SHA-1 only. Its exponent has no room for a wider digest, so
+/// the default hash is not a pairing that compiles:
+///
+/// ```compile_fail
+/// use srp6::{wow::GroupWow, Srp6, Username};
+/// let srp = Srp6::<GroupWow>::default(); // H = SHA-512
+/// let user = Username::new("alice").unwrap();
+/// let _ = srp.generate_new_user_secrets(&user, "password");
+/// ```
 pub type Srp6_256 = crate::Srp6<GroupWow, crate::hash::Sha1>;

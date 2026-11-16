@@ -28,6 +28,17 @@ pub enum Srp6Error {
     #[error("the derived premaster secret must not be zero")]
     InvalidPremaster,
 
+    /// The handshake names a generator or multiplier that is not the group's. A
+    /// client computes in its own group: values taken from the peer let a server
+    /// that knows no verifier fix the premaster secret (`g = 1` with `B = k + 1`
+    /// gives `S = 1`).
+    #[error("the handshake's generator or multiplier is not the group's")]
+    GroupMismatch,
+
+    /// A caller-supplied ephemeral that is empty, zero, or wider than the modulus.
+    #[error("the ephemeral must be 1 to {max:?} bytes and must not be zero")]
+    InvalidEphemeral { max: usize },
+
     /// A drawn proof did not encode unambiguously at the group's fixed wire
     /// width: `A`, `K` or `M1` had a zero high-order byte, or the premaster `S` a
     /// zero low-order one that the client interleave strips. Only a wire-stable

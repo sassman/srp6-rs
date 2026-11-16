@@ -2,9 +2,10 @@
 //!
 //! These freeze what the current backend computes: private key, verifier,
 //! public keys, session key and interleaved key, for each group and hash
-//! flavour the crate ships. The proofs are pinned by length only: `M1`/`M2`
-//! are crate-flavour values, not protocol vectors, and pinning their bytes
-//! would churn the fixtures on every proof-formula decision. Regenerate with:
+//! flavour the crate ships. In the fixtures the proofs are pinned by length
+//! only: `M1`/`M2` are crate-flavour values there, not protocol vectors. The WoW
+//! flavour's are pinned whole below, to a real client's handshake. Regenerate
+//! the fixtures with:
 //!
 //! ```text
 //! cargo test --lib -- --ignored regenerate_golden
@@ -21,7 +22,7 @@ use crate::group::GroupOps;
 use crate::group::GroupWow;
 #[cfg(not(feature = "hash-sha1"))]
 use crate::hash::DefaultHash;
-use crate::hash::Digest;
+use crate::hash::HashFor;
 #[cfg(feature = "hash-sha1")]
 use crate::hash::Sha1;
 use crate::typed::{steps, FromHexString, Salt, Srp6};
@@ -66,7 +67,7 @@ fn hex_trimmed(bytes: &[u8]) -> String {
 
 /// Everything a full handshake derives, in a stable text form.
 #[allow(non_snake_case)]
-fn snapshot<G: GroupOps, H: Digest>(
+fn snapshot<G: GroupOps, H: HashFor<G>>(
     group: G,
     username: &Username,
     password: &str,
@@ -261,9 +262,9 @@ fn wow_verifier_matches_published_corpus() {
 }
 
 /// A WoW client redraws an ephemeral whose proof would not encode unambiguously.
-/// Reuses benilla's SRP fixture: against this `B`/salt, `TRIPS_A` is the draw
-/// benilla found trips the `A` guard and `CLEAN` trips none, so srp6 must reject
-/// the first with `AmbiguousEncoding` and accept the second.
+/// Reuses benilla's SRP fixture: against this `B`/salt each `TRIPS_*` draw trips
+/// the guard of the value it names and `CLEAN` trips none, so srp6 must reject
+/// those with `AmbiguousEncoding` and accept this one.
 #[cfg(feature = "wow-1-12-1")]
 #[test]
 fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
@@ -282,6 +283,18 @@ fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
         237, 250, 2, 239, 106, 197, 124, 117, 132, 5, 226, 189, 212, 217, 169, 146, 39, 212, 214,
         11, 198, 57, 225, 84, 17, 219, 168, 107, 118, 105, 11, 95,
     ];
+    const TRIPS_S: [u8; 32] = [
+        205, 28, 249, 67, 94, 223, 246, 194, 118, 47, 78, 155, 220, 133, 163, 151, 42, 72, 65, 90,
+        37, 9, 156, 83, 38, 132, 96, 6, 129, 245, 202, 203,
+    ];
+    const TRIPS_K: [u8; 32] = [
+        2, 176, 65, 251, 162, 142, 23, 37, 53, 25, 44, 220, 201, 39, 234, 48, 141, 207, 127, 19, 0,
+        93, 140, 154, 16, 181, 118, 225, 147, 237, 174, 28,
+    ];
+    const TRIPS_M1: [u8; 32] = [
+        143, 237, 243, 79, 25, 151, 163, 98, 11, 221, 191, 202, 69, 148, 140, 221, 123, 95, 152,
+        146, 230, 232, 181, 86, 18, 72, 78, 135, 95, 129, 234, 248,
+    ];
     const CLEAN: [u8; 32] = [
         52, 226, 21, 16, 93, 106, 129, 125, 56, 197, 129, 14, 149, 1, 254, 105, 63, 23, 9, 190, 46,
         113, 240, 125, 128, 130, 150, 46, 174, 240, 93, 249,
@@ -296,13 +309,23 @@ fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
     );
     let user = Username::new("alice").expect("valid username");
 
-    assert!(
-        matches!(
-            srp.calculate_proof_with_a(&handshake, &user, "password1", &TRIPS_A),
-            Err(Srp6Error::AmbiguousEncoding)
-        ),
-        "the A-tripping draw must be rejected"
-    );
+    // One draw per guard: each trips exactly the value it is named for, so a guard
+    // that reads the wrong end of a value, or is left out, lets its draw through.
+    for (guard, draw) in [
+        ("A", TRIPS_A),
+        ("S", TRIPS_S),
+        ("K", TRIPS_K),
+        ("M1", TRIPS_M1),
+    ] {
+        assert!(
+            matches!(
+                srp.calculate_proof_with_a(&handshake, &user, "password1", &draw),
+                Err(Srp6Error::AmbiguousEncoding)
+            ),
+            "the {}-tripping draw must be rejected",
+            guard
+        );
+    }
     // The clean draw is also a whole-handshake known answer: `A`, `M1`, `M2` and
     // `K` as benilla's own client computes them for this fixture.
     let (proof, verifier) = srp
