@@ -93,6 +93,13 @@ impl<G: GroupOps, H: Digest> Srp6<G, H> {
         FieldElement::from_field(&self.group, &k)
     }
 
+    /// The generator `g`, as declared by the group. A client holds the group itself,
+    /// so this is what it checks a server's `g` against before computing with it.
+    #[doc(alias = "g")]
+    pub fn generator(&self) -> FieldElement<G> {
+        FieldElement::from_field(&self.group, &self.group.generator())
+    }
+
     /// Creates a salt and password verifier for a new user.
     pub fn generate_new_user_secrets(
         &self,

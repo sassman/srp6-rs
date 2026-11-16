@@ -71,3 +71,16 @@ fn the_public_types_parse_their_printed_hex() {
         .expect("valid key");
     assert_eq!(key.as_bytes().len(), 2 * hash_len);
 }
+
+/// A client checks the group a server names against its own, so both `N` and `g` are
+/// reachable from the driver without touching the group's arithmetic.
+#[test]
+fn the_driver_names_its_groups_generator() {
+    let srp = Srp6_2048::default();
+    let g = srp.generator();
+    assert_eq!(g.as_bytes().len(), Group2048::N_BYTES);
+    assert_eq!(g.as_bytes().last(), Some(&2));
+    assert!(g.as_bytes()[..Group2048::N_BYTES - 1]
+        .iter()
+        .all(|byte| *byte == 0));
+}
