@@ -28,13 +28,13 @@
 //!     .expect("the handshake starts");
 //!
 //! // the client sends its proof
-//! let (proof, strong_proof_verifier) = srp
+//! let ClientProof { proof, verifier: strong_proof_verifier } = srp
 //!     .calculate_proof(&handshake, &username, "password123")
 //!     .expect("the client can prove");
 //!
 //! // the server verifies the proof, learns the session key K,
 //! // and answers with the strong proof M2
-//! let (strong_proof, server_key) = srp
+//! let ServerProof { strong_proof, session_key: server_key } = srp
 //!     .verify_proof(&proof_verifier, &proof)
 //!     .expect("the proof verifies");
 //!

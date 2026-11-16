@@ -28,11 +28,11 @@ pub enum Srp6Error {
     #[error("the derived premaster secret must not be zero")]
     InvalidPremaster,
 
-    /// The handshake names a generator or multiplier that is not the group's. A
-    /// client computes in its own group: values taken from the peer let a server
-    /// that knows no verifier fix the premaster secret (`g = 1` with `B = k + 1`
-    /// gives `S = 1`).
-    #[error("the handshake's generator or multiplier is not the group's")]
+    /// A peer named a modulus or generator that is not the group's
+    /// ([`crate::Srp6::check_group`]). A client computes in its own group: one
+    /// taken from the peer lets a server that knows no verifier fix the premaster
+    /// secret (`g = 1` with `B = k + 1` gives `S = 1`).
+    #[error("the peer's modulus or generator is not the group's")]
     GroupMismatch,
 
     /// A caller-supplied ephemeral that is empty, zero, or wider than the modulus.

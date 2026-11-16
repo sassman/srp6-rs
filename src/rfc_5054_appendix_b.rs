@@ -3,7 +3,7 @@ use std::fmt::Write as _;
 use crate::credentials::{ClearTextPassword, Username};
 use crate::group::{Group1024, GroupOps};
 use crate::hash::{Digest, Sha1};
-use crate::typed::{steps, FromHexString, Salt, Srp6};
+use crate::typed::{steps, ClientEphemeral, ClientProof, FromHexString, Salt, ServerProof, Srp6};
 
 fn hex_to_bytes(hex: &str) -> Vec<u8> {
     let bytes = hex.as_bytes();
@@ -52,10 +52,20 @@ fn test_appendix_b_srp_test_vectors() {
     let (handshake, server) = srp
         .start_handshake_with_b(&username, salt.clone(), verifier.clone(), b)
         .expect("the handshake starts");
-    let (proof, client) = srp
-        .calculate_proof_with_a(&handshake, &username, &password, &a)
+    let ClientProof {
+        proof,
+        verifier: client,
+    } = srp
+        .calculate_proof_with_a(
+            &handshake,
+            &username,
+            &password,
+            &ClientEphemeral::try_from_bytes(&a).expect("a valid ephemeral"),
+        )
         .expect("the client can prove");
-    let (m2, _) = srp
+    let ServerProof {
+        strong_proof: m2, ..
+    } = srp
         .verify_proof(&server, &proof)
         .expect("the proof verifies");
     let k = srp

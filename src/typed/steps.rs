@@ -9,23 +9,18 @@ use crate::hash::{Digest, Output};
 
 use super::{FieldElement, Proof, PublicKey, Salt, StrongSessionKey};
 
-pub(crate) fn p_hash<H: Digest>(
+pub(crate) fn p_hash<G: GroupOps, H: Digest>(
     username: UsernameRef<'_>,
     password: ClearTextPasswordRef<'_>,
 ) -> Output<H> {
-    // The WoW client uppercases the password at the point of use; the
-    // username is already normalised by `Username::new`.
-    #[cfg(feature = "wow-1-12-1")]
-    let password: String = password.to_uppercase();
-
     H::new()
-        .chain_update(username.as_bytes())
+        .chain_update(G::credential(username).as_bytes())
         .chain_update(b":")
-        .chain_update(password.as_bytes())
+        .chain_update(G::credential(password).as_bytes())
         .finalize()
 }
 
-pub(crate) fn x_hash<H: Digest>(
+pub(crate) fn x_hash<G: GroupOps, H: Digest>(
     username: UsernameRef<'_>,
     password: ClearTextPasswordRef<'_>,
     salt: &Salt,
@@ -34,7 +29,7 @@ pub(crate) fn x_hash<H: Digest>(
     // zero bytes before they reach the hash.
     H::new()
         .chain_update(salt.as_bytes())
-        .chain_update(p_hash::<H>(username, password))
+        .chain_update(p_hash::<G, H>(username, password))
         .finalize()
 }
 
@@ -65,7 +60,7 @@ pub(crate) fn private_key_x<G: GroupOps, H: Digest>(
     password: ClearTextPasswordRef<'_>,
     salt: &Salt,
 ) -> G::Exponent {
-    group.exponent_from_hash(x_hash::<H>(username, password, salt).as_slice())
+    group.exponent_from_hash(x_hash::<G, H>(username, password, salt).as_slice())
 }
 
 pub(crate) fn scrambler_u<G: GroupOps, H: Digest>(
@@ -131,7 +126,11 @@ pub(crate) fn proof_m1<G: GroupOps, H: Digest>(
     // peers for any salt shorter than the pad.
     let digest = H::new()
         .chain_update(hash_n_xor_g::<G, H>(group))
-        .chain_update(H::new().chain_update(username.as_bytes()).finalize())
+        .chain_update(
+            H::new()
+                .chain_update(G::credential(username).as_bytes())
+                .finalize(),
+        )
         .chain_update(salt.as_bytes())
         .chain_update(a.as_bytes())
         .chain_update(b.as_bytes())
@@ -162,7 +161,7 @@ fn hash_n_xor_g<G: GroupOps, H: Digest>(group: &G) -> Output<H> {
     // RFC 5054 hashes N at full width and g in its minimal form. The group trims
     // it: the high-order zeros lead in big-endian and trail in little-endian.
     let g_hash = H::new()
-        .chain_update(group.field_to_bytes_minimal(&group.generator()))
+        .chain_update(G::minimal(&group.field_to_bytes(&group.generator())))
         .finalize();
 
     for (n, g) in n_hash.iter_mut().zip(g_hash.iter()) {
@@ -194,7 +193,10 @@ mod tests {
     #[test]
     fn the_generator_is_hashed_in_its_minimal_form() {
         let group = crate::group::Group2048;
-        assert_eq!(group.field_to_bytes_minimal(&group.generator()), [2_u8]);
+        assert_eq!(
+            crate::group::Group2048::minimal(&group.field_to_bytes(&group.generator())),
+            [2_u8]
+        );
     }
 
     /// A little-endian group keeps its high-order zeros at the tail; trimming
@@ -204,7 +206,10 @@ mod tests {
     #[test]
     fn the_wow_generator_is_hashed_as_one_byte() {
         let group = crate::group::GroupWow;
-        assert_eq!(group.field_to_bytes_minimal(&group.generator()), [7_u8]);
+        assert_eq!(
+            crate::group::GroupWow::minimal(&group.field_to_bytes(&group.generator())),
+            [7_u8]
+        );
     }
 
     #[test]
@@ -233,10 +238,12 @@ mod tests {
     fn the_salt_is_hashed_with_its_leading_zeroes() {
         let username = Username::new("alice").expect("valid username");
         let salt = Salt::from(vec![0x00, 0xBE, 0xB2]);
-        let with_zero = x_hash::<DefaultHash>(&username, "password123", &salt);
+        let with_zero =
+            x_hash::<crate::group::Group2048, DefaultHash>(&username, "password123", &salt);
 
         let trimmed = Salt::from(vec![0xBE, 0xB2]);
-        let without_zero = x_hash::<DefaultHash>(&username, "password123", &trimmed);
+        let without_zero =
+            x_hash::<crate::group::Group2048, DefaultHash>(&username, "password123", &trimmed);
 
         assert_ne!(with_zero, without_zero);
     }

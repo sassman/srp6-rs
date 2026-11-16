@@ -45,7 +45,8 @@ hash-sha1 = ["dep:sha1"]
 # opt in knowingly; production should use a >= 2048-bit group.
 weak = []
 
-# World of Warcraft 1.12.1 (build 5875) only: k = 3, uppercased credentials and the 256-bit group.
+# Adds the World of Warcraft 1.12.1 (build 5875) group: 256 bit, k = 3, uppercased credentials.
+# The flavour is the group's own; the other groups are unchanged by this feature.
 #
 # WARNING: do not use this for modern, production-grade applications. Its
 # cryptographic parameters are far below current practice: SHA-1 as the hash, and a

@@ -40,12 +40,15 @@ fn main() {
     printkeyln!("salt               [s]", handshake.salt());
     printkeyln!("server public key  [B]", handshake.public_key());
     printkeyln!("prime modulus      [N]", srp.modulus());
-    printkeyln!("generator          [g]", handshake.generator());
-    printkeyln!("multiplier         [k]", handshake.multiplier());
+    printkeyln!("generator          [g]", srp.generator());
+    printkeyln!("multiplier         [k]", srp.multiplier());
     println!();
 
     // the client provides proof to the server
-    let (proof, strong_proof_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_proof_verifier,
+    } = srp
         .calculate_proof(&handshake, user.username(), USER_PASSWORD)
         .expect("the client can prove");
     assert_eq!(
@@ -62,7 +65,10 @@ fn main() {
     println!();
 
     // the server verifies this proof and learns the session key
-    let (strong_proof, _server_key) = srp
+    let ServerProof {
+        strong_proof,
+        session_key: _server_key,
+    } = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     println!("### Next Step: sending proof to the server");

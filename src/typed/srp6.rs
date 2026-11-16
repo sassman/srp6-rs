@@ -4,8 +4,9 @@ use rand::{rng, RngExt};
 
 use super::steps;
 use super::{
-    FieldElement, Handshake, HandshakeProof, HandshakeProofVerifier, Proof, PublicKey, Salt,
-    SaltBytes, StrongProofVerifier, StrongSessionKey, UserSecrets, Verifier,
+    ClientEphemeral, ClientProof, FieldElement, Handshake, HandshakeProof, HandshakeProofVerifier,
+    Proof, PublicKey, Salt, SaltBytes, ServerProof, StrongProofVerifier, StrongSessionKey,
+    UserSecrets, Verifier,
 };
 use crate::credentials::{ClearTextPasswordRef, Username};
 use crate::group::{Group, GroupOps};
@@ -85,19 +86,38 @@ impl<G: GroupOps, H> Default for Srp6<G, H> {
 }
 
 impl<G: GroupOps, H: HashFor<G>> Srp6<G, H> {
-    /// The multiplier `k`, derived from the group - it is never on the wire,
-    /// so a client rebuilding a [`Handshake`] takes it from here.
+    /// The multiplier `k`, derived from the group. It is never on the wire.
     #[doc(alias = "k")]
     pub fn multiplier(&self) -> FieldElement<G> {
         let k = steps::multiplier::<G, H>(&self.group);
         FieldElement::from_field(&self.group, &k)
     }
 
-    /// The generator `g`, as declared by the group. A client holds the group itself,
-    /// so this is what it checks a server's `g` against before computing with it.
+    /// The generator `g`, as declared by the group: what a server sends on a wire
+    /// that names the group.
     #[doc(alias = "g")]
     pub fn generator(&self) -> FieldElement<G> {
         FieldElement::from_field(&self.group, &self.group.generator())
+    }
+
+    /// Checks a group a peer named against this one, for a wire that carries `N`
+    /// and `g`. `modulus` must be `N` at its full width and `generator` may come
+    /// padded or minimal, both in the group's byte order.
+    ///
+    /// The handshake never computes with a peer's group, so skipping this is not
+    /// unsafe; it tells a server that speaks another group from a wrong password.
+    ///
+    /// # Errors
+    /// [`Srp6Error::GroupMismatch`] if either differs.
+    pub fn check_group(&self, modulus: &[u8], generator: &[u8]) -> Result<()> {
+        let same_generator = self
+            .group
+            .field_from_bytes(generator)
+            .is_some_and(|g| self.group.field_to_bytes(&g) == self.generator().as_bytes());
+        if modulus != self.modulus().as_bytes() || !same_generator {
+            return Err(Srp6Error::GroupMismatch);
+        }
+        Ok(())
     }
 
     /// Creates a salt and password verifier for a new user.
@@ -156,21 +176,16 @@ impl<G: GroupOps, H: HashFor<G>> Srp6<G, H> {
         let k_v = self.group.field_mul(&k, &verifier_field);
         let b_pub = self.group.field_add(&k_v, &g_b);
 
-        // Encode each boundary value once and share it between the two structs.
+        // Encode the boundary value once and share it between the two structs.
         let b_public = PublicKey::from_field(&self.group, &b_pub);
-        let g = FieldElement::from_field(&self.group, &g);
-        let k = FieldElement::from_field(&self.group, &k);
 
         let handshake = Handshake {
             B: b_public.clone(),
-            g: g.clone(),
-            k,
             s: salt.clone(),
         };
         let verifier = HandshakeProofVerifier {
             b,
             B: b_public,
-            g,
             user: UserSecrets {
                 username: username.clone(),
                 salt,
@@ -181,14 +196,14 @@ impl<G: GroupOps, H: HashFor<G>> Srp6<G, H> {
         Ok((handshake, verifier))
     }
 
-    /// Verifies the client's proof and returns the strong proof `M2` together
-    /// with the shared session key `K` - the server encrypts with `K` from the
-    /// first packet after login, so it leaves the handshake here.
+    /// Verifies the client's proof. The answer carries the strong proof `M2` and
+    /// the shared session key `K` - a server may encrypt with `K` from the first
+    /// packet after login, so it leaves the handshake here.
     pub fn verify_proof(
         &self,
         verifier: &HandshakeProofVerifier<G>,
         proof: &HandshakeProof<G, H>,
-    ) -> Result<(Proof<H>, StrongSessionKey<H>)> {
+    ) -> Result<ServerProof<H>> {
         let a_field = proof.A.to_field(&self.group)?;
         let verifier_field = verifier.user.verifier.to_field(&self.group)?;
 
@@ -214,7 +229,10 @@ impl<G: GroupOps, H: HashFor<G>> Srp6<G, H> {
             return Err(Srp6Error::InvalidProof);
         }
 
-        Ok((steps::proof_m2(&proof.A, &m1, &k), k))
+        Ok(ServerProof {
+            strong_proof: steps::proof_m2(&proof.A, &m1, &k),
+            session_key: k,
+        })
     }
 
     /// Calculates the client's proof and its strong-proof verifier, drawing a
@@ -224,7 +242,7 @@ impl<G: GroupOps, H: HashFor<G>> Srp6<G, H> {
         handshake: &Handshake<G>,
         username: &Username,
         password: ClearTextPasswordRef,
-    ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
+    ) -> Result<ClientProof<G, H>> {
         // The draw is this method's own, so an ambiguous one is redrawn here: a
         // caller has no ephemeral to change.
         #[cfg(feature = "wow-1-12-1")]
@@ -240,21 +258,16 @@ impl<G: GroupOps, H: HashFor<G>> Srp6<G, H> {
         self.proof_for_exponent(handshake, username, password, a_exp)
     }
 
-    /// [`Self::calculate_proof`] with the ephemeral `a` supplied as raw bytes in
-    /// the group's byte order, for a caller that must control the draw. It must be
-    /// 1 to `N_BYTES` long and not zero, and it is the caller's to draw from a
-    /// cryptographic source: an `a` that can be guessed gives the session away.
+    /// [`Self::calculate_proof`] with the ephemeral `a` supplied, for a caller that
+    /// must control the draw.
     pub fn calculate_proof_with_a(
         &self,
         handshake: &Handshake<G>,
         username: &Username,
         password: ClearTextPasswordRef,
-        a: &[u8],
-    ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
-        if a.is_empty() || a.len() > G::N_BYTES || a.iter().all(|byte| *byte == 0) {
-            return Err(Srp6Error::InvalidEphemeral { max: G::N_BYTES });
-        }
-        let a_exp = self.group.exponent_from_bytes(a);
+        a: &ClientEphemeral<G>,
+    ) -> Result<ClientProof<G, H>> {
+        let a_exp = self.group.exponent_from_bytes(&a.bytes);
         self.proof_for_exponent(handshake, username, password, a_exp)
     }
 
@@ -264,14 +277,7 @@ impl<G: GroupOps, H: HashFor<G>> Srp6<G, H> {
         username: &Username,
         password: ClearTextPasswordRef,
         a_exp: G::Exponent,
-    ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
-        // The group is the client's own. `g` and `k` as a peer names them are only
-        // compared, never computed with: see `Srp6Error::GroupMismatch`.
-        if handshake.g.as_bytes() != self.generator().as_bytes()
-            || handshake.k.as_bytes() != self.multiplier().as_bytes()
-        {
-            return Err(Srp6Error::GroupMismatch);
-        }
+    ) -> Result<ClientProof<G, H>> {
         let b_field = handshake.B.to_field(&self.group)?;
         let g_field = self.group.generator();
         let k_field = steps::multiplier::<G, H>(&self.group);
@@ -335,7 +341,7 @@ impl<G: GroupOps, H: HashFor<G>> Srp6<G, H> {
             M1: m1,
         };
 
-        Ok((proof, verifier))
+        Ok(ClientProof { proof, verifier })
     }
 
     /// Verifies the server's strong proof.

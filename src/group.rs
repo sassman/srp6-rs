@@ -13,6 +13,7 @@ use crypto_bigint::{
 #[cfg(feature = "weak")]
 use crypto_bigint::{U1024, U1088, U1536, U1600};
 use rand::{rng, RngExt};
+use std::convert::TryFrom;
 
 #[cfg(feature = "wow-1-12-1")]
 use crypto_bigint::{U256, U384};
@@ -72,6 +73,9 @@ mod sealed {
 /// `GroupWow` behind `wow-1-12-1`. Pick one through [`crate::Srp6`]; the trait
 /// only names the sizes and the encodings the handshake needs.
 pub trait Group: Default + sealed::Sealed {
+    /// A value of this group as a fixed array, `N_BYTES` wide. Stable Rust cannot
+    /// size an array by an associated const, so each group donates the type.
+    type Bytes: AsRef<[u8]> + Copy + for<'a> TryFrom<&'a [u8]>;
     /// The modulus width in bytes.
     const N_BYTES: usize;
     /// The advisory default for generated salts, in bytes. Not a protocol
@@ -104,6 +108,15 @@ pub trait GroupOps: Group {
     #[cfg(feature = "wow-1-12-1")]
     const AMBIGUITY_CHECKED: bool;
 
+    /// A credential as the group's flavour hashes it. The protocol hashes the
+    /// username and password as given; only a legacy flavour folds their case.
+    /// Bound to the group, not the build, so one binary can run a folding group
+    /// next to one that hashes verbatim.
+    fn credential(text: &str) -> std::borrow::Cow<'_, str>;
+    /// `bytes`, a value in the group's byte order, without its high-order zero
+    /// bytes, one byte kept. Which end those sit at depends on the byte order.
+    fn minimal(bytes: &[u8]) -> &[u8];
+
     fn generator(&self) -> Self::Field;
     /// A pinned multiplier `k` as field bytes, or `None` for the protocol
     /// derivation `k = H(N | PAD(g))` (RFC 5054), computed in `steps::multiplier`
@@ -116,10 +129,6 @@ pub trait GroupOps: Group {
     fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field>;
     /// Fixed-width encoding in the group's byte order, `N_BYTES` long.
     fn field_to_bytes(&self, value: &Self::Field) -> Vec<u8>;
-    /// Minimal-length encoding in the group's byte order: the high-order zero
-    /// bytes dropped, one byte kept. Which end those sit at depends on the byte
-    /// order, so only the group can trim them.
-    fn field_to_bytes_minimal(&self, value: &Self::Field) -> Vec<u8>;
     fn field_add(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
     fn field_sub(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
     fn field_mul(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
@@ -154,13 +163,13 @@ macro_rules! closed_group {
 
         impl RfcGroup for $name {}
     };
-    // The sole exception: the WoW 1.12.1 flavour pins `k = 3` and rejects a draw
-    // its fixed-width wire cannot carry. Baked here, not parameters, so even this
-    // arm cannot name a different constant.
+    // The sole exception: the WoW 1.12.1 flavour pins `k = 3`, folds the case of
+    // its credentials and rejects a draw its fixed-width wire cannot carry. Baked
+    // here, not parameters, so even this arm cannot name a different constant.
     (@wow $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $endian:expr) => {
         closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, Some(3), true, $endian);
     };
-    (@group $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $ambiguity:expr, $endian:expr) => {
+    (@group $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $legacy:expr, $endian:expr) => {
         #[derive(Default)]
         pub struct $name;
 
@@ -194,6 +203,7 @@ macro_rules! closed_group {
         }
 
         impl Group for $name {
+            type Bytes = [u8; $n_bytes];
             const N_BYTES: usize = $n_bytes;
             const DEFAULT_SALT_BYTES: usize = $salt_bytes;
 
@@ -206,7 +216,28 @@ macro_rules! closed_group {
             type Field = $field;
             type Exponent = $exp;
             #[cfg(feature = "wow-1-12-1")]
-            const AMBIGUITY_CHECKED: bool = $ambiguity;
+            const AMBIGUITY_CHECKED: bool = $legacy;
+
+            fn credential(text: &str) -> std::borrow::Cow<'_, str> {
+                if $legacy {
+                    std::borrow::Cow::Owned(text.to_uppercase())
+                } else {
+                    std::borrow::Cow::Borrowed(text)
+                }
+            }
+
+            fn minimal(bytes: &[u8]) -> &[u8] {
+                let Some(high) = (match Self::ENDIAN {
+                    Endianness::Big => bytes.iter().position(|byte| *byte != 0),
+                    Endianness::Little => bytes.iter().rposition(|byte| *byte != 0),
+                }) else {
+                    return &bytes[..bytes.len().min(1)];
+                };
+                match Self::ENDIAN {
+                    Endianness::Big => &bytes[high..],
+                    Endianness::Little => &bytes[..=high],
+                }
+            }
 
             fn generator(&self) -> Self::Field {
                 $field::new(&<$uint>::from_u8($g))
@@ -233,12 +264,6 @@ macro_rules! closed_group {
 
             fn field_to_bytes(&self, value: &Self::Field) -> Vec<u8> {
                 Self::oriented(value.retrieve().to_be_bytes().to_vec())
-            }
-
-            fn field_to_bytes_minimal(&self, value: &Self::Field) -> Vec<u8> {
-                let be = value.retrieve().to_be_bytes();
-                let first = be.iter().position(|byte| *byte != 0).unwrap_or(be.len() - 1);
-                Self::oriented(be[first..].to_vec())
             }
 
             fn field_add(&self, a: &Self::Field, b: &Self::Field) -> Self::Field {

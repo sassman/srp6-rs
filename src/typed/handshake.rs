@@ -1,4 +1,4 @@
-use super::{FieldElement, Proof, PublicKey, Salt, StrongSessionKey, Verifier};
+use super::{Proof, PublicKey, Salt, StrongSessionKey, Verifier};
 use crate::credentials::Username;
 use crate::group::{Group, GroupOps};
 
@@ -39,41 +39,28 @@ impl<G: Group> UserSecrets<G> {
     }
 }
 
-/// The server's opening handshake.
+/// The server's opening handshake: what is particular to one login. The group
+/// (`N`, `g`, `k`) is not part of it - both sides hold it, and a client that
+/// took it from the peer could be handed a weak one.
 #[allow(non_snake_case)]
 pub struct Handshake<G: Group> {
     pub(crate) B: PublicKey<G>,
-    pub(crate) g: FieldElement<G>,
-    pub(crate) k: FieldElement<G>,
     pub(crate) s: Salt,
 }
 
 impl<G: Group> Handshake<G> {
     /// Rebuilds the server's handshake on the client side from what the wire
-    /// carries: `B`, `g` and `s`. The multiplier `k` is never on the wire -
-    /// both sides derive it, so the caller takes it from
-    /// [`crate::Srp6::multiplier`].
+    /// carries of it: `B` and `s`. A wire that also names the group is checked
+    /// with [`crate::Srp6::check_group`].
     #[allow(non_snake_case)]
-    pub fn from_wire(B: PublicKey<G>, g: FieldElement<G>, k: FieldElement<G>, s: Salt) -> Self {
-        Self { B, g, k, s }
+    pub fn from_wire(B: PublicKey<G>, s: Salt) -> Self {
+        Self { B, s }
     }
 
     /// The server's public key `B`.
     #[doc(alias = "B")]
     pub fn public_key(&self) -> &PublicKey<G> {
         &self.B
-    }
-
-    /// The generator `g`.
-    #[doc(alias = "g")]
-    pub fn generator(&self) -> &FieldElement<G> {
-        &self.g
-    }
-
-    /// The multiplier `k`.
-    #[doc(alias = "k")]
-    pub fn multiplier(&self) -> &FieldElement<G> {
-        &self.k
     }
 
     /// The salt `s`.
@@ -88,7 +75,6 @@ impl<G: Group> Handshake<G> {
 pub struct HandshakeProofVerifier<G: GroupOps> {
     pub(super) b: G::Exponent,
     pub(crate) B: PublicKey<G>,
-    pub(crate) g: FieldElement<G>,
     pub(crate) user: UserSecrets<G>,
 }
 
@@ -97,12 +83,6 @@ impl<G: GroupOps> HandshakeProofVerifier<G> {
     #[doc(alias = "B")]
     pub fn public_key(&self) -> &PublicKey<G> {
         &self.B
-    }
-
-    /// The generator `g`.
-    #[doc(alias = "g")]
-    pub fn generator(&self) -> &FieldElement<G> {
-        &self.g
     }
 
     /// The stored user secrets.
@@ -167,6 +147,25 @@ impl<G: Group, H> StrongProofVerifier<G, H> {
     }
 }
 
+/// What a client holds once it has answered a handshake: the proof to send, and
+/// what verifies the server's answer to it.
+pub struct ClientProof<G: Group, H> {
+    /// `A` and `M1`, for the server.
+    pub proof: HandshakeProof<G, H>,
+    /// Kept by the client for [`crate::Srp6::verify_strong_proof`].
+    pub verifier: StrongProofVerifier<G, H>,
+}
+
+/// What a server holds once a client's proof verified.
+pub struct ServerProof<H> {
+    /// The strong proof `M2`, for the client.
+    #[doc(alias = "M2")]
+    pub strong_proof: Proof<H>,
+    /// The session key `K` both sides now share.
+    #[doc(alias = "K")]
+    pub session_key: StrongSessionKey<H>,
+}
+
 // Hand-written rather than derived: consumers hold these in their own
 // `#[derive(Debug)]` state, so the impls must exist - and the ephemeral `b`
 // carries no Debug bound and must never reach a log line anyway. The field
@@ -177,8 +176,6 @@ impl<G: Group> std::fmt::Debug for Handshake<G> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Handshake")
             .field("B", &self.B)
-            .field("g", &self.g)
-            .field("k", &self.k)
             .field("s", &self.s)
             .finish()
     }
@@ -199,7 +196,6 @@ impl<G: GroupOps> std::fmt::Debug for HandshakeProofVerifier<G> {
         f.debug_struct("HandshakeProofVerifier")
             .field("b", &"<redacted>")
             .field("B", &self.B)
-            .field("g", &self.g)
             .field("user", &self.user)
             .finish()
     }
@@ -220,6 +216,24 @@ impl<G: Group, H> std::fmt::Debug for StrongProofVerifier<G, H> {
             .field("A", &self.A)
             .field("K", &self.K)
             .field("M1", &self.M1)
+            .finish()
+    }
+}
+
+impl<G: Group, H> std::fmt::Debug for ClientProof<G, H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ClientProof")
+            .field("proof", &self.proof)
+            .field("verifier", &self.verifier)
+            .finish()
+    }
+}
+
+impl<H> std::fmt::Debug for ServerProof<H> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ServerProof")
+            .field("strong_proof", &self.strong_proof)
+            .field("session_key", &self.session_key)
             .finish()
     }
 }

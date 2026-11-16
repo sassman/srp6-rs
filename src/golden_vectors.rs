@@ -25,7 +25,7 @@ use crate::hash::DefaultHash;
 use crate::hash::HashFor;
 #[cfg(feature = "hash-sha1")]
 use crate::hash::Sha1;
-use crate::typed::{steps, FromHexString, Salt, Srp6};
+use crate::typed::{steps, ClientEphemeral, ClientProof, FromHexString, Salt, ServerProof, Srp6};
 #[cfg(feature = "wow-1-12-1")]
 use crate::wow::Srp6_256;
 
@@ -83,10 +83,20 @@ fn snapshot<G: GroupOps, H: HashFor<G>>(
     let (handshake, server) = srp
         .start_handshake_with_b(username, salt.clone(), verifier.clone(), b.clone())
         .expect("the handshake starts");
-    let (proof, client) = srp
-        .calculate_proof_with_a(&handshake, username, password, &a_bytes)
+    let ClientProof {
+        proof,
+        verifier: client,
+    } = srp
+        .calculate_proof_with_a(
+            &handshake,
+            username,
+            password,
+            &ClientEphemeral::try_from_bytes(&a_bytes).expect("a valid ephemeral"),
+        )
         .expect("the client can prove");
-    let (m2, _) = srp
+    let ServerProof {
+        strong_proof: m2, ..
+    } = srp
         .verify_proof(&server, &proof)
         .expect("the proof verifies");
     let strong_key = srp
@@ -108,14 +118,8 @@ fn snapshot<G: GroupOps, H: HashFor<G>>(
         .B
         .to_field(&helper)
         .expect("a validated field element");
-    let g_field = handshake
-        .g
-        .to_field(&helper)
-        .expect("a validated field element");
-    let k_field = handshake
-        .k
-        .to_field(&helper)
-        .expect("a validated field element");
+    let g_field = helper.generator();
+    let k_field = steps::multiplier::<G, H>(&helper);
 
     let s_host = helper.field_pow(
         &helper.field_mul(&a_field, &helper.field_pow(&v_field, &u)),
@@ -269,7 +273,7 @@ fn wow_verifier_matches_published_corpus() {
 #[test]
 fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
     use crate::typed::{Handshake, PublicKey};
-    use crate::{FieldElement, Srp6Error};
+    use crate::Srp6Error;
 
     const FIXTURE_B: [u8; 32] = [
         5, 42, 79, 116, 153, 190, 227, 8, 45, 82, 119, 156, 193, 230, 11, 48, 85, 122, 159, 196,
@@ -300,11 +304,11 @@ fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
         113, 240, 125, 128, 130, 150, 46, 174, 240, 93, 249,
     ];
 
+    let ephemeral =
+        |draw: &[u8]| ClientEphemeral::<GroupWow>::try_from_bytes(draw).expect("a valid ephemeral");
     let srp = crate::wow::Srp6_256::default();
     let handshake = Handshake::from_wire(
         PublicKey::<GroupWow>::try_from_bytes(&FIXTURE_B).expect("B is a valid public key"),
-        FieldElement::<GroupWow>::try_from_bytes(&[7]).expect("g = 7"),
-        srp.multiplier(),
         Salt::from(FIXTURE_SALT.to_vec()),
     );
     let user = Username::new("alice").expect("valid username");
@@ -319,7 +323,7 @@ fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
     ] {
         assert!(
             matches!(
-                srp.calculate_proof_with_a(&handshake, &user, "password1", &draw),
+                srp.calculate_proof_with_a(&handshake, &user, "password1", &ephemeral(&draw)),
                 Err(Srp6Error::AmbiguousEncoding)
             ),
             "the {}-tripping draw must be rejected",
@@ -328,8 +332,8 @@ fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
     }
     // The clean draw is also a whole-handshake known answer: `A`, `M1`, `M2` and
     // `K` as benilla's own client computes them for this fixture.
-    let (proof, verifier) = srp
-        .calculate_proof_with_a(&handshake, &user, "password1", &CLEAN)
+    let ClientProof { proof, verifier } = srp
+        .calculate_proof_with_a(&handshake, &user, "password1", &ephemeral(&CLEAN))
         .expect("the clean draw must pass");
     assert_eq!(
         hex(proof.public_key().as_bytes()),

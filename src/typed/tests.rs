@@ -19,10 +19,16 @@ fn round_trip<G: GroupOps, H: HashFor<G>>(group: G) {
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    let (proof, strong_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_verifier,
+    } = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let (m2, server_key) = srp
+    let ServerProof {
+        strong_proof: m2,
+        session_key: server_key,
+    } = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     let client_key = srp
@@ -74,7 +80,7 @@ fn a_drawn_wow_proof_is_never_ambiguous() {
         .expect("the handshake starts");
 
     for _ in 0..400 {
-        let (proof, verifier) = srp
+        let ClientProof { proof, verifier } = srp
             .calculate_proof(&handshake, &username, "password123")
             .expect("an ambiguous draw is redrawn, not reported");
         assert_ne!(proof.public_key().as_bytes().last(), Some(&0), "A");
@@ -91,7 +97,7 @@ fn a_wrong_password_is_refused() {
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    let (proof, _) = srp
+    let ClientProof { proof, verifier: _ } = srp
         .calculate_proof(&handshake, &username, "wrong")
         .expect("the client can prove");
     assert!(srp.verify_proof(&proof_verifier, &proof).is_err());
@@ -112,8 +118,6 @@ fn a_zero_premaster_from_a_malicious_server_is_refused() {
     let b_field = group.field_mul(&k, &v);
     let handshake = Handshake {
         B: PublicKey::from_field(&group, &b_field),
-        g: FieldElement::from_field(&group, &group.generator()),
-        k: FieldElement::from_field(&group, &k),
         s: salt,
     };
 
@@ -131,10 +135,15 @@ fn a_wrong_strong_proof_is_refused() {
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    let (proof, strong_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_verifier,
+    } = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let (m2, _) = srp
+    let ServerProof {
+        strong_proof: m2, ..
+    } = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
 
@@ -245,10 +254,15 @@ fn the_strong_session_key_round_trips_through_hex() {
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    let (proof, strong_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_verifier,
+    } = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let (m2, _) = srp
+    let ServerProof {
+        strong_proof: m2, ..
+    } = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     let k = srp
@@ -270,10 +284,15 @@ fn the_strong_session_key_is_two_hashes_wide() {
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    let (proof, strong_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_verifier,
+    } = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let (m2, _) = srp
+    let ServerProof {
+        strong_proof: m2, ..
+    } = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     let k = srp
@@ -295,17 +314,17 @@ fn the_handshake_accessors_expose_the_same_values() {
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    let (proof, strong_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_verifier,
+    } = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
 
     assert_eq!(handshake.public_key(), &handshake.B);
-    assert_eq!(handshake.generator(), &handshake.g);
-    assert_eq!(handshake.multiplier(), &handshake.k);
     assert_eq!(handshake.salt(), &handshake.s);
 
     assert_eq!(proof_verifier.public_key(), &proof_verifier.B);
-    assert_eq!(proof_verifier.generator(), &proof_verifier.g);
     assert_eq!(
         proof_verifier.user().username(),
         &proof_verifier.user.username
@@ -462,10 +481,15 @@ fn the_strong_session_key_implements_its_byte_contract() {
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    let (proof, strong_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_verifier,
+    } = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let (m2, _) = srp
+    let ServerProof {
+        strong_proof: m2, ..
+    } = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     let k = srp
@@ -582,19 +606,19 @@ fn both_boundary_structs_rebuild_from_wire_parts() {
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
 
-    // What the challenge carries: B, g, s. k is derived, never sent.
+    // What the challenge carries of the handshake: B and s.
     let rebuilt = Handshake::from_wire(
         PublicKey::try_from_bytes(handshake.public_key().as_bytes()).expect("B decodes"),
-        FieldElement::try_from_bytes(handshake.generator().as_bytes()).expect("g decodes"),
-        srp.multiplier(),
         handshake.salt().clone(),
     );
     assert_eq!(rebuilt.public_key(), handshake.public_key());
-    assert_eq!(rebuilt.multiplier(), handshake.multiplier());
 
     // The client proves against the rebuilt handshake; the server rebuilds the
     // proof from wire bytes and the flow still closes.
-    let (proof, strong_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_verifier,
+    } = srp
         .calculate_proof(&rebuilt, &username, "password123")
         .expect("the client can prove");
     let wire_a = proof.public_key().to_vec();
@@ -603,7 +627,9 @@ fn both_boundary_structs_rebuild_from_wire_parts() {
         PublicKey::try_from_bytes(&wire_a).expect("A decodes"),
         Proof::try_from_bytes(&wire_m1).expect("M1 decodes"),
     );
-    let (m2, _) = srp
+    let ServerProof {
+        strong_proof: m2, ..
+    } = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     srp.verify_strong_proof(&strong_verifier, &m2)
@@ -620,7 +646,10 @@ fn handshake_structs_debug_without_leaking_secrets() {
     let (handshake, proof_verifier) = srp
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
-    let (proof, strong_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_verifier,
+    } = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
 
@@ -635,77 +664,130 @@ fn handshake_structs_debug_without_leaking_secrets() {
     );
 }
 
-/// A server that knows no verifier can still fix the premaster secret if the client
-/// computes with the generator it is sent: `g = 1` makes `g^x` one for every password.
-/// The client computes in its own group, so a handshake naming another `g` or `k` is
-/// refused before anything is derived from it.
+/// A server that knows no verifier could fix the premaster secret if the client
+/// computed with a generator it was sent: `g = 1` makes `g^x` one for every password.
+/// The handshake has no slot for a peer's group, and a wire that names one is checked
+/// against the client's own.
 #[test]
-fn a_handshake_naming_another_generator_or_multiplier_is_refused() {
+fn a_group_a_peer_names_is_checked_against_the_clients_own() {
     let srp = Srp6_2048::default();
-    let username = Username::new("alice").expect("valid username");
-    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-    let (genuine, _) = srp
-        .start_handshake(&username, salt, verifier)
-        .expect("the handshake starts");
-    let one = FieldElement::<Group2048>::try_from_bytes(&[1]).expect("a field element");
+    let n = srp.modulus();
+    let g = srp.generator();
 
-    let forged_g = Handshake::from_wire(
-        genuine.public_key().clone(),
-        one.clone(),
-        srp.multiplier(),
-        genuine.salt().clone(),
-    );
-    let forged_k = Handshake::from_wire(
-        genuine.public_key().clone(),
-        srp.generator(),
-        one,
-        genuine.salt().clone(),
-    );
+    assert_eq!(srp.check_group(n.as_bytes(), g.as_bytes()), Ok(()));
+    assert_eq!(srp.check_group(n.as_bytes(), &[2]), Ok(()), "minimal g");
 
-    for forged in [forged_g, forged_k] {
+    let mut other_n = n.to_vec();
+    other_n[Group2048::N_BYTES - 1] ^= 2;
+    for (modulus, generator) in [
+        (n.as_bytes(), &[1_u8][..]),
+        (n.as_bytes(), &[][..]),
+        (n.as_bytes(), &[0_u8; 257][..]),
+        (other_n.as_slice(), g.as_bytes()),
+        (&n.as_bytes()[1..], g.as_bytes()),
+    ] {
         assert_eq!(
-            srp.calculate_proof(&forged, &username, "password123").err(),
-            Some(Srp6Error::GroupMismatch)
+            srp.check_group(modulus, generator),
+            Err(Srp6Error::GroupMismatch)
         );
     }
-    assert!(srp
-        .calculate_proof(&genuine, &username, "password123")
-        .is_ok());
 }
 
-/// A caller's ephemeral is taken as it is, so one that would overflow the exponent, or
-/// that is zero and gives `A = 1`, is refused instead of computed with.
+/// A caller's ephemeral is validated where it is built, so one that would overflow the
+/// exponent, or that is zero and gives `A = 1`, never reaches a handshake.
 #[test]
 fn a_supplied_ephemeral_must_fit_the_group_and_not_be_zero() {
-    let srp = Srp6_2048::default();
-    let username = Username::new("alice").expect("valid username");
-    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
-    let (handshake, _) = srp
-        .start_handshake(&username, salt, verifier)
-        .expect("the handshake starts");
-    let refused = Some(Srp6Error::InvalidEphemeral {
-        max: Group2048::N_BYTES,
-    });
-
     for bad in [
         vec![],
         vec![0_u8; 32],
         vec![0xFF_u8; Group2048::N_BYTES + 1],
     ] {
         assert_eq!(
-            srp.calculate_proof_with_a(&handshake, &username, "password123", &bad)
-                .err(),
-            refused,
+            ClientEphemeral::<Group2048>::try_from_bytes(&bad).err(),
+            Some(Srp6Error::InvalidEphemeral {
+                max: Group2048::N_BYTES
+            }),
             "{} bytes",
             bad.len()
         );
     }
-    assert!(srp
-        .calculate_proof_with_a(
-            &handshake,
-            &username,
-            "password123",
-            &[0xFF_u8; Group2048::N_BYTES]
-        )
-        .is_ok());
+
+    let srp = Srp6_2048::default();
+    let username = Username::new("alice").expect("valid username");
+    let (salt, verifier) = srp.generate_new_user_secrets(&username, "password123");
+    let (handshake, proof_verifier) = srp
+        .start_handshake(&username, salt, verifier)
+        .expect("the handshake starts");
+    let a = ClientEphemeral::try_from_bytes(&[0xFF_u8; Group2048::N_BYTES]).expect("fits");
+    assert!(!format!("{a:?}").contains("255"), "the draw is not printed");
+    let ClientProof { proof, .. } = srp
+        .calculate_proof_with_a(&handshake, &username, "password123", &a)
+        .expect("the client can prove");
+    assert!(srp.verify_proof(&proof_verifier, &proof).is_ok());
+    let _ = ClientEphemeral::<Group2048>::random();
+}
+
+/// The fixed arrays and the minimal form are views of the same bytes, so a caller that
+/// knows its group needs neither a length check nor a trim of its own.
+#[test]
+fn a_group_value_reads_as_a_fixed_array_and_in_its_minimal_form() {
+    let srp = Srp6_2048::default();
+    let g = srp.generator();
+
+    let array: [u8; 256] = g.as_array();
+    assert_eq!(&array[..], g.as_bytes());
+    assert_eq!(g.as_minimal_bytes(), &[2]);
+
+    let n: [u8; 256] = srp.modulus().as_array();
+    assert_eq!(&n[..], srp.modulus().as_bytes());
+
+    let username = Username::new("alice").expect("valid username");
+    let (_, verifier) = srp.generate_new_user_secrets(&username, "password123");
+    let v: [u8; 256] = verifier.as_array();
+    assert_eq!(&v[..], verifier.as_bytes());
+}
+
+/// The high-order zeros trail in a little-endian group, so that is the end trimmed.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn the_minimal_form_follows_the_groups_byte_order() {
+    let g = Srp6_256::default().generator();
+    assert_eq!(g.as_bytes()[0], 7);
+    assert_eq!(g.as_minimal_bytes(), &[7]);
+}
+
+/// Folding the case of a credential belongs to the legacy group, not to the build: with
+/// the feature on, a group that hashes verbatim still tells `Alice` from `ALICE`.
+#[test]
+fn an_rfc_group_hashes_credentials_as_given() {
+    let srp = Srp6_2048::default();
+    let salt = Salt::from(vec![7_u8; 16]);
+    let verifier_of = |name: &str, password: &str| {
+        let username = Username::new(name).expect("valid username");
+        srp.generate_new_user_secrets_with_salt(&username, password, salt.clone())
+            .1
+    };
+
+    let given = verifier_of("Alice", "Secret");
+    assert_ne!(given, verifier_of("ALICE", "Secret"));
+    assert_ne!(given, verifier_of("Alice", "SECRET"));
+}
+
+/// The 1.12.1 client uppercases both before it hashes, so its group does too, whatever
+/// case the caller holds them in.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn the_wow_group_folds_the_case_of_credentials() {
+    let srp = Srp6_256::default();
+    let salt = Salt::from(vec![7_u8; 32]);
+    let verifier_of = |name: &str, password: &str| {
+        let username = Username::new(name).expect("valid username");
+        srp.generate_new_user_secrets_with_salt(&username, password, salt.clone())
+            .1
+    };
+
+    assert_eq!(
+        verifier_of("Alice", "Secret"),
+        verifier_of("ALICE", "SECRET")
+    );
 }

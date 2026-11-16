@@ -171,9 +171,21 @@ macro_rules! field_wrapper_impls {
             pub fn to_vec(&self) -> ::std::vec::Vec<u8> {
                 self.0.to_vec()
             }
+
+            /// The value as a fixed array of the group's width, so a caller
+            /// that knows the group avoids a length check.
+            pub fn as_array(&self) -> G::Bytes {
+                self.0.as_array()
+            }
         }
 
         impl<G: $crate::group::GroupOps> $ty<G> {
+            /// The value without its high-order zero bytes, one byte kept, in
+            /// the group's byte order: the form a length-prefixed wire carries.
+            pub fn as_minimal_bytes(&self) -> &[u8] {
+                self.0.as_minimal_bytes()
+            }
+
             pub fn try_from_bytes(bytes: &[u8]) -> $crate::Result<Self> {
                 $crate::typed::FieldElement::try_from_bytes(bytes).map(Self)
             }

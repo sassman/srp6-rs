@@ -1,8 +1,8 @@
 //! The boundary a caller sees: the typed handshake and byte-backed values.
 
 use srp6::{
-    DefaultHash, Digest, FromHexString, Group, Group2048, Proof, PublicKey, Salt, SaltBytes,
-    Srp6_2048, StrongSessionKey, Username, Verifier,
+    ClientProof, DefaultHash, Digest, FromHexString, Group, Group2048, Proof, PublicKey, Salt,
+    SaltBytes, ServerProof, Srp6_2048, StrongSessionKey, Username, Verifier,
 };
 
 #[test]
@@ -16,10 +16,16 @@ fn the_typed_handshake_is_reachable_from_outside_the_crate() {
         .start_handshake(&username, salt, verifier)
         .expect("the handshake starts");
 
-    let (proof, strong_verifier) = srp
+    let ClientProof {
+        proof,
+        verifier: strong_verifier,
+    } = srp
         .calculate_proof(&handshake, &username, "password123")
         .expect("the client can prove");
-    let (m2, server_key) = srp
+    let ServerProof {
+        strong_proof: m2,
+        session_key: server_key,
+    } = srp
         .verify_proof(&proof_verifier, &proof)
         .expect("the proof verifies");
     let k = srp
