@@ -96,7 +96,10 @@ impl<G: GroupOps + WireStable, H: Digest> Srp6<G, H> {
         self.generate_new_user_secrets_with_salt(username, password, Salt::from(salt))
     }
 
-    pub(crate) fn generate_new_user_secrets_with_salt(
+    /// [`Self::generate_new_user_secrets`] for a salt the caller already holds:
+    /// an account imported with its salt, or one whose salt must satisfy a rule
+    /// of the wire it travels on. The salt comes back unchanged.
+    pub fn generate_new_user_secrets_with_salt(
         &self,
         username: &Username,
         password: ClearTextPasswordRef,
