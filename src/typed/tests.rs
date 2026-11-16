@@ -56,6 +56,12 @@ fn a_wow_handshake_round_trips() {
 /// A draw `calculate_proof` makes itself is redrawn, so a caller never sees
 /// `AmbiguousEncoding` from it. Without the redraw a run this long would hit an
 /// ambiguous draw almost surely.
+///
+/// Caution: this is rejection sampling, not a uniform draw - it excludes
+/// ephemerals whose derived values would hash ambiguously, trading a sliver of
+/// `a`'s theoretical uniformity for the stock client's buggy fixed-width hash.
+/// The margin is far below any practical attack, and exists only behind the
+/// `wow-1-12-1` feature this legacy interop is gated on.
 #[cfg(feature = "wow-1-12-1")]
 #[test]
 fn a_drawn_wow_proof_is_never_ambiguous() {
