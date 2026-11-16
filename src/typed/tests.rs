@@ -46,9 +46,16 @@ fn a_wow_handshake_round_trips() {
     round_trip::<_, crate::hash::Sha1>(GroupWow);
 }
 
-/// A draw `calculate_proof` makes itself is redrawn when the WoW wire could not
-/// carry it, so a caller never sees `AmbiguousEncoding` from it. Without the
-/// redraw a run this long would hit an ambiguous draw almost surely.
+/// When a value such as `A`, `K` or `M1` happens to have a zero high-order byte
+/// (about 1 in 256 per value), there are two ways to hash it: at the full fixed
+/// width, or with the zero stripped. The 1.12.1 client does the first, vmangos
+/// does the second, so they compute different hashes and a correct password is
+/// refused. Redrawing the ephemeral simply avoids the values where the two
+/// disagree.
+///
+/// A draw `calculate_proof` makes itself is redrawn, so a caller never sees
+/// `AmbiguousEncoding` from it. Without the redraw a run this long would hit an
+/// ambiguous draw almost surely.
 #[cfg(feature = "wow-1-12-1")]
 #[test]
 fn a_drawn_wow_proof_is_never_ambiguous() {

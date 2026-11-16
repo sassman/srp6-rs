@@ -209,14 +209,15 @@ impl<G: GroupOps, H: Digest> Srp6<G, H> {
     }
 
     /// Calculates the client's proof and its strong-proof verifier, drawing a
-    /// fresh ephemeral `a`. The draw is this method's own, so the WoW flavour
-    /// redraws an ambiguous one here instead of reporting it.
+    /// fresh ephemeral `a`.
     pub fn calculate_proof(
         &self,
         handshake: &Handshake<G>,
         username: &Username,
         password: ClearTextPasswordRef,
     ) -> Result<(HandshakeProof<G, H>, StrongProofVerifier<G, H>)> {
+        // The draw is this method's own, so an ambiguous one is redrawn here: a
+        // caller has no ephemeral to change.
         #[cfg(feature = "wow-1-12-1")]
         for _ in 1..AMBIGUOUS_REDRAWS {
             let a_exp = self.group.random_exponent();
@@ -230,10 +231,8 @@ impl<G: GroupOps, H: Digest> Srp6<G, H> {
         self.proof_for_exponent(handshake, username, password, a_exp)
     }
 
-    /// [`Self::calculate_proof`] with the ephemeral `a` supplied as raw bytes, so a
-    /// client that must redraw controls its own source. Under `wow-1-12-1` the
-    /// WoW group rejects an ambiguous draw with `Srp6Error::AmbiguousEncoding`,
-    /// and the caller tries another `a`.
+    /// [`Self::calculate_proof`] with the ephemeral `a` supplied as raw bytes,
+    /// for a caller that must control the draw.
     pub fn calculate_proof_with_a(
         &self,
         handshake: &Handshake<G>,
