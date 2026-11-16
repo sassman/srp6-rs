@@ -3,3 +3,7 @@ changelog_config = "cliff.toml"
 changelog_update = true
 git_tag_enable = true
 publish = false
+
+# cargo-semver-checks enables every feature, but hash-sha1 and hash-sha512
+# are mutually exclusive by design, so its doc build cannot compile the crate.
+semver_check = false
