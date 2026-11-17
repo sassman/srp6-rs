@@ -41,8 +41,8 @@ pub enum UsernameError {
     )]
     ContainsColon,
 
-    /// the username did not satisfy the WoW 1.12.1 client's normalisation
-    /// (see [`Username::new`] under the `wow-1-12-1` feature)
+    /// the username is not one the WoW 1.12.1 client can send
+    /// (see [`Username::new_wow`])
     #[cfg(feature = "wow-1-12-1")]
     #[error(
         "username must be 1 to 16 ASCII bytes without control characters (WoW client limitation)"
@@ -67,13 +67,14 @@ impl Username {
         Ok(())
     }
 
-    /// Creates a new, validated [`Username`]
+    /// Creates a new, validated [`Username`]. The text is kept as given: a
+    /// flavour that folds case does so where it hashes, so the same name works
+    /// with every group.
     ///
     /// # Errors
     /// Returns [`UsernameError`] if `s` is empty, contains a NUL byte, or
     /// contains a `:` (colon). See the type documentation for why the
     /// colon is rejected.
-    #[cfg(not(feature = "wow-1-12-1"))]
     pub fn new(s: impl Into<String>) -> std::result::Result<Self, UsernameError> {
         let s = s.into();
         Self::validate_common(&s)?;
@@ -81,38 +82,26 @@ impl Username {
         Ok(Self(s))
     }
 
-    /// Creates a new [`Username`] normalised the way the WoW 1.12.1 client
-    /// does it: ASCII only, no control characters, 1 to 16 bytes, uppercased.
+    /// A [`Username`] the WoW 1.12.1 client can have sent: ASCII only, no
+    /// control characters, 1 to 16 bytes, uppercased as that client sends it.
     ///
-    /// This shadows the general constructor rather than sitting beside it as a
-    /// second one, because a build talks to exactly one flavour of peer. With
-    /// two constructors every call site would need its own `#[cfg]` to pick,
-    /// and the paths that cannot take one - `TryFrom<String>`, and through it
-    /// `Deserialize` - would silently keep the unnormalised form, so the same
-    /// build could produce two different `Username`s for one input.
+    /// The group folds the case itself when it hashes, so this is not needed for
+    /// a handshake to verify; it refuses a name no such client can log in with.
     ///
     /// # Errors
-    /// Returns [`UsernameError`] if `s` is not 1 to 16 ASCII bytes without
-    /// control characters, or fails the common validation (e.g. contains a
-    /// colon).
+    /// Returns [`UsernameError`] if `s` fails the common validation or is not
+    /// 1 to 16 ASCII bytes without control characters.
     #[cfg(feature = "wow-1-12-1")]
-    pub fn new(s: impl Into<String>) -> std::result::Result<Self, UsernameError> {
-        let s = s.into();
-        // The shared rules run first so that an empty, NUL-bearing or
-        // colon-bearing name reports the rule it actually broke, the same way it
-        // does without this feature. Checking the WoW envelope first would
-        // report `InvalidWowUsername` for all three, since a NUL is also an
-        // ASCII control character.
-        Self::validate_common(&s)?;
+    pub fn new_wow(s: impl Into<String>) -> std::result::Result<Self, UsernameError> {
+        // The shared rules run first so an empty, NUL-bearing or colon-bearing
+        // name reports the rule it broke: a NUL is also a control character.
+        let name = Self::new(s)?;
 
-        if s.len() > 16 || !s.is_ascii() || s.chars().any(|c| c.is_ascii_control()) {
+        if name.len() > 16 || !name.is_ascii() || name.chars().any(|c| c.is_ascii_control()) {
             return Err(UsernameError::InvalidWowUsername);
         }
 
-        // Re-validating after uppercasing would be redundant: `s` is ASCII, so
-        // `to_uppercase` only maps a-z to A-Z and cannot introduce a NUL, a
-        // colon, or emptiness.
-        Ok(Self(s.to_uppercase()))
+        Ok(Self(name.0.to_ascii_uppercase()))
     }
 
     /// borrows the username as [`&str`]
@@ -157,22 +146,16 @@ mod username_tests {
     fn should_expose_its_text_forms() {
         let username = Username::new("alice").unwrap();
 
-        #[cfg(feature = "wow-1-12-1")]
-        let expected = "ALICE";
-        #[cfg(not(feature = "wow-1-12-1"))]
-        let expected = "alice";
-
-        assert_eq!(&*username, expected);
-        assert_eq!(username.as_ref(), expected);
-        assert_eq!(username.to_string(), expected);
+        assert_eq!(&*username, "alice");
+        assert_eq!(username.as_ref(), "alice");
+        assert_eq!(username.to_string(), "alice");
     }
 
-    /// The WoW flavour uppercases, so it asserts its own form in
-    /// `should_uppercase_for_wow` below.
-    #[cfg(not(feature = "wow-1-12-1"))]
+    /// The name is kept as given whichever features are on: folding it here
+    /// would change what a group that hashes verbatim sees.
     #[test]
-    fn should_accept_a_normal_username() {
-        assert_eq!(Username::new("alice").unwrap().as_str(), "alice");
+    fn should_keep_a_username_as_given() {
+        assert_eq!(Username::new("Alice").unwrap().as_str(), "Alice");
     }
 
     #[test]
@@ -196,8 +179,6 @@ mod username_tests {
         );
     }
 
-    /// Flavour-agnostic: the wire form is the username's own normalised form,
-    /// whichever flavour is compiled in.
     #[test]
     fn should_round_trip_through_serde_json() {
         let username = Username::new("alice").unwrap();
@@ -215,27 +196,23 @@ mod username_tests {
     #[cfg(feature = "wow-1-12-1")]
     #[test]
     fn should_uppercase_for_wow() {
-        assert_eq!(Username::new("alice").unwrap().as_str(), "ALICE");
+        assert_eq!(Username::new_wow("alice").unwrap().as_str(), "ALICE");
     }
 
-    /// Why `new` is shadowed instead of paired with a separate `new_wow`:
-    /// `Deserialize` reaches the constructor through `TryFrom<String>`, so it
-    /// has to pick up the flavour's normalisation too. With a second
-    /// constructor this path kept the unnormalised form and yielded "alice",
-    /// disagreeing with a directly constructed `Username` in the same build.
     #[cfg(feature = "wow-1-12-1")]
     #[test]
-    fn should_uppercase_on_deserialize_for_wow() {
-        let deserialized: Username = serde_json::from_str("\"alice\"").unwrap();
-        assert_eq!(deserialized.as_str(), "ALICE");
-        assert_eq!(deserialized, Username::new("alice").unwrap());
+    fn should_report_the_common_rule_before_the_wow_one() {
+        assert_eq!(
+            Username::new_wow("ali\0ce").unwrap_err(),
+            UsernameError::ContainsNulByte
+        );
     }
 
     #[cfg(feature = "wow-1-12-1")]
     #[test]
     fn should_reject_a_too_long_username_for_wow() {
         assert_eq!(
-            Username::new("a_name_longer_than_16_bytes").unwrap_err(),
+            Username::new_wow("a_name_longer_than_16_bytes").unwrap_err(),
             UsernameError::InvalidWowUsername
         );
     }
@@ -244,7 +221,7 @@ mod username_tests {
     #[test]
     fn should_reject_non_ascii_for_wow() {
         assert_eq!(
-            Username::new("älice").unwrap_err(),
+            Username::new_wow("älice").unwrap_err(),
             UsernameError::InvalidWowUsername
         );
     }

@@ -31,9 +31,23 @@ impl<G: Group> FieldElement<G> {
     pub fn to_vec(&self) -> Vec<u8> {
         self.bytes.to_vec()
     }
+
+    /// The value as a fixed array of the group's width, so a caller that knows
+    /// the group avoids a length check.
+    pub fn as_array(&self) -> G::Bytes {
+        G::Bytes::try_from(&self.bytes)
+            .ok()
+            .expect("a field element is stored at exactly its group's width")
+    }
 }
 
 impl<G: GroupOps> FieldElement<G> {
+    /// The value without its high-order zero bytes, one byte kept, in the
+    /// group's byte order: the form a length-prefixed wire carries.
+    pub fn as_minimal_bytes(&self) -> &[u8] {
+        G::minimal(&self.bytes)
+    }
+
     /// Decodes `bytes`, rejecting values wider than `N` or `0 mod N`.
     ///
     /// Shorter inputs are zero-padded to the group's fixed width, so

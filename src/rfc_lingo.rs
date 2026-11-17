@@ -28,13 +28,13 @@ pub type v<G> = Verifier<G>;
 #[allow(non_camel_case_types)]
 pub type k<G> = FieldElement<G>;
 
-pub type K = StrongSessionKey;
+pub type K<H = crate::hash::DefaultHash> = StrongSessionKey<H>;
 
-pub type M = Proof;
+pub type M<H = crate::hash::DefaultHash> = Proof<H>;
 
-pub type M1 = Proof;
+pub type M1<H = crate::hash::DefaultHash> = Proof<H>;
 
-pub type M2 = Proof;
+pub type M2<H = crate::hash::DefaultHash> = Proof<H>;
 
 pub type I = Username;
 

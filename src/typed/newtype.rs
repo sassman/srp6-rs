@@ -57,6 +57,25 @@ macro_rules! byte_newtype_fmt {
 /// `TypeName(<redacted>)` so secrets do not leak through `{:?}` or a derived
 /// Debug on a surrounding struct.
 macro_rules! byte_newtype_fmt_redacted {
+    (<H> $ty:ident, $name:literal) => {
+        impl<H> ::std::fmt::Display for $ty<H> {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                $crate::typed::hex::write_hex(f, self.as_bytes())
+            }
+        }
+
+        impl<H> ::std::fmt::Debug for $ty<H> {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                f.write_str(concat!($name, "(<redacted>)"))
+            }
+        }
+
+        impl<H> ::std::convert::AsRef<[u8]> for $ty<H> {
+            fn as_ref(&self) -> &[u8] {
+                self.as_bytes()
+            }
+        }
+    };
     (<G> $ty:ident, $name:literal) => {
         impl<G: $crate::group::Group> ::std::fmt::Display for $ty<G> {
             fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
@@ -100,6 +119,16 @@ macro_rules! byte_newtype_fmt_redacted {
 /// `Serialize` as the raw bytes. Only for the newtypes that round-trip on the
 /// wire (not `Modulus`, which is a group constant).
 macro_rules! byte_newtype_serialize {
+    (<H> $ty:ident) => {
+        impl<H> ::serde::Serialize for $ty<H> {
+            fn serialize<S: ::serde::Serializer>(
+                &self,
+                serializer: S,
+            ) -> ::std::result::Result<S::Ok, S::Error> {
+                serializer.serialize_bytes(self.as_bytes())
+            }
+        }
+    };
     (<G> $ty:ident) => {
         impl<G: $crate::group::Group> ::serde::Serialize for $ty<G> {
             fn serialize<S: ::serde::Serializer>(
@@ -142,9 +171,21 @@ macro_rules! field_wrapper_impls {
             pub fn to_vec(&self) -> ::std::vec::Vec<u8> {
                 self.0.to_vec()
             }
+
+            /// The value as a fixed array of the group's width, so a caller
+            /// that knows the group avoids a length check.
+            pub fn as_array(&self) -> G::Bytes {
+                self.0.as_array()
+            }
         }
 
         impl<G: $crate::group::GroupOps> $ty<G> {
+            /// The value without its high-order zero bytes, one byte kept, in
+            /// the group's byte order: the form a length-prefixed wire carries.
+            pub fn as_minimal_bytes(&self) -> &[u8] {
+                self.0.as_minimal_bytes()
+            }
+
             pub fn try_from_bytes(bytes: &[u8]) -> $crate::Result<Self> {
                 $crate::typed::FieldElement::try_from_bytes(bytes).map(Self)
             }

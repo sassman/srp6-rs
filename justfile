@@ -18,20 +18,24 @@ ci-check:
     echo "==> check"
     cargo check
 
+    # The hash is a type parameter, not a feature, so SHA-512 (the default) and
+    # SHA-1 are both exercised by the default run; the extra runs cover the
+    # feature-gated SHA-1 groups.
     echo "==> test (default)"
     cargo test
 
     echo "==> test (appendix B)"
     cargo test --features test-rfc-5054-appendix-b --no-default-features --lib
 
-    echo "==> test (sha1)"
+    echo "==> test (sha1 groups)"
     cargo test --features hash-sha1 --no-default-features --lib
 
     echo "==> test (wow)"
     cargo test --features wow-1-12-1 --no-default-features --lib
 
-    echo "==> test (sha512)"
-    cargo test --features hash-sha512 --no-default-features --lib
+    # Features only add, so everything on at once must hold too.
+    echo "==> test (all features)"
+    cargo test --all-features
 
     echo "==> docs"
     RUSTDOCFLAGS="-D warnings" cargo doc --no-deps

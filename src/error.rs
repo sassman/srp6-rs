@@ -1,7 +1,5 @@
 use thiserror::Error;
 
-use crate::typed::Proof;
-
 #[derive(Error, Debug, PartialEq)]
 pub enum Srp6Error {
     #[error(
@@ -15,8 +13,10 @@ pub enum Srp6Error {
     #[error("The provided proof is invalid")]
     InvalidProof,
 
+    /// Carries the rejected `M2` bytes for inspection; hash-agnostic so the error
+    /// type stays free of the hash parameter.
     #[error("The provided strong proof is invalid")]
-    InvalidStrongProof(Proof),
+    InvalidStrongProof(Vec<u8>),
 
     /// The scrambler `u = H(A | B)` reduced to zero; `protocol_details` requires
     /// both sides to abort, since `u == 0` collapses the shared-secret exponent.
@@ -27,6 +27,25 @@ pub enum Srp6Error {
     /// force this with `B = k*v`. Refuse before deriving the session key `K`.
     #[error("the derived premaster secret must not be zero")]
     InvalidPremaster,
+
+    /// A peer named a modulus or generator that is not the group's
+    /// ([`crate::Srp6::check_group`]). A client computes in its own group: one
+    /// taken from the peer lets a server that knows no verifier fix the premaster
+    /// secret (`g = 1` with `B = k + 1` gives `S = 1`).
+    #[error("the peer's modulus or generator is not the group's")]
+    GroupMismatch,
+
+    /// A caller-supplied ephemeral that is empty, zero, or wider than the modulus.
+    #[error("the ephemeral must be 1 to {max:?} bytes and must not be zero")]
+    InvalidEphemeral { max: usize },
+
+    /// A drawn proof did not encode unambiguously at the group's fixed wire
+    /// width: `A`, `K` or `M1` had a zero high-order byte, or the premaster `S` a
+    /// zero low-order one that the client interleave strips. Only a wire-stable
+    /// flavour (WoW 1.12.1) raises it; the caller redraws the ephemeral `a`.
+    #[cfg(feature = "wow-1-12-1")]
+    #[error("the drawn proof does not encode unambiguously at the wire width")]
+    AmbiguousEncoding,
 
     /// A [`crate::SaltBytes::custom`] width outside the safe range: below the
     /// NIST 64-bit floor or over the RFC 5054 `opaque srp_s<1..2^8-1>` wire cap.

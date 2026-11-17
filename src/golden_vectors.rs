@@ -2,9 +2,10 @@
 //!
 //! These freeze what the current backend computes: private key, verifier,
 //! public keys, session key and interleaved key, for each group and hash
-//! flavour the crate ships. The proofs are pinned by length only: `M1`/`M2`
-//! are crate-flavour values, not protocol vectors, and pinning their bytes
-//! would churn the fixtures on every proof-formula decision. Regenerate with:
+//! flavour the crate ships. In the fixtures the proofs are pinned by length
+//! only: `M1`/`M2` are crate-flavour values there, not protocol vectors. The WoW
+//! flavour's are pinned whole below, to a real client's handshake. Regenerate
+//! the fixtures with:
 //!
 //! ```text
 //! cargo test --lib -- --ignored regenerate_golden
@@ -19,7 +20,14 @@ use crate::credentials::Username;
 use crate::group::GroupOps;
 #[cfg(feature = "wow-1-12-1")]
 use crate::group::GroupWow;
-use crate::typed::{steps, FromHexString, Salt, Srp6};
+#[cfg(not(feature = "hash-sha1"))]
+use crate::hash::DefaultHash;
+use crate::hash::HashFor;
+#[cfg(feature = "hash-sha1")]
+use crate::hash::Sha1;
+use crate::typed::{steps, ClientEphemeral, ClientProof, FromHexString, Salt, ServerProof, Srp6};
+#[cfg(feature = "wow-1-12-1")]
+use crate::wow::Srp6_256;
 
 /// The RFC 5054 appendix B salt, reused here so the vectors have one fixed input.
 const SALT_HEX: &str = "BEB25379D1A8581EB5A727673A2441EE";
@@ -59,20 +67,36 @@ fn hex_trimmed(bytes: &[u8]) -> String {
 
 /// Everything a full handshake derives, in a stable text form.
 #[allow(non_snake_case)]
-fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &Salt) -> String {
-    let a = group.exponent_from_bytes(&hex_to_bytes(PRIVATE_A_HEX));
+fn snapshot<G: GroupOps, H: HashFor<G>>(
+    group: G,
+    username: &Username,
+    password: &str,
+    salt: &Salt,
+) -> String {
+    let a_bytes = hex_to_bytes(PRIVATE_A_HEX);
+    let a = group.exponent_from_bytes(&a_bytes);
     let b = group.exponent_from_bytes(&hex_to_bytes(PRIVATE_B_HEX));
 
-    let srp = Srp6::new(group);
+    let srp = Srp6::<G, H>::new(group);
     let (salt, verifier) =
         srp.generate_new_user_secrets_with_salt(username, password, salt.clone());
     let (handshake, server) = srp
         .start_handshake_with_b(username, salt.clone(), verifier.clone(), b.clone())
         .expect("the handshake starts");
-    let (proof, client) = srp
-        .calculate_proof_with_a(&handshake, username, password, a.clone())
+    let ClientProof {
+        proof,
+        verifier: client,
+    } = srp
+        .calculate_proof_with_a(
+            &handshake,
+            username,
+            password,
+            &ClientEphemeral::try_from_bytes(&a_bytes).expect("a valid ephemeral"),
+        )
         .expect("the client can prove");
-    let m2 = srp
+    let ServerProof {
+        strong_proof: m2, ..
+    } = srp
         .verify_proof(&server, &proof)
         .expect("the proof verifies");
     let strong_key = srp
@@ -81,8 +105,8 @@ fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &S
 
     // `x` and `S` are not public values; recompute them from the same inputs.
     let helper = G::default();
-    let x = steps::private_key_x(&helper, username, password, &salt);
-    let u = steps::scrambler_u(&helper, &proof.A, &handshake.B);
+    let x = steps::private_key_x::<_, H>(&helper, username, password, &salt);
+    let u = steps::scrambler_u::<_, H>(&helper, &proof.A, &handshake.B);
     let v_field = verifier
         .to_field(&helper)
         .expect("a validated field element");
@@ -94,14 +118,8 @@ fn snapshot<G: GroupOps>(group: G, username: &Username, password: &str, salt: &S
         .B
         .to_field(&helper)
         .expect("a validated field element");
-    let g_field = handshake
-        .g
-        .to_field(&helper)
-        .expect("a validated field element");
-    let k_field = handshake
-        .k
-        .to_field(&helper)
-        .expect("a validated field element");
+    let g_field = helper.generator();
+    let k_field = steps::multiplier::<G, H>(&helper);
 
     let s_host = helper.field_pow(
         &helper.field_mul(&a_field, &helper.field_pow(&v_field, &u)),
@@ -145,7 +163,7 @@ fn salt() -> Salt {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_2048_sha512() -> String {
-    snapshot(
+    snapshot::<_, DefaultHash>(
         crate::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
@@ -155,7 +173,7 @@ fn vectors_2048_sha512() -> String {
 
 #[cfg(not(feature = "hash-sha1"))]
 fn vectors_4096_sha512() -> String {
-    snapshot(
+    snapshot::<_, DefaultHash>(
         crate::group::Group4096,
         &Username::new("alice").expect("valid username"),
         "password123",
@@ -165,7 +183,7 @@ fn vectors_4096_sha512() -> String {
 
 #[cfg(all(feature = "hash-sha1", not(feature = "wow-1-12-1")))]
 fn vectors_2048_sha1() -> String {
-    snapshot(
+    snapshot::<_, Sha1>(
         crate::group::Group2048,
         &Username::new("alice").expect("valid username"),
         "password123",
@@ -175,7 +193,7 @@ fn vectors_2048_sha1() -> String {
 
 #[cfg(feature = "wow-1-12-1")]
 fn vectors_wow_sha1() -> String {
-    snapshot(
+    snapshot::<_, Sha1>(
         GroupWow,
         &Username::new("Thrall").expect("valid username"),
         "thrall",
@@ -225,6 +243,139 @@ fn golden_wow_sha1() {
     );
 }
 
+/// The published WoW SRP6 verifier (wow_srp MIT corpus, also benilla's pinned
+/// golden): a real 1.12.1 client derives exactly this, little-endian, for
+/// `ALICE`/`PASSWORD1` with salt bytes `i*11+2`. The lib must reproduce it or no
+/// stock client can log in - this is the correctness the dogfood uncovered.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn wow_verifier_matches_published_corpus() {
+    let salt_bytes: Vec<u8> = (0u8..32)
+        .map(|i| i.wrapping_mul(11).wrapping_add(2))
+        .collect();
+    let srp = Srp6_256::default();
+    let (_salt, verifier) = srp.generate_new_user_secrets_with_salt(
+        &Username::new("ALICE").expect("valid username"),
+        "PASSWORD1",
+        Salt::from(salt_bytes),
+    );
+    assert_eq!(
+        hex(verifier.as_bytes()),
+        "28B837075A12B82553921D9095FA3FDCB0151C4BFC860AB97A69D0FA86A3D213",
+    );
+}
+
+/// A WoW client redraws an ephemeral whose proof would not encode unambiguously.
+/// Reuses benilla's SRP fixture: against this `B`/salt each `TRIPS_*` draw trips
+/// the guard of the value it names and `CLEAN` trips none, so srp6 must reject
+/// those with `AmbiguousEncoding` and accept this one.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn an_ambiguous_wow_draw_is_rejected_and_a_clean_one_passes() {
+    use crate::typed::{Handshake, PublicKey};
+    use crate::Srp6Error;
+
+    const FIXTURE_B: [u8; 32] = [
+        5, 42, 79, 116, 153, 190, 227, 8, 45, 82, 119, 156, 193, 230, 11, 48, 85, 122, 159, 196,
+        233, 14, 51, 88, 125, 162, 199, 236, 17, 54, 91, 128,
+    ];
+    const FIXTURE_SALT: [u8; 32] = [
+        3, 14, 25, 36, 47, 58, 69, 80, 91, 102, 113, 124, 135, 146, 157, 168, 179, 190, 201, 212,
+        223, 234, 245, 0, 11, 22, 33, 44, 55, 66, 77, 88,
+    ];
+    const TRIPS_A: [u8; 32] = [
+        237, 250, 2, 239, 106, 197, 124, 117, 132, 5, 226, 189, 212, 217, 169, 146, 39, 212, 214,
+        11, 198, 57, 225, 84, 17, 219, 168, 107, 118, 105, 11, 95,
+    ];
+    const TRIPS_S: [u8; 32] = [
+        205, 28, 249, 67, 94, 223, 246, 194, 118, 47, 78, 155, 220, 133, 163, 151, 42, 72, 65, 90,
+        37, 9, 156, 83, 38, 132, 96, 6, 129, 245, 202, 203,
+    ];
+    const TRIPS_K: [u8; 32] = [
+        2, 176, 65, 251, 162, 142, 23, 37, 53, 25, 44, 220, 201, 39, 234, 48, 141, 207, 127, 19, 0,
+        93, 140, 154, 16, 181, 118, 225, 147, 237, 174, 28,
+    ];
+    const TRIPS_M1: [u8; 32] = [
+        143, 237, 243, 79, 25, 151, 163, 98, 11, 221, 191, 202, 69, 148, 140, 221, 123, 95, 152,
+        146, 230, 232, 181, 86, 18, 72, 78, 135, 95, 129, 234, 248,
+    ];
+    const CLEAN: [u8; 32] = [
+        52, 226, 21, 16, 93, 106, 129, 125, 56, 197, 129, 14, 149, 1, 254, 105, 63, 23, 9, 190, 46,
+        113, 240, 125, 128, 130, 150, 46, 174, 240, 93, 249,
+    ];
+
+    let ephemeral =
+        |draw: &[u8]| ClientEphemeral::<GroupWow>::try_from_bytes(draw).expect("a valid ephemeral");
+    let srp = crate::wow::Srp6_256::default();
+    let handshake = Handshake::from_wire(
+        PublicKey::<GroupWow>::try_from_bytes(&FIXTURE_B).expect("B is a valid public key"),
+        Salt::from(FIXTURE_SALT.to_vec()),
+    );
+    let user = Username::new("alice").expect("valid username");
+
+    // One draw per guard: each trips exactly the value it is named for, so a guard
+    // that reads the wrong end of a value, or is left out, lets its draw through.
+    for (guard, draw) in [
+        ("A", TRIPS_A),
+        ("S", TRIPS_S),
+        ("K", TRIPS_K),
+        ("M1", TRIPS_M1),
+    ] {
+        assert!(
+            matches!(
+                srp.calculate_proof_with_a(&handshake, &user, "password1", &ephemeral(&draw)),
+                Err(Srp6Error::AmbiguousEncoding)
+            ),
+            "the {}-tripping draw must be rejected",
+            guard
+        );
+    }
+    // The clean draw is also a whole-handshake known answer: `A`, `M1`, `M2` and
+    // `K` as benilla's own client computes them for this fixture.
+    let ClientProof { proof, verifier } = srp
+        .calculate_proof_with_a(&handshake, &user, "password1", &ephemeral(&CLEAN))
+        .expect("the clean draw must pass");
+    assert_eq!(
+        hex(proof.public_key().as_bytes()),
+        "35F896D3776C62F3125D4BE34A3CE13CC60A9A46354FC0ED5F2BF3C57A18D86C",
+    );
+    assert_eq!(
+        hex(proof.proof().as_bytes()),
+        "4B706EE7E19D1151451684860CBD1FCD02D71BEC",
+    );
+    let m2 = crate::Proof::try_from_hex("76B7DB2B48435911FB013BBF2FBE35DF69FA27E1")
+        .expect("a SHA-1 proof");
+    let key = srp
+        .verify_strong_proof(&verifier, &m2)
+        .expect("the golden M2 verifies");
+    assert_eq!(
+        hex(key.as_bytes()),
+        "E5D5D1ED870112DB554579245BEFC674DF740DD1AAB9D42C380B73E9784EFA0A893C4816D97DF547",
+    );
+}
+
+/// The published WoW session-key interleave (wow_srp MIT corpus, also benilla's
+/// pinned goldens): little-endian `S` in, little-endian `K` out. Guards that the
+/// lib folds `S` into `K` exactly as the real client does.
+#[cfg(feature = "wow-1-12-1")]
+#[test]
+fn wow_interleave_matches_published_corpus() {
+    let cases = [
+        (
+            "8F4CEBD60DFC34E5C007E51BD4F3A4FF2BC1D930E2D3EA770D8D3EEDFF2DCCFC",
+            "EE144E1AE08DAC891AB63ABC42BF89738003343422E6B58131BEE4C3087A7027E55A7216D18D556C",
+        ),
+        (
+            "CCC1BDE07FC4FA3182DDEAAB036A88F78AD605AB0D8BFBF6F5EE8ED65CDE4F09",
+            "2AA23706C3FC3517A4293E2D4944F567E220CC1A227359D70154E5FD3CEE973673130C4AFBAD9E6D",
+        ),
+    ];
+    for (s_hex, key_hex) in cases {
+        let k = steps::strong_session_key_bytes::<Sha1>(&hex_to_bytes(s_hex));
+        assert_eq!(hex(k.as_bytes()), key_hex, "S={s_hex}");
+    }
+}
+
 /// A session key whose least significant byte is zero must still interleave
 /// the same way: `S` is hashed at its fixed width, never trimmed.
 #[cfg(not(feature = "hash-sha1"))]
@@ -232,7 +383,7 @@ fn golden_wow_sha1() {
 fn interleave_pads_a_session_key_with_a_zero_low_byte() {
     let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
 
-    let k = steps::strong_session_key_bytes(&s);
+    let k = steps::strong_session_key_bytes::<DefaultHash>(&s);
 
     assert_eq!(
         hex_trimmed(k.as_bytes()),
@@ -245,11 +396,33 @@ fn interleave_pads_a_session_key_with_a_zero_low_byte() {
 fn interleave_pads_a_session_key_with_a_zero_low_byte() {
     let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
 
-    let k = steps::strong_session_key_bytes(&s);
+    let k = steps::strong_session_key_bytes::<Sha1>(&s);
 
     assert_eq!(
         hex_trimmed(k.as_bytes()),
         include_str!("../tests/golden/interleave-zero-low-byte-sha1.txt").trim()
+    );
+}
+
+/// The capability the mutually-exclusive hash features forbade: one binary runs
+/// SHA-1 and SHA-512 on the same group, as two instances, and they disagree -
+/// proof the hash is a real per-instance choice.
+#[cfg(feature = "hash-sha1")]
+#[test]
+fn one_group_runs_both_hashes_at_once() {
+    use crate::group::Group2048;
+
+    let user = Username::new("alice").expect("valid username");
+    let (_s1, v_sha1) = Srp6::<Group2048, Sha1>::new(Group2048)
+        .generate_new_user_secrets_with_salt(&user, "password123", salt());
+    let (_s2, v_sha512) = Srp6::<Group2048, crate::hash::DefaultHash>::new(Group2048)
+        .generate_new_user_secrets_with_salt(&user, "password123", salt());
+
+    assert_ne!(v_sha1.to_vec(), v_sha512.to_vec());
+    assert_eq!(
+        v_sha1.as_bytes().len(),
+        v_sha512.as_bytes().len(),
+        "same group width"
     );
 }
 
@@ -264,7 +437,7 @@ fn regenerate_golden() {
         std::fs::write(format!("{dir}/4096-sha512.txt"), vectors_4096_sha512()).unwrap();
 
         let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
-        let k = steps::strong_session_key_bytes(&s);
+        let k = steps::strong_session_key_bytes::<DefaultHash>(&s);
         std::fs::write(
             format!("{dir}/interleave-zero-low-byte-sha512.txt"),
             hex_trimmed(k.as_bytes()),
@@ -275,7 +448,7 @@ fn regenerate_golden() {
     #[cfg(feature = "hash-sha1")]
     {
         let s = hex_to_bytes("00AABBCCDDEEFF00112233445566778899AABBCCDDEEFF001122334455667788");
-        let k = steps::strong_session_key_bytes(&s);
+        let k = steps::strong_session_key_bytes::<Sha1>(&s);
         std::fs::write(
             format!("{dir}/interleave-zero-low-byte-sha1.txt"),
             hex_trimmed(k.as_bytes()),

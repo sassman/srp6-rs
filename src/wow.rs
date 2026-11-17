@@ -1,8 +1,10 @@
 /*!
 The World of Warcraft 1.12.1 (build 5875) group.
 
-Behind the `wow-1-12-1` feature, alongside the rest of that client's flavour:
-`k = 3` and uppercased credentials (`crate::credentials`).
+Behind the `wow-1-12-1` feature. The rest of that client's flavour belongs to
+this group and to no other: `k = 3`, and a username and password uppercased
+where they are hashed, so a caller may hold them in any case.
+[`crate::Username::new_wow`] refuses a name that client cannot send.
 
 This group is not safe for anything else. `N` is 256 bit, far below the
 [RFC5054 Appendix A](https://datatracker.ietf.org/doc/html/rfc5054#appendix-A)
@@ -17,4 +19,14 @@ pub use crate::group::GroupWow;
 ///
 /// `N_BYTES` is 256 bit / 32 byte; generated salts default to the same 32
 /// byte, the width the 1.12.1 client expects on the wire.
-pub type Srp6_256 = crate::Srp6<GroupWow>;
+///
+/// The group runs on SHA-1 only. Its exponent has no room for a wider digest, so
+/// the default hash is not a pairing that compiles:
+///
+/// ```compile_fail
+/// use srp6::{wow::GroupWow, Srp6, Username};
+/// let srp = Srp6::<GroupWow>::default(); // H = SHA-512
+/// let user = Username::new("alice").unwrap();
+/// let _ = srp.generate_new_user_secrets(&user, "password");
+/// ```
+pub type Srp6_256 = crate::Srp6<GroupWow, crate::hash::Sha1>;

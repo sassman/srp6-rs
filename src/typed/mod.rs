@@ -5,6 +5,7 @@
 //! group arithmetic and its backend stay inside this module, so no
 //! crypto-bigint type reaches the public API.
 
+mod ephemeral;
 mod field_element;
 mod handshake;
 mod hex;
@@ -22,9 +23,11 @@ mod verifier;
 #[cfg(test)]
 mod tests;
 
+pub use ephemeral::ClientEphemeral;
 pub use field_element::FieldElement;
 pub use handshake::{
-    Handshake, HandshakeProof, HandshakeProofVerifier, StrongProofVerifier, UserSecrets,
+    ClientProof, Handshake, HandshakeProof, HandshakeProofVerifier, ServerProof,
+    StrongProofVerifier, UserSecrets,
 };
 pub use hex::FromHexString;
 pub use modulus::Modulus;

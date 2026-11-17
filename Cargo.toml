@@ -25,23 +25,28 @@ crypto-bigint = { version = "=0.7.11", default-features = false, features = [
 ] }
 serde = { version = "1.0", features = ["derive"] }
 subtle = { version = "2.6", default-features = false }
-sha1 = { version = "^0.11", optional = true }
-sha2 = { version = "^0.11", optional = true }
+# sha2 is always present: it supplies the default hash `Sha512`. sha1 is pulled
+# in only for the legacy WoW flavour. Neither needs its default `std` feature -
+# we touch only the `digest` traits and the hashers, which live in the core crate.
+sha2 = { version = "^0.11", default-features = false }
+sha1 = { version = "^0.11", default-features = false, optional = true }
 
 [dev-dependencies]
 serde_json = "1.0"
 
 [features]
-default = ["hash-sha512"]
+default = []
 
-hash-sha512 = ["dep:sha2"]
+# SHA-1 is opt-in: only the legacy WoW flavour and the RFC 5054 appendix B vectors
+# use it. SHA-512 is always available (sha2 is a normal dependency).
 hash-sha1 = ["dep:sha1"]
 
 # Sub-2048-bit RFC 5054 groups (Group1024 / Group1536). Below current practice —
 # opt in knowingly; production should use a >= 2048-bit group.
 weak = []
 
-# World of Warcraft 1.12.1 (build 5875) only: k = 3, uppercased credentials and the 256-bit group.
+# Adds the World of Warcraft 1.12.1 (build 5875) group: 256 bit, k = 3, uppercased credentials.
+# The flavour is the group's own; the other groups are unchanged by this feature.
 #
 # WARNING: do not use this for modern, production-grade applications. Its
 # cryptographic parameters are far below current practice: SHA-1 as the hash, and a

@@ -13,8 +13,7 @@ use crypto_bigint::{
 #[cfg(feature = "weak")]
 use crypto_bigint::{U1024, U1088, U1536, U1600};
 use rand::{rng, RngExt};
-
-use crate::hash::{Digest, HashFunc, Update};
+use std::convert::TryFrom;
 
 #[cfg(feature = "wow-1-12-1")]
 use crypto_bigint::{U256, U384};
@@ -74,6 +73,9 @@ mod sealed {
 /// `GroupWow` behind `wow-1-12-1`. Pick one through [`crate::Srp6`]; the trait
 /// only names the sizes and the encodings the handshake needs.
 pub trait Group: Default + sealed::Sealed {
+    /// A value of this group as a fixed array, `N_BYTES` wide. Stable Rust cannot
+    /// size an array by an associated const, so each group donates the type.
+    type Bytes: AsRef<[u8]> + Copy + for<'a> TryFrom<&'a [u8]>;
     /// The modulus width in bytes.
     const N_BYTES: usize;
     /// The advisory default for generated salts, in bytes. Not a protocol
@@ -81,11 +83,15 @@ pub trait Group: Default + sealed::Sealed {
     /// overrides it per instance.
     const DEFAULT_SALT_BYTES: usize;
 
-    /// The prime modulus `N`, big-endian.
+    /// The prime modulus `N`, in the group's byte order.
     fn modulus(&self) -> crate::Modulus<Self>
     where
         Self: Sized;
 }
+
+/// The RFC 5054 appendix A groups: big-endian, with `k` derived per the protocol. Any
+/// supported hash runs on them ([`crate::HashFor`]).
+pub trait RfcGroup: Group {}
 
 /// The typed arithmetic behind [`Group`].
 ///
@@ -95,13 +101,33 @@ pub trait Group: Default + sealed::Sealed {
 pub trait GroupOps: Group {
     type Field: Clone;
     type Exponent: Clone;
+    /// Whether a drawn proof is rejected when it does not encode unambiguously
+    /// at the group's fixed width. The WoW 1.12.1 wire sends each value at that
+    /// width, and the stock client and vmangos hash a value with a zero in a
+    /// significant byte differently; the RFC 5054 groups share one encoding.
+    #[cfg(feature = "wow-1-12-1")]
+    const AMBIGUITY_CHECKED: bool;
+
+    /// A credential as the group's flavour hashes it. The protocol hashes the
+    /// username and password as given; only a legacy flavour folds their case.
+    /// Bound to the group, not the build, so one binary can run a folding group
+    /// next to one that hashes verbatim.
+    fn credential(text: &str) -> std::borrow::Cow<'_, str>;
+    /// `bytes`, a value in the group's byte order, without its high-order zero
+    /// bytes, one byte kept. Which end those sit at depends on the byte order.
+    fn minimal(bytes: &[u8]) -> &[u8];
 
     fn generator(&self) -> Self::Field;
-    fn multiplier(&self) -> crate::Result<Self::Field>;
+    /// A pinned multiplier `k` as field bytes, or `None` for the protocol
+    /// derivation `k = H(N | PAD(g))` (RFC 5054), computed in `steps::multiplier`
+    /// where `H` is known. Only a legacy flavour pins a constant; the RFC groups
+    /// return `None` and have no way to pin one. A pinned value is a valid field
+    /// element and the trait is sealed, so a caller never handles a bad one.
+    fn multiplier_constant(&self) -> Option<Vec<u8>>;
 
-    /// Decodes a big-endian value, refusing one that is 0 modulo N.
+    /// Decodes a value in the group's byte order, refusing one that is 0 modulo N.
     fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field>;
-    /// Fixed-width big-endian encoding, `N_BYTES` long.
+    /// Fixed-width encoding in the group's byte order, `N_BYTES` long.
     fn field_to_bytes(&self, value: &Self::Field) -> Vec<u8>;
     fn field_add(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
     fn field_sub(&self, a: &Self::Field, b: &Self::Field) -> Self::Field;
@@ -116,45 +142,68 @@ pub trait GroupOps: Group {
     fn exponent_mul(&self, a: &Self::Exponent, b: &Self::Exponent) -> Self::Exponent;
 }
 
+/// Byte order a group uses at its hash and wire boundary. The WoW 1.12.1 wire is
+/// little-endian; the RFC 5054 groups are big-endian. The math is unaffected -
+/// each group's modulus lives in its field type - so this orients bytes only when
+/// they cross into a hash or onto the wire.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Endianness {
+    Big,
+    // Only `GroupWow` is little-endian, so this is constructed solely under
+    // `wow-1-12-1`; without it the sole use disappears.
+    #[cfg_attr(not(feature = "wow-1-12-1"), allow(dead_code))]
+    Little,
+}
+
 macro_rules! closed_group {
-    ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr) => {
+    // RFC 5054 groups follow the protocol: `k` is always derived, never pinned.
+    // The normal form takes no `k`, so there is no way to pin one onto a group.
+    ($name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $endian:expr) => {
+        closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, None, false, $endian);
+
+        impl RfcGroup for $name {}
+    };
+    // The sole exception: the WoW 1.12.1 flavour pins `k = 3`, folds the case of
+    // its credentials and rejects a draw its fixed-width wire cannot carry. Baked
+    // here, not parameters, so even this arm cannot name a different constant.
+    (@wow $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $endian:expr) => {
+        closed_group!(@group $name, $field, $uint, $exp, $hex, $g, $n_bytes, $salt_bytes, Some(3), true, $endian);
+    };
+    (@group $name:ident, $field:ident, $uint:ident, $exp:ident, $hex:ident, $g:expr, $n_bytes:expr, $salt_bytes:expr, $k:expr, $legacy:expr, $endian:expr) => {
         #[derive(Default)]
         pub struct $name;
 
         impl sealed::Sealed for $name {}
 
         impl $name {
-            pub(crate) fn modulus_bytes(&self) -> Vec<u8> {
-                <$uint>::from_be_hex($hex).to_be_bytes().to_vec()
-            }
+            const ENDIAN: Endianness = $endian;
 
-            pub(crate) fn generator_bytes(&self) -> Vec<u8> {
-                let mut bytes = vec![0_u8; $n_bytes];
-                bytes[$n_bytes - 1] = $g;
+            /// Reorient a big-endian buffer into the group's encoding. Symmetric,
+            /// so it also maps the group's encoding back to big-endian for parsing.
+            fn oriented(mut bytes: Vec<u8>) -> Vec<u8> {
+                if matches!(Self::ENDIAN, Endianness::Little) {
+                    bytes.reverse();
+                }
                 bytes
             }
 
-            pub(crate) fn multiplier_bytes(&self) -> Vec<u8> {
-                match $k {
-                    Some(k) => {
-                        let mut bytes = vec![0_u8; $n_bytes];
-                        bytes[$n_bytes - 1] = k;
-                        bytes
-                    }
-                    None => {
-                        let hash = HashFunc::new()
-                            .chain(self.modulus_bytes())
-                            .chain(self.generator_bytes())
-                            .finalize();
-                        let mut bytes = vec![0_u8; $n_bytes];
-                        bytes[$n_bytes - hash.len()..].copy_from_slice(&hash);
-                        bytes
-                    }
-                }
+            pub(crate) fn modulus_bytes(&self) -> Vec<u8> {
+                Self::oriented(<$uint>::from_be_hex($hex).to_be_bytes().to_vec())
+            }
+
+            // A pinned `k` as field bytes, or `None` for the protocol derivation
+            // in `steps::multiplier`. Only the `@wow` arm supplies a constant.
+            pub(crate) fn multiplier_constant_bytes(&self) -> Option<Vec<u8>> {
+                $k.map(|k| {
+                    let mut bytes = vec![0_u8; $n_bytes];
+                    bytes[$n_bytes - 1] = k;
+                    Self::oriented(bytes)
+                })
             }
         }
 
         impl Group for $name {
+            type Bytes = [u8; $n_bytes];
             const N_BYTES: usize = $n_bytes;
             const DEFAULT_SALT_BYTES: usize = $salt_bytes;
 
@@ -166,22 +215,45 @@ macro_rules! closed_group {
         impl GroupOps for $name {
             type Field = $field;
             type Exponent = $exp;
+            #[cfg(feature = "wow-1-12-1")]
+            const AMBIGUITY_CHECKED: bool = $legacy;
+
+            fn credential(text: &str) -> std::borrow::Cow<'_, str> {
+                if $legacy {
+                    std::borrow::Cow::Owned(text.to_uppercase())
+                } else {
+                    std::borrow::Cow::Borrowed(text)
+                }
+            }
+
+            fn minimal(bytes: &[u8]) -> &[u8] {
+                let Some(high) = (match Self::ENDIAN {
+                    Endianness::Big => bytes.iter().position(|byte| *byte != 0),
+                    Endianness::Little => bytes.iter().rposition(|byte| *byte != 0),
+                }) else {
+                    return &bytes[..bytes.len().min(1)];
+                };
+                match Self::ENDIAN {
+                    Endianness::Big => &bytes[high..],
+                    Endianness::Little => &bytes[..=high],
+                }
+            }
 
             fn generator(&self) -> Self::Field {
                 $field::new(&<$uint>::from_u8($g))
             }
 
-            fn multiplier(&self) -> crate::Result<Self::Field> {
-                self.field_from_bytes(&self.multiplier_bytes())
-                    .ok_or(crate::error::Srp6Error::InvalidFieldElement)
+            fn multiplier_constant(&self) -> Option<Vec<u8>> {
+                self.multiplier_constant_bytes()
             }
 
             fn field_from_bytes(&self, bytes: &[u8]) -> Option<Self::Field> {
                 if bytes.len() > $n_bytes {
                     return None;
                 }
+                let bytes = Self::oriented(bytes.to_vec());
                 let mut padded = vec![0_u8; $n_bytes];
-                padded[$n_bytes - bytes.len()..].copy_from_slice(bytes);
+                padded[$n_bytes - bytes.len()..].copy_from_slice(&bytes);
                 let field = $field::new(&<$uint>::from_be_slice(&padded));
                 if field.retrieve().is_zero().to_bool() {
                     None
@@ -191,7 +263,7 @@ macro_rules! closed_group {
             }
 
             fn field_to_bytes(&self, value: &Self::Field) -> Vec<u8> {
-                value.retrieve().to_be_bytes().to_vec()
+                Self::oriented(value.retrieve().to_be_bytes().to_vec())
             }
 
             fn field_add(&self, a: &Self::Field, b: &Self::Field) -> Self::Field {
@@ -220,18 +292,19 @@ macro_rules! closed_group {
             }
 
             fn exponent_from_bytes(&self, bytes: &[u8]) -> Self::Exponent {
+                let bytes = Self::oriented(bytes.to_vec());
                 let width = <$exp>::BITS as usize / 8;
                 let mut padded = vec![0_u8; width];
                 if bytes.len() > width {
                     padded.copy_from_slice(&bytes[bytes.len() - width..]);
                 } else {
-                    padded[width - bytes.len()..].copy_from_slice(bytes);
+                    padded[width - bytes.len()..].copy_from_slice(&bytes);
                 }
                 <$exp>::from_be_slice(&padded)
             }
 
             fn exponent_to_bytes(&self, value: &Self::Exponent) -> Vec<u8> {
-                value.to_be_bytes().to_vec()
+                Self::oriented(value.to_be_bytes().to_vec())
             }
 
             fn exponent_from_hash(&self, hash: &[u8]) -> Self::Exponent {
@@ -249,18 +322,30 @@ macro_rules! closed_group {
     };
 }
 
+// One line per group so the arities line up for a glance comparison; rustfmt
+// would otherwise wrap each call across its own block of lines.
+#[rustfmt::skip]
 #[cfg(feature = "weak")]
-closed_group!(Group1024, Field1024, U1024, U1088, N1024, 2, 128, 16, None);
+closed_group!(Group1024, Field1024, U1024, U1088, N1024, 2, 128, 16, Endianness::Big);
+#[rustfmt::skip]
 #[cfg(feature = "weak")]
-closed_group!(Group1536, Field1536, U1536, U1600, N1536, 2, 192, 16, None);
-closed_group!(Group2048, Field2048, U2048, U2112, N2048, 2, 256, 16, None);
-closed_group!(Group3072, Field3072, U3072, U3136, N3072, 5, 384, 16, None);
-closed_group!(Group4096, Field4096, U4096, U4160, N4096, 5, 512, 16, None);
-closed_group!(Group6144, Field6144, U6144, U6208, N6144, 5, 768, 16, None);
-closed_group!(Group8192, Field8192, U8192, U8320, N8192, 19, 1024, 16, None);
+closed_group!(Group1536, Field1536, U1536, U1600, N1536, 2, 192, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group2048, Field2048, U2048, U2112, N2048, 2, 256, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group3072, Field3072, U3072, U3136, N3072, 5, 384, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group4096, Field4096, U4096, U4160, N4096, 5, 512, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group6144, Field6144, U6144, U6208, N6144, 5, 768, 16, Endianness::Big);
+#[rustfmt::skip]
+closed_group!(Group8192, Field8192, U8192, U8320, N8192, 19, 1024, 16, Endianness::Big);
 
+// The WoW 1.12.1 wire is little-endian throughout; every other group is RFC 5054
+// big-endian.
+#[rustfmt::skip]
 #[cfg(feature = "wow-1-12-1")]
-closed_group!(GroupWow, FieldWow, U256, U384, NWOW, 7, 32, 32, Some(3));
+closed_group!(@wow GroupWow, FieldWow, U256, U384, NWOW, 7, 32, 32, Endianness::Little);
 
 #[cfg(test)]
 mod tests {
@@ -321,7 +406,12 @@ mod tests {
                 let salt =
                     Salt::try_from_hex("BEB25379D1A8581EB5A727673A2441EE").expect("valid hex");
                 let username = Username::new("alice").expect("valid username");
-                let x = steps::private_key_x(&group, &username, "password123", &salt);
+                let x = steps::private_key_x::<_, crate::hash::DefaultHash>(
+                    &group,
+                    &username,
+                    "password123",
+                    &salt,
+                );
 
                 let n_bytes = (<$uint>::BITS / 8) as usize;
                 let x_bytes = group.exponent_to_bytes(&x);
@@ -412,17 +502,21 @@ mod tests {
     #[test]
     fn the_wow_const_field_reproduces_the_verifier() {
         let golden = include_str!("../tests/golden/wow-sha1.txt");
+        // The WoW golden encodes x and v little-endian; the high bytes of the
+        // little-endian exponent are zero, so its low 32 carry the whole value.
         let x = golden_value(golden, "x");
         let v = golden_value(golden, "v");
 
-        let mut x_padded = [0_u8; 32];
-        x_padded[32 - x.len()..].copy_from_slice(&x);
-        let exponent = U256::from_be_slice(&x_padded);
+        let mut x_padded_le = [0_u8; 32];
+        let n = x.len().min(32);
+        x_padded_le[..n].copy_from_slice(&x[..n]);
+        let exponent = U256::from_le_slice(&x_padded_le);
 
         let generator = U256::from_u8(7);
         let verifier = FieldWow::new(&generator).pow(&exponent).retrieve();
 
-        let bytes = verifier.to_be_bytes();
-        assert_eq!(&bytes[bytes.len() - v.len()..], v.as_slice());
+        let mut actual = verifier.to_be_bytes().to_vec();
+        actual.reverse();
+        assert_eq!(&actual[..v.len()], v.as_slice());
     }
 }

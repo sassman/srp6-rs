@@ -49,7 +49,7 @@ jobs:
           - test --features test-rfc-5054-appendix-b --no-default-features --lib
           - test --features hash-sha1 --no-default-features --lib
           - test --features wow-1-12-1 --no-default-features --lib
-          - test --features hash-sha512 --no-default-features --lib
+          - test --all-features
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.channel == 'nightly' }}
     steps:

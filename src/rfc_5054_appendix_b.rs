@@ -2,8 +2,8 @@ use std::fmt::Write as _;
 
 use crate::credentials::{ClearTextPassword, Username};
 use crate::group::{Group1024, GroupOps};
-use crate::hash::HASH_LENGTH;
-use crate::typed::{steps, FromHexString, Salt, Srp6};
+use crate::hash::{Digest, Sha1};
+use crate::typed::{steps, ClientEphemeral, ClientProof, FromHexString, Salt, ServerProof, Srp6};
 
 fn hex_to_bytes(hex: &str) -> Vec<u8> {
     let bytes = hex.as_bytes();
@@ -42,29 +42,37 @@ fn test_appendix_b_srp_test_vectors() {
 
     let group = Group1024;
     let helper = Group1024;
-    let a = group.exponent_from_bytes(&hex_to_bytes(
-        "60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393",
-    ));
+    let a = hex_to_bytes("60975527035CF2AD1989806F0407210BC81EDC04E2762A56AFD529DDDA2D4393");
     let b = group.exponent_from_bytes(&hex_to_bytes(
         "E487CB59D31AC550471E81F00F6928E01DDA08E974A004F49E61F5D105284D20",
     ));
 
-    let srp = Srp6::new(group);
+    let srp = Srp6::<Group1024, Sha1>::new(group);
     let (salt, verifier) = srp.generate_new_user_secrets_with_salt(&username, &password, salt);
     let (handshake, server) = srp
         .start_handshake_with_b(&username, salt.clone(), verifier.clone(), b)
         .expect("the handshake starts");
-    let (proof, client) = srp
-        .calculate_proof_with_a(&handshake, &username, &password, a)
+    let ClientProof {
+        proof,
+        verifier: client,
+    } = srp
+        .calculate_proof_with_a(
+            &handshake,
+            &username,
+            &password,
+            &ClientEphemeral::try_from_bytes(&a).expect("a valid ephemeral"),
+        )
         .expect("the client can prove");
-    let m2 = srp
+    let ServerProof {
+        strong_proof: m2, ..
+    } = srp
         .verify_proof(&server, &proof)
         .expect("the proof verifies");
     let k = srp
         .verify_strong_proof(&client, &m2)
         .expect("the strong proof verifies");
 
-    let x = steps::private_key_x(&helper, &username, &password, &salt);
+    let x = steps::private_key_x::<_, Sha1>(&helper, &username, &password, &salt);
     assert_eq!(
         hex_trimmed(&helper.exponent_to_bytes(&x)),
         "94B7555AABE9127CC58CCF4993DB6CF84D16C124",
@@ -89,7 +97,7 @@ fn test_appendix_b_srp_test_vectors() {
         "public key B"
     );
 
-    let u = steps::scrambler_u(&helper, &proof.A, &handshake.B);
+    let u = steps::scrambler_u::<_, Sha1>(&helper, &proof.A, &handshake.B);
     assert_eq!(
         hex_trimmed(&helper.exponent_to_bytes(&u)),
         "CE38B9593487DA98554ED47D70A7AE5F462EF019",
@@ -113,11 +121,8 @@ fn test_appendix_b_srp_test_vectors() {
         "session key S"
     );
 
-    assert_eq!(
-        proof.M1.as_bytes().len(),
-        HASH_LENGTH,
-        "M1 is one hash long"
-    );
-    assert_eq!(m2.as_bytes().len(), HASH_LENGTH, "M2 is one hash long");
-    assert_eq!(k.as_bytes().len(), 2 * HASH_LENGTH, "K is two hashes long");
+    let hash_len = <Sha1 as Digest>::output_size();
+    assert_eq!(proof.M1.as_bytes().len(), hash_len, "M1 is one hash long");
+    assert_eq!(m2.as_bytes().len(), hash_len, "M2 is one hash long");
+    assert_eq!(k.as_bytes().len(), 2 * hash_len, "K is two hashes long");
 }
